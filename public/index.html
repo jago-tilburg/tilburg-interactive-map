@@ -53,22 +53,38 @@
       margin: 0;
     }
 
+    .request-btn {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      color: white;
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-family: inherit;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
 
+    .request-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateY(-2px);
+    }
 
     .menu-btn {
       background: rgba(255, 255, 255, 0.15);
       border: 1px solid rgba(255, 255, 255, 0.3);
       border-radius: 8px;
-      padding: 0;
+      padding: 0.5rem;
       cursor: pointer;
       display: flex;
       justify-content: center;
       align-items: center;
-      width: 40px;
-      height: 40px;
-      font-size: 2rem; /* Grotere emoji */
+      width: 44px;
+      height: 44px;
+      font-size: 1.5rem;
       line-height: 1;
-      overflow: visible; /* Laat emoji buiten de box uitsteken */
       transition: all 0.2s;
     }
 
@@ -875,7 +891,18 @@
     /* Mobile */
     @media (max-width: 768px) {
       .header h1 {
-        font-size: 1.125rem;
+        font-size: 1rem;
+      }
+
+      .request-btn {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.75rem;
+      }
+
+      .menu-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1.25rem;
       }
 
       /* Menu is now full-screen modal, not sidebar */
@@ -900,16 +927,14 @@
 <body>
   <div class="app-container">
     <div class="header">
-      <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
-        <button class="menu-btn" onclick="toggleMenu()" style="font-size: 3.5rem;">
+      <h1 id="appTitle">Hier moette zèn kaort</h1>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <button class="request-btn" onclick="showRequestModal()">
+          📝 Vraag hier je favo broodjeszaak aan
+        </button>
+        <button class="menu-btn" onclick="toggleMenu()">
           🥪
         </button>
-        <div>
-          <h1 id="appTitle">Hier moette zèn kaort</h1>
-          <button onclick="showRequestModal()" style="background: none; border: none; color: rgba(255,255,255,0.9); font-size: 0.75rem; cursor: pointer; padding: 0; margin-top: 0.125rem; text-decoration: underline; font-weight: 500;">
-            📝 Vraag hier je favo broodjeszaak aan
-          </button>
-        </div>
       </div>
     </div>
 
