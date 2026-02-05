@@ -1,0 +1,3308 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hier moette zèn kaort</title>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBrmhk0IzRwpGD0y_crSSK0JsJAfTbDWJo&callback=initMap&libraries=places&v=weekly" defer></script>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .app-container {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #22c55e 0%, #ff6b35 100%);
+      padding: 0.75rem 1.5rem;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+    }
+
+    .header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: white;
+      letter-spacing: -0.5px;
+      margin: 0;
+    }
+
+
+
+    .menu-btn {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      padding: 0;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 40px;
+      height: 40px;
+      font-size: 2rem; /* Grotere emoji */
+      line-height: 1;
+      overflow: visible; /* Laat emoji buiten de box uitsteken */
+      transition: all 0.2s;
+    }
+
+    .menu-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: scale(1.05);
+    }
+
+    /* Map Fullscreen */
+    .main-content {
+      flex: 1;
+      position: relative;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Menu Overlay */
+    /* Menu backdrop now part of menu-overlay */
+
+    /* New Full-Screen Menu Modal */
+    .menu-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 1rem;
+    }
+
+    .menu-overlay.active {
+      display: flex;
+    }
+
+    .menu-container {
+      background: white;
+      border-radius: 20px;
+      width: 100%;
+      max-width: 900px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    .menu-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 2rem;
+      border-bottom: 2px solid #e5e5e5;
+      background: linear-gradient(135deg, #22c55e 0%, #ff6b35 100%);
+    }
+
+    .menu-header h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: white;
+      margin: 0;
+    }
+
+    .menu-close {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .menu-close:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: rotate(90deg);
+    }
+
+    .menu-header-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .menu-header-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .menu-actions {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid #e5e5e5;
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .menu-btn {
+      padding: 0.75rem 1.5rem;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .menu-btn-primary {
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      color: white;
+    }
+
+    .menu-btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+    }
+
+    .menu-btn-secondary {
+      background: #f5f5f7;
+      color: #1d1d1f;
+    }
+
+    .menu-btn-secondary:hover {
+      background: #e5e5e5;
+    }
+
+    .menu-btn-admin {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+    }
+
+    .menu-btn-admin:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .menu-sort {
+      padding: 1rem 2rem;
+      background: #fafafa;
+      border-bottom: 1px solid #e5e5e5;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .menu-sort label {
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: #86868b;
+    }
+
+    .menu-sort select {
+      padding: 0.5rem 1rem;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      background: white;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+
+    .menu-reviews-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 2rem 2rem 2rem;
+    }
+
+    .menu-review-item {
+      display: grid;
+      grid-template-columns: 2fr 1fr 2fr;
+      gap: 1rem;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      background: #fafafa;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      align-items: center;
+    }
+
+    .menu-review-item:hover {
+      background: #f0f9ff;
+      transform: translateX(4px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .menu-review-name {
+      font-weight: 600;
+      font-size: 1rem;
+      color: #1d1d1f;
+    }
+
+    .menu-review-rating {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+      font-size: 1.125rem;
+    }
+
+    .menu-review-rating .stars {
+      color: #fbbf24;
+    }
+
+    .menu-review-address {
+      font-size: 0.875rem;
+      color: #86868b;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .menu-login-link {
+      padding: 0.5rem 1rem;
+      color: #86868b;
+      font-size: 0.75rem;
+      text-align: center;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .menu-login-link:hover {
+      color: #22c55e;
+    }
+
+    @media (max-width: 768px) {
+      .menu-overlay {
+        padding: 0 !important; /* Geen padding op mobile voor schermvullend effect */
+        align-items: stretch !important;
+        justify-content: stretch !important;
+      }
+
+      .menu-container {
+        max-width: 100% !important;
+        width: 100% !important;
+        max-height: 100vh !important;
+        height: 100vh !important; /* Volledige schermhoogte */
+        border-radius: 0 !important;
+        margin: 0 !important;
+      }
+
+      .menu-header {
+        padding: 1rem 1.5rem !important;
+        border-radius: 0 !important;
+      }
+
+      .menu-header h2 {
+        font-size: 1.25rem !important;
+      }
+
+      .menu-sort {
+        padding: 0.75rem 1rem !important;
+      }
+
+      .menu-reviews-list {
+        padding: 0.75rem 1rem 1rem 1rem !important;
+      }
+
+      .menu-review-item {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+        padding: 0.875rem !important;
+      }
+
+      .menu-review-address {
+        white-space: normal;
+      }
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 0.75rem;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: white;
+      padding: 2rem;
+      border-radius: 20px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(20px) scale(0.95);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal h3 {
+      color: #1d1d1f;
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .modal input,
+    .modal textarea,
+    .modal select {
+      width: 100%;
+      padding: 0.875rem 1rem;
+      margin-bottom: 0.75rem;
+      border: 1px solid #d2d2d7;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      transition: all 0.2s;
+    }
+
+    .modal input:focus,
+    .modal textarea:focus,
+    .modal select:focus {
+      outline: none;
+      border-color: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+    }
+
+    .form-row {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    .btn-save, .btn-cancel {
+      flex: 1;
+      padding: 0.875rem;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: all 0.2s;
+    }
+
+    .btn-save {
+      background: #ff6b35;
+      color: white;
+    }
+
+    .btn-save:hover {
+      background: #e55a28;
+      transform: scale(1.02);
+    }
+
+    .btn-cancel {
+      background: #f5f5f7;
+      color: #1d1d1f;
+    }
+
+    .btn-cancel:hover {
+      background: #e8e8ed;
+    }
+
+    /* Shop Detail Modal Content */
+    .shop-detail-header {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid #e5e5e5;
+    }
+
+    .shop-name {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1d1d1f;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.5px;
+    }
+
+    .shop-address {
+      color: #86868b;
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .shop-meta {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      padding: 0.375rem 0.75rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    .badge-rating {
+      background: #22c55e;
+      color: white;
+    }
+
+    .badge-price {
+      background: #ff6b35;
+      color: white;
+    }
+
+    .shop-photo {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin: 0.75rem 0;
+    }
+
+    .review-section {
+      margin: 1.5rem 0;
+    }
+
+    .review-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #86868b;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .review-text {
+      background: #f5f5f7;
+      padding: 0.75rem;
+      border-radius: 10px;
+      line-height: 1.6;
+      color: #1d1d1f;
+      font-size: 0.9375rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .user-review {
+      background: white;
+      border: 1px solid #e5e5e5;
+      padding: 0.75rem;
+      border-radius: 10px;
+      margin-bottom: 0.75rem;
+    }
+
+    .user-review-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .user-review-author {
+      font-weight: 600;
+      color: #1d1d1f;
+      font-size: 0.9375rem;
+    }
+
+    .user-review-rating {
+      color: #22c55e;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    .user-review-text {
+      color: #1d1d1f;
+      line-height: 1.5;
+      font-size: 0.9375rem;
+    }
+
+    .interaction-bar {
+      display: flex;
+      gap: 0.5rem;
+      margin: 0.75rem 0;
+    }
+
+    .interaction-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: #f5f5f7;
+      border: none;
+      padding: 0.75rem;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+      color: #1d1d1f;
+    }
+
+    .interaction-btn:hover {
+      background: #e8e8ed;
+      transform: scale(1.02);
+    }
+
+    .interaction-btn.liked {
+      background: #22c55e;
+      color: white;
+    }
+
+    .comment {
+      background: #f5f5f7;
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      border-radius: 8px;
+    }
+
+    .comment-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.375rem;
+      font-size: 0.8125rem;
+    }
+
+    .comment-author {
+      font-weight: 600;
+      color: #22c55e;
+    }
+
+    .comment-date {
+      color: #86868b;
+      font-size: 0.75rem;
+      margin-left: auto;
+    }
+
+    .comment-text {
+      color: #1d1d1f;
+      line-height: 1.4;
+      font-size: 0.875rem;
+    }
+
+    .comment-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .comment-form textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .comment-form button {
+      background: #ff6b35;
+      color: white;
+      border: none;
+      padding: 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.875rem;
+      width: 100%;
+    }
+
+    .comment-form button:hover {
+      background: #e55a2b;
+    }
+
+    .admin-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e5e5e5;
+    }
+
+    .btn-edit, .btn-delete {
+      flex: 1;
+      padding: 0.75rem;
+      border: 1px solid;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+
+    .btn-edit {
+      background: white;
+      color: #22c55e;
+      border-color: #22c55e;
+    }
+
+    .btn-edit:hover {
+      background: #22c55e;
+      color: white;
+    }
+
+    .btn-delete {
+      background: white;
+      color: #dc2626;
+      border-color: #dc2626;
+    }
+
+    .btn-delete:hover {
+      background: #dc2626;
+      color: white;
+    }
+
+
+    /* Social Media Links */
+    .social-links {
+      margin: 1.5rem 0;
+      padding: 0.75rem;
+      background: #f5f5f7;
+      border-radius: 12px;
+    }
+
+    .social-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: white;
+      border: 1px solid #e5e5e5;
+      border-radius: 10px;
+      text-decoration: none;
+      color: #1d1d1f;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      transition: all 0.2s;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .social-link:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .social-link svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* Navigate Button */
+    .btn-navigate {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 0.875rem;
+      border-radius: 10px;
+      width: 100%;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      margin: 0.75rem 0;
+      font-family: inherit;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-navigate:hover {
+      background: #2563eb;
+      transform: scale(1.02);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Beheerpaneel Modal */
+    .modal-large {
+      max-width: 1000px;
+      width: 95%;
+    }
+
+    .admin-tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 2px solid #e5e5e5;
+      margin-bottom: 1.5rem;
+      overflow-x: auto;
+    }
+
+    .admin-tabs button {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 0.875rem 1.5rem;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      color: #86868b;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .admin-tabs button:hover {
+      color: #1d1d1f;
+    }
+
+    .admin-tabs button.active {
+      color: #22c55e;
+      border-bottom-color: #22c55e;
+    }
+
+    .admin-table {
+      border: 1px solid #e5e5e5;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .admin-table-header {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1.5fr;
+      gap: 1rem;
+      background: #f5f5f7;
+      padding: 1rem 1.5rem;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    .admin-table-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1.5fr;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      border-top: 1px solid #e5e5e5;
+      align-items: center;
+      font-size: 0.9375rem;
+    }
+
+    .admin-table-row:hover {
+      background: #fafafa;
+    }
+
+    .btn-small {
+      padding: 0.375rem 0.75rem;
+      border: 1px solid;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      margin-right: 0.25rem;
+      transition: all 0.2s;
+    }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 1.125rem;
+      }
+
+      /* Menu is now full-screen modal, not sidebar */
+
+      .modal {
+        padding: 1.5rem;
+        max-width: 95%;
+      }
+
+      .form-row {
+        flex-direction: column;
+      }
+
+      .admin-table-header,
+      .admin-table-row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <div class="header">
+      <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
+        <button class="menu-btn" onclick="toggleMenu()" style="font-size: 3.5rem;">
+          🥪
+        </button>
+        <div>
+          <h1 id="appTitle">Hier moette zèn kaort</h1>
+          <button onclick="showRequestModal()" style="background: none; border: none; color: rgba(255,255,255,0.9); font-size: 0.75rem; cursor: pointer; padding: 0; margin-top: 0.125rem; text-decoration: underline; font-weight: 500;">
+            📝 Vraag hier je favo broodjeszaak aan
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div id="map"></div>
+    </div>
+
+    <!-- Menu -->
+
+    <!-- New Menu with Reviews List -->
+    <div class="menu-overlay" id="menuOverlay" onclick="if(event.target === this) toggleMenu()">
+      <div class="menu-container" onclick="event.stopPropagation()">
+        <div class="menu-header">
+          <h2>🥪 Reviews in Tilburg</h2>
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <button class="menu-header-btn hidden" id="menuAdminPanel" onclick="showAdminPanel(); toggleMenu();" title="Beheerpaneel">
+              ⚙️
+            </button>
+            <button class="menu-close" onclick="toggleMenu()">×</button>
+          </div>
+        </div>
+
+        <div class="menu-sort">
+          <label>Sorteer op:</label>
+          <select id="menuSortSelect" onchange="sortMenuReviews()">
+            <option value="rating-desc">Hoogste sterren eerst</option>
+            <option value="rating-asc">Laagste sterren eerst</option>
+            <option value="name-asc">Naam (A-Z)</option>
+            <option value="name-desc">Naam (Z-A)</option>
+          </select>
+        </div>
+
+        <div class="menu-reviews-list" id="menuReviewsList">
+          <!-- Reviews worden hier dynamisch geladen -->
+        </div>
+
+        <div class="menu-login-link" id="menuLoginLink" onclick="showAdminInloggen(); toggleMenu();">
+          🔐
+        </div>
+
+        <div class="menu-login-link hidden" id="menuLogoutLink" onclick="logout(); toggleMenu();" style="background: #fee; color: #dc2626; border-top: 1px solid #fca;">
+          🚪 Uitloggen
+        </div>
+      </div>
+    </div>
+
+    <!-- Shop Detail Modal -->
+    <div class="modal-overlay" id="shopDetailModal">
+      <div class="modal" style="max-width: 650px;" onclick="event.stopPropagation()">
+        <button onclick="hideShopDetailModal()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 2rem; color: #86868b; cursor: pointer; z-index: 10;">×</button>
+        <div id="shopDetailContent"></div>
+      </div>
+    </div>
+
+    <!-- Request Modal -->
+    <div class="modal-overlay" id="requestModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3>Vraag een Review Aan</h3>
+        <p style="margin-bottom: 0.75rem; color: #86868b;">Ken je een top broodjeszaak die ik moet proberen?</p>
+        <input type="text" id="requestInput" placeholder="Naam van de zaak...">
+        <div class="form-actions">
+          <button class="btn-save" onclick="submitRequest()">Versturen</button>
+          <button class="btn-cancel" onclick="hideRequestModal()">Annuleren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Request Confirmation Modal -->
+    <div class="modal-overlay" id="requestConfirmationModal">
+      <div class="modal" onclick="event.stopPropagation()" style="text-align: center; max-width: 400px;">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">🥪</div>
+        <h3 style="margin-bottom: 0.5rem;">Bedankt voor je suggestie!</h3>
+        <p style="color: #86868b; margin-bottom: 1.5rem;">We gaan hem bekijken</p>
+        <button class="btn-save" onclick="hideRequestConfirmation()" style="width: 100%;">Sluiten</button>
+      </div>
+    </div>
+
+    <!-- Add User Review Modal -->
+    <div class="modal-overlay" id="userReviewModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3>Voeg Je Review Toe</h3>
+        <input type="text" id="userReviewName" placeholder="Jouw naam">
+        <select id="userReviewRating">
+          <option value="">Selecteer beoordeling (1-10)</option>
+        </select>
+        <textarea id="userReviewText" placeholder="Je review..." rows="4"></textarea>
+        <div class="form-actions">
+          <button class="btn-save" onclick="saveUserReview()">Versturen</button>
+          <button class="btn-cancel" onclick="hideUserReviewModal()">Annuleren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comment Name Modal -->
+    <div class="modal-overlay" id="commentNameModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3>Wat is je naam?</h3>
+        <p style="margin-bottom: 1rem; color: #86868b; font-size: 0.875rem;">
+          Je naam wordt getoond bij je reactie
+        </p>
+        <input type="text" id="commentNameInput" placeholder="Jouw naam">
+        <div class="form-actions">
+          <button class="btn-save" onclick="submitCommentWithName()">Versturen</button>
+          <button class="btn-cancel" onclick="cancelCommentName()">Annuleren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Inloggen Modal -->
+    <div class="modal-overlay" id="adminModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3>🔐 Admin Inloggen</h3>
+        <p style="margin-bottom: 1rem; color: #86868b; font-size: 0.875rem;">
+          Login met je Firebase admin account
+        </p>
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Email</label>
+          <input type="email" id="adminEmail" placeholder="admin@example.com" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Wachtwoord</label>
+          <input type="password" id="adminPassword" placeholder="••••••••" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+        </div>
+        <div class="form-actions">
+          <button class="btn-save" onclick="adminInloggen()">Inloggen</button>
+          <button class="btn-cancel" onclick="hideAdminInloggen()">Annuleren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shop Form Modal -->
+    <div class="modal-overlay" id="shopFormModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3 id="formTitle">Add New Review</h3>
+        <input type="text" id="shopName" placeholder="Naam Zaak">
+        <input type="text" id="shopAdres" placeholder="Adres">
+        
+        <label style="display: block; margin-top: 0.5rem; margin-bottom: 0.5rem; color: #22c55e; font-weight: 600; font-size: 0.875rem;">
+          Google Maps URL:
+        </label>
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+          <input type="text" id="shopMapUrl" placeholder="https://maps.google.com/..." style="flex: 1;">
+          <button onclick="updateCoordsFromUrl('shopMapUrl', 'shopLat', 'shopLng')" class="btn-save" style="padding: 0.75rem 1rem; white-space: nowrap;">
+            Extract
+          </button>
+        </div>
+        
+        <div class="form-row">
+          <input type="number" id="shopLat" placeholder="Breedtegraad" step="0.0001" value="51.5555">
+          <input type="number" id="shopLng" placeholder="Lengtegraad" step="0.0001" value="5.0913">
+        </div>
+        <div class="form-row">
+          <select id="shopRating"></select>
+          <select id="shopPrice">
+            <option value="€">€</option>
+            <option value="€€">€€</option>
+            <option value="€€€">€€€</option>
+          </select>
+        </div>
+        <label style="display: block; margin-top: 1rem; margin-bottom: 0.5rem; color: #22c55e; font-weight: 600; font-size: 0.875rem;">
+          📱 See my review here:
+        </label>
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+          <input type="text" id="shopTikTok" placeholder="🎵 TikTok URL (optional)" style="flex: 1;">
+          <input type="text" id="shopInstagram" placeholder="📸 Instagram URL (optional)" style="flex: 1;">
+        </div>
+        <input type="text" id="shopPhoto" placeholder="Foto URL (optional)">
+        <textarea id="shopReview" placeholder="Je review..." rows="6"></textarea>
+        <div class="form-actions">
+          <button class="btn-save" onclick="saveShop()">Opslaan</button>
+          <button class="btn-cancel" onclick="hideShopForm()">Annuleren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Beheerpaneel Modal -->
+    <div class="modal-overlay" id="adminPanelModal">
+      <div class="modal modal-large" onclick="event.stopPropagation()">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <h3 style="margin: 0;">Beheerpaneel</h3>
+          <button onclick="hideAdminPanel()" style="background: none; border: none; font-size: 2rem; color: #86868b; cursor: pointer;">×</button>
+        </div>
+        <div id="adminPanelContent"></div>
+      </div>
+    </div>
+
+    <!-- Event Form Modal -->
+    <div class="modal-overlay" id="eventFormModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3 id="eventFormTitle">Nieuw Evenement Toevoegen</h3>
+        <input type="text" id="eventName" placeholder="Naam Evenement">
+        <input type="text" id="eventLocatie" placeholder="Locatie Adres">
+        
+        <label style="display: block; margin-top: 0.5rem; margin-bottom: 0.5rem; color: #22c55e; font-weight: 600; font-size: 0.875rem;">
+          Google Maps URL:
+        </label>
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+          <input type="text" id="eventMapUrl" placeholder="https://maps.google.com/..." style="flex: 1;">
+          <button onclick="updateCoordsFromUrl('eventMapUrl', 'eventLat', 'eventLng')" class="btn-save" style="padding: 0.75rem 1rem; white-space: nowrap;">
+            Extract
+          </button>
+        </div>
+        
+        <div class="form-row">
+          <input type="number" id="eventLat" placeholder="Breedtegraad" step="0.0001" value="51.5555">
+          <input type="number" id="eventLng" placeholder="Lengtegraad" step="0.0001" value="5.0913">
+        </div>
+        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.875rem;">Event Datum & Tijd:</label>
+        <input type="datetime-local" id="eventDateTime">
+        <input type="text" id="eventPhoto" placeholder="Foto URL (optional)">
+        <textarea id="eventBeschrijving" placeholder="Event description..." rows="6"></textarea>
+        <div class="form-actions">
+          <button class="btn-save" onclick="saveEvent()">Opslaan Event</button>
+          <button class="btn-cancel" onclick="hideEventForm()">Annuleren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Type Modal (Long Press) -->
+    <div class="modal-overlay" id="addTypeModal">
+      <div class="modal" style="max-width: 400px;" onclick="event.stopPropagation()">
+        <h3>Wat wil je toevoegen?</h3>
+        <p style="margin-bottom: 1.5rem; color: #86868b;">Long press detected at this location</p>
+        <button onclick="selectAddType('review')" class="btn-save" style="margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem;">
+          <span style="font-size: 1.75rem;">🥪</span>
+          <span>Add Review</span>
+        </button>
+        <button onclick="selectAddType('event')" class="btn-save" style="background: #9333ea; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem;">
+          <span style="font-size: 1.75rem;">🎭</span>
+          <span>Add Event</span>
+        </button>
+        <button onclick="hideAddTypeModal()" class="btn-cancel">Annuleren</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let map;
+    let markers = [];
+    let shops = [];
+    let events = [];
+    let requests = [];
+    let selectedShop = null;
+    let isAdmin = false;
+    let editingShopId = null;
+    let editingEventId = null;
+    let currentAdminView = 'reviews';
+    let currentShopForReview = null;
+    let longPressTimer = null;
+    let longPressCoords = null;
+    let mapListeners = [];
+    let appTexts = {
+      appTitle: "Hier moette zèn kaort",
+      reviewLabel: "Review van Bastiaan",
+      userReviewsLabel: "Reviews van Bezoekers",
+      addReviewButton: "Voeg Je Review Toe",
+      navigateButton: "Navigeer",
+      commentsLabel: "Reacties",
+      seeReviewHere: "Zie mijn review op:",
+      adminPanelTitle: "Beheerpaneel",
+      reviewsTab: "Reviews",
+      userReviewsTab: "Gebruikersreviews",
+      eventsTab: "Evenementen",
+      settingsTab: "Instellingen",
+      addNewReview: "Nieuwe Review Toevoegen",
+      addNewEvent: "Nieuw Evenement Toevoegen",
+      menuTitle: "Menu",
+      requestReview: "Vraag een Review Aan",
+      adminLogin: "Admin Inloggen",
+      adminPanel: "Beheerpaneel",
+      logout: "Uitloggen",
+      whatToAdd: "Wat wil je toevoegen?",
+      addReviewOption: "Review Toevoegen",
+      addEventOption: "Evenement Toevoegen"
+    };
+    let appConfig = {
+      headerTitle: "Hier moette zèn kaort",
+      reviewLabel: "Review van Bastiaan",
+      userReviewsLabel: "Reviews van Bezoekers",
+      addReviewButton: "✍️ Voeg Je Review Toe",
+      navigateButton: "🧭 Navigate",
+      commentsLabel: "Comments",
+      addCommentPlaceholder: "Voeg een reactie toe...",
+      sendButton: "Versturen",
+      adminPanelTitle: "Beheerpaneel",
+      reviewsTab: "Reviews",
+      userReviewsTab: "Gebruikersreviews",
+      eventsTab: "Evenementen",
+      settingsTab: "Instellingen",
+      addReviewButtonAdmin: "+ Nieuwe Review Toevoegen",
+      addEventButton: "+ Nieuw Evenement Toevoegen",
+      requestReviewTitle: "Vraag een Review Aan",
+      requestReviewSubtext: "Ken je een top broodjeszaak die ik moet proberen?",
+      requestReviewPlaceholder: "Naam van de zaak...",
+      submitButton: "Versturen",
+      cancelButton: "Annuleren",
+      menuTitle: "Menu",
+      menuRequestReview: "📝 Vraag een Review Aan",
+      menuAdminPanel: "⚙️ Beheerpaneel",
+      menuAdminInloggen: "🔐 Admin Inloggen",
+      menuLogout: "🚪 Logout"
+    };
+
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyD3s7cVwwsqqO5QQlQ5rP42glC7TLjovz8",
+      authDomain: "tilburg-interactive-map.firebaseapp.com",
+      databaseURL: "https://tilburg-interactive-map-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "tilburg-interactive-map",
+      storageBucket: "tilburg-interactive-map.firebasestorage.app",
+      messagingVersturenerId: "12277098920",
+      appId: "1:12277098920:web:7fcdc9de6329e78208d59d"
+    };
+
+    // Initialize Firebase
+    let database = null;
+    let auth = null;
+    let currentUser = null;
+    
+    try {
+      firebase.initializeApp(firebaseConfig);
+      database = firebase.database();
+      auth = firebase.auth();
+      console.log('🔥 Firebase connected!');
+      
+      // Load admin UIDs from Firebase
+      loadAdminUids();
+      
+      // Auth state observer
+      auth.onAuthStateChanged((user) => {
+        console.log('🔐 Auth state changed:', user ? user.email : 'No user');
+        currentUser = user;
+        
+        if (user) {
+          // User is signed in - check if admin
+          checkAdminStatus(user);
+        } else {
+          // User is signed out
+          isAdmin = false;
+          removeMapLongPress();
+          updateMenuVisibility();
+          
+          // Close admin panel if open
+          const adminPanel = document.getElementById('adminPanel');
+          if (adminPanel && adminPanel.classList.contains('active')) {
+            adminPanel.classList.remove('active');
+          }
+        }
+      });
+      
+      database.ref('shops').on('value', (snapshot) => {
+        if (snapshot.exists()) {
+          shops = snapshot.val() || [];
+          renderMarkers();
+        }
+      });
+
+      database.ref('events').on('value', (snapshot) => {
+        if (snapshot.exists()) {
+          events = snapshot.val() || [];
+          renderMarkers();
+        }
+      });
+
+      database.ref('requests').on('value', (snapshot) => {
+        if (snapshot.exists()) {
+          const requestsObj = snapshot.val();
+          requests = Object.keys(requestsObj).map(key => ({
+            firebaseKey: key,
+            ...requestsObj[key]
+          }));
+          // Refresh admin panel if open
+          if (isAdmin && document.getElementById('adminPanelModal').classList.contains('active')) {
+            renderAdminPanel();
+          }
+        } else {
+          requests = [];
+        }
+      });
+
+      database.ref('appTexts').on('value', (snapshot) => {
+        if (snapshot.exists()) {
+          const savedTexts = snapshot.val();
+          appTexts = { ...appTexts, ...savedTexts };
+          updateAllTexts();
+        }
+      });
+    } catch (error) {
+      console.error('Firebase error:', error);
+    }
+
+    // Check if user is admin
+    // ===================================
+    // ADMIN CONFIGURATION
+    // ===================================
+    // Admin UIDs are stored in Firebase Database at: /adminUsers
+    // This keeps them out of the public code
+    let adminUids = [];
+    
+    // Load admin UIDs from Firebase
+    async function loadAdminUids() {
+      console.log('=== LOADING ADMIN UIDs ===');
+      try {
+        console.log('Fetching adminUsers from Firebase...');
+        const snapshot = await database.ref('adminUsers').once('value');
+        console.log('Snapshot received:', snapshot);
+        console.log('Snapshot exists?', snapshot.exists());
+        
+        if (snapshot.exists()) {
+          adminUids = snapshot.val();
+          console.log('✅ Admin UIDs loaded from Firebase');
+          console.log('   Raw value:', snapshot.val());
+          console.log('   adminUids:', adminUids);
+          console.log('   Type:', typeof adminUids);
+          console.log('   Is Array?', Array.isArray(adminUids));
+          console.log('   Length:', adminUids.length);
+          
+          // Convert to array if it's an object
+          if (!Array.isArray(adminUids)) {
+            console.log('⚠️ adminUids is not an array, converting...');
+            adminUids = Object.values(adminUids);
+            console.log('   After conversion:', adminUids);
+          }
+          
+          console.log('✅ Final adminUids array:', adminUids);
+        } else {
+          console.warn('⚠️ No admin UIDs found in Firebase. Using fallback.');
+          // Fallback: hardcoded UIDs (alleen voor noodgevallen)
+          adminUids = [
+            'pEoZo9v7veWVzc3XEEVYRdlxgK22',
+            '4fTkf3BzGqUhG4kFDwy23GltNgo1'
+          ];
+          console.log('   Fallback UIDs:', adminUids);
+        }
+      } catch (error) {
+        console.error('❌ Error loading admin UIDs:', error);
+        console.error('   Error message:', error.message);
+        console.error('   Error stack:', error.stack);
+        // Use fallback
+        adminUids = [
+          'pEoZo9v7veWVzc3XEEVYRdlxgK22',
+          '4fTkf3BzGqUhG4kFDwy23GltNgo1'
+        ];
+        console.log('   Using fallback UIDs:', adminUids);
+      }
+      console.log('=== LOADING ADMIN UIDs COMPLETE ===');
+    }
+    
+    // Check if user is admin (by UID)
+    async function checkAdminStatus(user) {
+      console.log('=== CHECK ADMIN STATUS ===');
+      try {
+        console.log('🔐 Checking admin status for:', user.email);
+        console.log('   UID:', user.uid);
+        console.log('   adminUids array:', adminUids);
+        console.log('   adminUids length:', adminUids.length);
+        
+        // Ensure admin UIDs are loaded
+        if (adminUids.length === 0) {
+          console.log('⚠️ Admin UIDs not loaded yet, loading now...');
+          await loadAdminUids();
+          console.log('   After loading, adminUids:', adminUids);
+        }
+        
+        // Check if user UID is in admin list
+        const isInList = adminUids.includes(user.uid);
+        console.log('   Is UID in admin list?', isInList);
+        
+        if (isInList) {
+          console.log('✅ User IS ADMIN (UID match)');
+          isAdmin = true;
+          console.log('   Setting isAdmin to true');
+          console.log('   Calling setupMapLongPress...');
+          if (map) setupMapLongPress();
+          console.log('   Calling updateMenuVisibility...');
+          updateMenuVisibility();
+          console.log('✅ Admin setup complete!');
+        } else {
+          console.log('⚠️ User is authenticated but NOT admin');
+          console.log('   User UID:', user.uid);
+          console.log('   Expected one of:', adminUids);
+          isAdmin = false;
+          removeMapLongPress();
+          updateMenuVisibility();
+          
+          // Show message to user
+          alert(`Je bent ingelogd als ${user.email}, maar je hebt geen admin rechten.\n\nJe UID: ${user.uid}\n\nVerwachte UIDs: ${adminUids.join(', ')}`);
+        }
+      } catch (error) {
+        console.error('❌ Error checking admin status:', error);
+        console.error('   Error stack:', error.stack);
+        isAdmin = false;
+      }
+      console.log('=== CHECK ADMIN STATUS COMPLETE ===');
+    }
+
+    // Populate rating dropdowns
+    const shopRatingSelect = document.getElementById('shopRating');
+    const userRatingSelect = document.getElementById('userReviewRating');
+    for (let i = 100; i >= 10; i--) {
+      const rating = (i / 10).toFixed(1);
+      const option1 = document.createElement('option');
+      option1.value = rating;
+      option1.textContent = rating + ' ⭐';
+      if (rating === '8.0') option1.selected = true;
+      shopRatingSelect.appendChild(option1);
+
+      const option2 = document.createElement('option');
+      option2.value = rating;
+      option2.textContent = rating + ' ⭐';
+      userRatingSelect.appendChild(option2);
+    }
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 51.5555, lng: 5.0913 },
+        zoom: 13,
+        mapTypeControl: true,
+        streetViewControl: true,
+        fullscreenControl: true
+      });
+
+      // Set initial title
+      document.getElementById('appTitle').textContent = appTexts.appTitle;
+
+      loadShops();
+      loadEvenementen();
+      updateSyncStatus();
+    }
+
+    function updateSyncStatus() {
+      // Sync status removed as per user request
+    }
+
+    async function loadShops() {
+      if (!database) {
+        const stored = localStorage.getItem('tilburg-shops');
+        if (stored) {
+          shops = JSON.parse(stored);
+          renderMarkers();
+        }
+      }
+    }
+
+    async function loadEvenementen() {
+      if (!database) {
+        const stored = localStorage.getItem('tilburg-events');
+        if (stored) {
+          events = JSON.parse(stored);
+          renderMarkers();
+        }
+      }
+    }
+
+    async function saveShops() {
+      try {
+        if (database) {
+          await database.ref('shops').set(shops);
+          console.log('✅ Opgeslagen to Firebase');
+        } else {
+          localStorage.setItem('tilburg-shops', JSON.stringify(shops));
+        }
+        return true;
+      } catch (error) {
+        alert('Failed to save: ' + error.message);
+        return false;
+      }
+    }
+
+    async function saveUserReviewToFirebase(shopId, userReviews) {
+      try {
+        if (database) {
+          // Update only the userReviews path for this specific shop
+          const shopIndex = shops.findIndex(s => s.id === shopId);
+          if (shopIndex === -1) {
+            throw new Error('Shop not found');
+          }
+          
+          await database.ref(`shops/${shopIndex}/userReviews`).set(userReviews);
+          console.log('✅ User review saved to Firebase');
+        } else {
+          localStorage.setItem('tilburg-shops', JSON.stringify(shops));
+        }
+        return true;
+      } catch (error) {
+        console.error('Error saving user review:', error);
+        alert('Failed to save: ' + error.message);
+        return false;
+      }
+    }
+
+    async function saveCommentsToFirebase(shopId, comments) {
+      try {
+        if (database) {
+          const shopIndex = shops.findIndex(s => s.id === shopId);
+          if (shopIndex === -1) {
+            throw new Error('Shop not found');
+          }
+          
+          await database.ref(`shops/${shopIndex}/comments`).set(comments);
+          console.log('✅ Comment saved to Firebase');
+        } else {
+          localStorage.setItem('tilburg-shops', JSON.stringify(shops));
+        }
+        return true;
+      } catch (error) {
+        console.error('Error saving comment:', error);
+        alert('Failed to save: ' + error.message);
+        return false;
+      }
+    }
+
+    async function saveLikesToFirebase(shopId, likes) {
+      try {
+        if (database) {
+          const shopIndex = shops.findIndex(s => s.id === shopId);
+          if (shopIndex === -1) {
+            throw new Error('Shop not found');
+          }
+          
+          await database.ref(`shops/${shopIndex}/likes`).set(likes);
+          console.log('✅ Likes saved to Firebase');
+        } else {
+          localStorage.setItem('tilburg-shops', JSON.stringify(shops));
+        }
+        return true;
+      } catch (error) {
+        console.error('Error saving likes:', error);
+        alert('Failed to save: ' + error.message);
+        return false;
+      }
+    }
+
+    async function saveEvenementen() {
+      try {
+        if (database) {
+          await database.ref('events').set(events);
+        } else {
+          localStorage.setItem('tilburg-events', JSON.stringify(events));
+        }
+        return true;
+      } catch (error) {
+        alert('Failed to save events: ' + error.message);
+        return false;
+      }
+    }
+
+    // Optimized marker rendering with debouncing
+    let renderMarkersTimeout = null;
+    let markerCache = new Map(); // Cache markers by shop/event id
+    
+    function renderMarkers() {
+      // Debounce multiple rapid calls
+      if (renderMarkersTimeout) {
+        clearTimeout(renderMarkersTimeout);
+      }
+      
+      renderMarkersTimeout = setTimeout(() => {
+        renderMarkersImmediate();
+      }, 100);
+    }
+    
+    function renderMarkersImmediate() {
+      const existingIds = new Set();
+      
+      // Update or create shop markers
+      shops.forEach(shop => {
+        const markerId = `shop-${shop.id}`;
+        existingIds.add(markerId);
+        
+        if (markerCache.has(markerId)) {
+          // Update existing marker if needed
+          const cached = markerCache.get(markerId);
+          if (cached.rating !== shop.rating) {
+            // Rating changed, need to update color
+            cached.marker.setMap(null);
+            markerCache.delete(markerId);
+            createShopMarker(shop, markerId);
+          }
+        } else {
+          // Create new marker
+          createShopMarker(shop, markerId);
+        }
+      });
+      
+      // Update or create event markers
+      const now = new Date();
+      events.forEach(event => {
+        const eventDate = new Date(event.dateTime);
+        if (eventDate >= now) {
+          const markerId = `event-${event.id}`;
+          existingIds.add(markerId);
+          
+          if (!markerCache.has(markerId)) {
+            createEventMarker(event, markerId);
+          }
+        }
+      });
+      
+      // Remove markers that no longer exist
+      for (const [markerId, cached] of markerCache.entries()) {
+        if (!existingIds.has(markerId)) {
+          cached.marker.setMap(null);
+          markerCache.delete(markerId);
+        }
+      }
+      
+      // Update markers array for backwards compatibility
+      markers = Array.from(markerCache.values()).map(c => c.marker);
+    }
+    
+    function createShopMarker(shop, markerId) {
+      const color = shop.rating >= 7 ? '#22c55e' : shop.rating >= 5 ? '#f59e0b' : '#ef4444';
+      
+      const markerIcon = {
+        path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
+        fillColor: color,
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 3,
+        scale: 2.2,
+        anchor: new google.maps.Point(12, 24),
+        labelOrigin: new google.maps.Point(12, 9)
+      };
+
+      const marker = new google.maps.Marker({
+        position: { lat: shop.lat, lng: shop.lng },
+        map: map,
+        icon: markerIcon,
+        title: shop.name,
+        label: {
+          text: shop.rating.toString(),
+          color: '#ffffff',
+          fontSize: '13px',
+          fontWeight: 'bold'
+        }
+        // Removed animation for better performance
+      });
+
+      marker.addListener('click', () => {
+        showShopDetail(shop.id);
+      });
+      
+      markerCache.set(markerId, {
+        marker: marker,
+        rating: shop.rating
+      });
+    }
+    
+    function createEventMarker(event, markerId) {
+      const eventIcon = {
+        path: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+        fillColor: '#9333ea',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
+        scale: 1.8,
+        anchor: new google.maps.Point(12, 12)
+      };
+
+      const marker = new google.maps.Marker({
+        position: { lat: event.lat, lng: event.lng },
+        map: map,
+        icon: eventIcon,
+        title: event.name
+        // Removed animation for better performance
+      });
+
+      marker.addListener('click', () => {
+        showEventDetail(event.id);
+      });
+      
+      markerCache.set(markerId, {
+        marker: marker
+      });
+    }
+
+    function showShopDetail(shopId) {
+      const shop = shops.find(s => s.id === shopId);
+      if (!shop) return;
+      
+      selectedShop = shop;
+      currentShopForReview = shop;
+      const userId = getUserId();
+      const hasLiked = (shop.likes || []).includes(userId);
+      const comments = shop.comments || [];
+      const userReviews = shop.userReviews || [];
+
+      let html = `
+        <div class="shop-detail-header">
+          <h2 class="shop-name">${shop.name}</h2>
+          
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div class="shop-address" style="flex: 1; margin: 0;">📍 ${shop.address}</div>
+            <button onclick="navigateToLocation(${shop.lat}, ${shop.lng}, '${shop.name.replace(/'/g, "\\'")}')" class="btn-navigate" style="margin: 0; padding: 0.4rem 0.75rem; font-size: 0.875rem; width: auto; flex-shrink: 0;">
+              🧭 ${appTexts.navigateButton}
+            </button>
+          </div>
+          
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+            <span class="badge badge-rating">${shop.rating} ⭐</span>
+            <span class="badge badge-price">${shop.price}</span>
+            ${getSocialLinksHTML(shop)}
+          </div>
+        </div>
+
+        ${shop.photoUrl ? `<img src="${shop.photoUrl}" alt="${shop.name}" class="shop-photo">` : ''}
+
+        <div class="review-section">
+          <div class="review-label">${appTexts.reviewLabel}</div>
+          <div class="review-text">${shop.review}</div>
+        </div>
+
+        ${userReviews.length > 0 ? `
+          <div class="review-section">
+            <div class="review-label">${appTexts.userReviewsLabel} (${userReviews.length})</div>
+            ${userReviews.map(ur => `
+              <div class="user-review">
+                <div class="user-review-header">
+                  <span class="user-review-author">${ur.userName}</span>
+                  <span class="user-review-rating">${ur.rating} ⭐</span>
+                </div>
+                <div class="user-review-text">${ur.text}</div>
+                ${isAdmin ? `<button class="btn-delete" style="margin-top: 0.5rem; width: 100%;" onclick="deleteUserReview(${shop.id}, ${ur.id})">Verwijderen</button>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <button class="btn-save" style="width: 100%; margin: 0.75rem 0;" onclick="showUserReviewModal()">
+          ✍️ ${appTexts.addReviewButton}
+        </button>
+
+        <div class="interaction-bar">
+          <button class="interaction-btn ${hasLiked ? 'liked' : ''}" onclick="toggleLike(${shop.id})">
+            👍 ${(shop.likes || []).length}
+          </button>
+          <button class="interaction-btn">
+            💬 ${comments.length}
+          </button>
+        </div>
+
+        ${isAdmin ? `
+          <div class="admin-actions">
+            <button class="btn-edit" onclick="editShop(${shop.id})">✏️ Bewerken</button>
+            <button class="btn-delete" onclick="deleteShop(${shop.id})">🗑️ Verwijderen</button>
+          </div>
+        ` : ''}
+
+        <div style="margin-top: 1.5rem;">
+          <div class="review-label">Comments (${comments.length})</div>
+          ${comments.map(c => `
+            <div class="comment">
+              <div class="comment-header">
+                <span class="comment-author">${c.userName}</span>
+                <span class="comment-date">${new Date(c.createdAt).toLocaleDateString()}</span>
+                ${isAdmin ? `<button onclick="deleteComment(${shop.id}, ${c.id})" style="background: #ef4444; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: auto;">🗑️ Verwijder</button>` : ''}
+              </div>
+              <div class="comment-text">${c.text}</div>
+            </div>
+          `).join('')}
+          
+          <div class="comment-form">
+            <textarea id="commentInput" placeholder="Voeg een reactie toe..." rows="3"></textarea>
+            <button onclick="addComment()">Versturen</button>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('shopDetailContent').innerHTML = html;
+      document.getElementById('shopDetailModal').classList.add('active');
+    }
+
+    function hideShopDetailModal() {
+      document.getElementById('shopDetailModal').classList.remove('active');
+      selectedShop = null;
+      currentShopForReview = null;
+      
+      // If we came from menu, return to menu
+      if (menuReturnToList) {
+        menuReturnToList = false;
+        setTimeout(() => {
+          document.getElementById('menuOverlay').classList.add('active');
+          renderMenuReviews(); // Refresh the list
+        }, 100);
+      }
+    }
+
+    function showEventDetail(eventId) {
+      const event = events.find(e => e.id === eventId);
+      if (!event) return;
+
+      const eventDate = new Date(event.dateTime);
+      
+      let html = `
+        <div class="shop-detail-header">
+          <h2 class="shop-name" style="color: #9333ea;">🌟 ${event.name}</h2>
+          <div class="shop-address">📍 ${event.location}</div>
+          <div class="shop-meta">
+            <span class="badge" style="background: #9333ea;">📅 ${eventDate.toLocaleDateString()}</span>
+            <span class="badge" style="background: #9333ea;">🕐 ${eventDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          </div>
+        </div>
+
+        ${event.photoUrl ? `<img src="${event.photoUrl}" alt="${event.name}" class="shop-photo">` : ''}
+
+        <div class="review-section">
+          <div class="review-label">Event Details</div>
+          <div class="review-text">${event.description}</div>
+        </div>
+      `;
+
+      document.getElementById('shopDetailContent').innerHTML = html;
+      document.getElementById('shopDetailModal').classList.add('active');
+    }
+
+    async function toggleLike(shopId) {
+      const userId = getUserId();
+      const shop = shops.find(s => s.id === shopId);
+      if (!shop) return;
+
+      if (!shop.likes) shop.likes = [];
+      
+      const index = shop.likes.indexOf(userId);
+      if (index > -1) {
+        shop.likes.splice(index, 1);
+      } else {
+        shop.likes.push(userId);
+      }
+
+      // Use special function for likes (guests can write to this path)
+      await saveLikesToFirebase(shop.id, shop.likes);
+      showShopDetail(shopId);
+    }
+
+    // Temporary storage for comment text while asking for name
+    let pendingCommentText = null;
+
+    async function addComment() {
+      const textInput = document.getElementById('commentInput');
+      const text = textInput.value.trim();
+      
+      if (!text) {
+        alert('Vul een reactie in');
+        return;
+      }
+      
+      if (!selectedShop) return;
+
+      // Store comment text and show name modal
+      pendingCommentText = text;
+      document.getElementById('commentNameInput').value = '';
+      document.getElementById('commentNameModal').classList.add('active');
+    }
+
+    function cancelCommentName() {
+      pendingCommentText = null;
+      document.getElementById('commentNameModal').classList.remove('active');
+    }
+
+    async function submitCommentWithName() {
+      const name = document.getElementById('commentNameInput').value.trim();
+      
+      if (!name) {
+        alert('Je moet een naam invullen om een reactie te plaatsen');
+        return;
+      }
+
+      if (!selectedShop || !pendingCommentText) return;
+
+      const shop = shops.find(s => s.id === selectedShop.id);
+      if (!shop) return;
+
+      if (!shop.comments) shop.comments = [];
+      
+      shop.comments.push({
+        id: Date.now(),
+        userId: getUserId(),
+        userName: name,
+        text: pendingCommentText,
+        createdAt: new Date().toISOString()
+      });
+
+      // Clear textarea and pending text
+      document.getElementById('commentInput').value = '';
+      pendingCommentText = null;
+
+      // Close modal
+      document.getElementById('commentNameModal').classList.remove('active');
+
+      // Use special function for comments (guests can write to this path)
+      await saveCommentsToFirebase(shop.id, shop.comments);
+      showShopDetail(shop.id);
+    }
+
+    function showUserReviewModal() {
+      if (!currentShopForReview) return;
+      // Laat veld leeg, zodat placeholder "Jouw naam" zichtbaar is
+      document.getElementById('userReviewName').value = '';
+      document.getElementById('userReviewRating').value = '';
+      document.getElementById('userReviewText').value = '';
+      document.getElementById('userReviewModal').classList.add('active');
+    }
+
+    function hideUserReviewModal() {
+      document.getElementById('userReviewModal').classList.remove('active');
+    }
+
+    async function saveUserReview() {
+      if (!currentShopForReview) return;
+
+      const name = document.getElementById('userReviewName').value.trim();
+      const rating = document.getElementById('userReviewRating').value;
+      const text = document.getElementById('userReviewText').value.trim();
+
+      if (!name || !rating || !text) {
+        alert('Please fill in all fields');
+        return;
+      }
+
+      // Opslaan name for future
+      localStorage.setItem('tilburg-user-name', name);
+
+      const shop = shops.find(s => s.id === currentShopForReview.id);
+      if (!shop) return;
+
+      if (!shop.userReviews) shop.userReviews = [];
+      
+      shop.userReviews.push({
+        id: Date.now(),
+        userId: getUserId(),
+        userName: name,
+        rating: parseFloat(rating),
+        text: text,
+        createdAt: new Date().toISOString()
+      });
+
+      // Use special function for user reviews (guests can write to this path)
+      await saveUserReviewToFirebase(shop.id, shop.userReviews);
+      hideUserReviewModal();
+      showShopDetail(shop.id);
+    }
+
+    async function deleteUserReview(shopId, reviewId) {
+      if (!confirm('Verwijderen this user review?')) return;
+
+      const shop = shops.find(s => s.id === shopId);
+      if (!shop || !shop.userReviews) return;
+
+      shop.userReviews = shop.userReviews.filter(r => r.id !== reviewId);
+      await saveShops();
+      showShopDetail(shopId);
+    }
+
+    async function deleteComment(shopId, commentId) {
+      if (!confirm('Weet je zeker dat je deze comment wilt verwijderen?')) return;
+
+      const shop = shops.find(s => s.id === shopId);
+      if (!shop || !shop.comments) return;
+
+      shop.comments = shop.comments.filter(c => c.id !== commentId);
+      await saveCommentsToFirebase(shop.id, shop.comments);
+      showShopDetail(shopId);
+    }
+
+    async function deleteRequest(firebaseKey) {
+      if (!confirm('Weet je zeker dat je deze aanvraag wilt verwijderen?')) return;
+
+      try {
+        if (database) {
+          await database.ref(`requests/${firebaseKey}`).remove();
+          console.log('Request deleted successfully');
+        }
+        renderAdminPanel();
+      } catch (error) {
+        console.error('Failed to delete request:', error);
+        alert('Er ging iets mis bij het verwijderen.');
+      }
+    }
+
+    function getUserId() {
+      let userId = localStorage.getItem('tilburg-user-id');
+      if (!userId) {
+        userId = 'user-' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('tilburg-user-id', userId);
+      }
+      return userId;
+    }
+
+    function getUserName() {
+      return localStorage.getItem('tilburg-user-name') || '';
+    }
+
+    // Menu
+    let menuReturnToList = false; // Track if we should return to menu after closing detail
+
+    function toggleMenu() {
+      const menuOverlay = document.getElementById('menuOverlay');
+      const isOpening = !menuOverlay.classList.contains('active');
+      
+      menuOverlay.classList.toggle('active');
+      
+      if (isOpening) {
+        // Render the reviews list when opening
+        renderMenuReviews();
+      }
+    }
+
+    function renderMenuReviews() {
+      const listContainer = document.getElementById('menuReviewsList');
+      const sortSelect = document.getElementById('menuSortSelect');
+      
+      // Sort shops based on selected option
+      let sortedShops = [...shops];
+      const sortValue = sortSelect.value;
+      
+      switch(sortValue) {
+        case 'rating-desc':
+          sortedShops.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+          break;
+        case 'rating-asc':
+          sortedShops.sort((a, b) => (a.rating || 0) - (b.rating || 0));
+          break;
+        case 'name-asc':
+          sortedShops.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+          break;
+        case 'name-desc':
+          sortedShops.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
+          break;
+      }
+      
+      if (sortedShops.length === 0) {
+        listContainer.innerHTML = `
+          <div style="text-align: center; padding: 3rem; color: #86868b;">
+            <p style="font-size: 1.25rem; margin-bottom: 0.5rem;">🍔</p>
+            <p>Nog geen reviews beschikbaar</p>
+          </div>
+        `;
+        return;
+      }
+      
+      listContainer.innerHTML = sortedShops.map(shop => `
+        <div class="menu-review-item" data-shop-id="${shop.id}">
+          <div class="menu-review-name">${shop.name || 'Onbekend'}</div>
+          <div class="menu-review-rating">
+            <span class="stars">⭐</span>
+            <span>${(shop.rating || 0).toFixed(1)}</span>
+          </div>
+          <div class="menu-review-address">${shop.address || 'Geen adres'}</div>
+        </div>
+      `).join('');
+      
+      // Add click handlers after rendering
+      listContainer.querySelectorAll('.menu-review-item').forEach(item => {
+        item.addEventListener('click', function() {
+          const shopId = parseInt(this.getAttribute('data-shop-id'));
+          openShopFromMenu(shopId);
+        });
+      });
+    }
+
+    function sortMenuReviews() {
+      renderMenuReviews();
+    }
+
+    function openShopFromMenu(shopId) {
+      console.log('Opening shop from menu:', shopId);
+      
+      // Set flag that we came from menu
+      menuReturnToList = true;
+      
+      // Close menu
+      document.getElementById('menuOverlay').classList.remove('active');
+      
+      // Open shop detail - use showShopDetail which opens the modal
+      console.log('Calling showShopDetail with shopId:', shopId);
+      showShopDetail(shopId);
+    }
+
+    function hideShopDetailModal() {
+      document.getElementById('shopDetailModal').classList.remove('active');
+      
+      // If we came from menu, return to menu
+      if (menuReturnToList) {
+        menuReturnToList = false;
+        setTimeout(() => {
+          document.getElementById('menuOverlay').classList.add('active');
+          renderMenuReviews(); // Refresh the list
+        }, 100);
+      }
+    }
+
+    // Request Modal
+    function showRequestModal() {
+      document.getElementById('requestModal').classList.add('active');
+    }
+
+    function hideRequestModal() {
+      document.getElementById('requestModal').classList.remove('active');
+    }
+
+    function showRequestConfirmation() {
+      document.getElementById('requestConfirmationModal').classList.add('active');
+    }
+
+    function hideRequestConfirmation() {
+      document.getElementById('requestConfirmationModal').classList.remove('active');
+    }
+
+    async function submitRequest() {
+      const input = document.getElementById('requestInput');
+      const shopName = input.value.trim();
+      if (!shopName) return;
+
+      try {
+        const newRequest = {
+          id: Date.now(),
+          shopName: shopName,
+          userId: getUserId(),
+          createdAt: new Date().toISOString()
+        };
+        
+        if (database) {
+          // Use push() to add directly without reading first (guest-friendly)
+          await database.ref('requests').push(newRequest);
+        }
+        
+        input.value = '';
+        hideRequestModal();
+        showRequestConfirmation();
+      } catch (error) {
+        console.error('Failed:', error);
+        alert('Er ging iets mis. Probeer het opnieuw.');
+      }
+    }
+
+    function extractCoordsFromUrl(url) {
+      if (!url) return null;
+      try {
+        let match = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+        
+        match = url.match(/place\/[^/]+\/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+        
+        match = url.match(/ll=(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+        
+        match = url.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+        
+        return null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function updateCoordsFromUrl(urlInputId, latInputId, lngInputId) {
+      const url = document.getElementById(urlInputId).value;
+      const coords = extractCoordsFromUrl(url);
+      
+      if (coords) {
+        document.getElementById(latInputId).value = coords.lat;
+        document.getElementById(lngInputId).value = coords.lng;
+        document.getElementById(urlInputId).style.borderColor = '#22c55e';
+        setTimeout(() => {
+          document.getElementById(urlInputId).style.borderColor = '';
+        }, 1000);
+      } else {
+        alert('Could not extract coordinates.');
+      }
+    }
+
+    // Admin
+    function showAdminInloggen() {
+      document.getElementById('adminModal').classList.add('active');
+    }
+
+    function hideAdminInloggen() {
+      document.getElementById('adminModal').classList.remove('active');
+      document.getElementById('adminEmail').value = '';
+      document.getElementById('adminPassword').value = '';
+    }
+
+    async function adminInloggen() {
+      console.log('=== ADMIN LOGIN ATTEMPT ===');
+      const email = document.getElementById('adminEmail').value;
+      const password = document.getElementById('adminPassword').value;
+      
+      console.log('Email field value:', email);
+      console.log('Password field exists:', !!password);
+      
+      if (!email || !password) {
+        alert('Vul email en wachtwoord in');
+        return;
+      }
+      
+      console.log('Attempting Firebase Auth login...');
+      
+      try {
+        // Sign in with Firebase Auth
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        console.log('✅ Login successful:', userCredential.user.email);
+        console.log('   User UID:', userCredential.user.uid);
+        
+        // Auth state listener will handle the rest (checkAdminStatus)
+        hideAdminInloggen();
+        
+        console.log('Login modal hidden, auth state listener should fire now...');
+        
+      } catch (error) {
+        console.error('❌ Login error:', error);
+        console.error('   Error code:', error.code);
+        console.error('   Error message:', error.message);
+        
+        // User-friendly error messages
+        let errorMessage = 'Login mislukt';
+        
+        switch (error.code) {
+          case 'auth/invalid-email':
+            errorMessage = 'Ongeldig email adres';
+            break;
+          case 'auth/user-disabled':
+            errorMessage = 'Dit account is uitgeschakeld';
+            break;
+          case 'auth/user-not-found':
+            errorMessage = 'Geen gebruiker gevonden met dit email';
+            break;
+          case 'auth/wrong-password':
+            errorMessage = 'Onjuist wachtwoord';
+            break;
+          case 'auth/invalid-credential':
+            errorMessage = 'Ongeldige inloggegevens';
+            break;
+          case 'auth/too-many-requests':
+            errorMessage = 'Te veel mislukte pogingen. Probeer later opnieuw.';
+            break;
+          default:
+            errorMessage = `Login mislukt: ${error.message}`;
+        }
+        
+        alert(errorMessage);
+      }
+    }
+
+    function logout() {
+      auth.signOut()
+        .then(() => {
+          console.log('✅ Logged out');
+          // Auth state listener will handle cleanup
+        })
+        .catch((error) => {
+          console.error('Logout error:', error);
+          alert('Uitloggen mislukt');
+        });
+    }
+    
+    function updateMenuVisibility() {
+      const adminPanelBtn = document.getElementById('menuAdminPanel');
+      const loginLink = document.getElementById('menuLoginLink');
+      const logoutLink = document.getElementById('menuLogoutLink');
+      
+      if (isAdmin && currentUser) {
+        // Admin ingelogd
+        if (adminPanelBtn) adminPanelBtn.classList.remove('hidden');
+        if (loginLink) loginLink.style.display = 'none';
+        if (logoutLink) logoutLink.classList.remove('hidden');
+      } else if (currentUser) {
+        // Niet-admin ingelogd
+        if (adminPanelBtn) adminPanelBtn.classList.add('hidden');
+        if (loginLink) loginLink.style.display = 'none';
+        if (logoutLink) logoutLink.classList.remove('hidden');
+      } else {
+        // Niet ingelogd
+        if (adminPanelBtn) adminPanelBtn.classList.add('hidden');
+        if (loginLink) loginLink.style.display = 'block';
+        if (logoutLink) logoutLink.classList.add('hidden');
+      }
+    }
+
+    function showAdminPanel() {
+      currentAdminView = 'reviews';
+      renderAdminPanel();
+      document.getElementById('adminPanelModal').classList.add('active');
+    }
+
+    function hideAdminPanel() {
+      document.getElementById('adminPanelModal').classList.remove('active');
+    }
+
+    function renderAdminPanel() {
+      const content = document.getElementById('adminPanelContent');
+      
+      // Count user reviews
+      let totalUserReviews = 0;
+      shops.forEach(shop => {
+        if (shop.userReviews) totalUserReviews += shop.userReviews.length;
+      });
+
+      // Count comments
+      let totalComments = 0;
+      shops.forEach(shop => {
+        if (shop.comments) totalComments += shop.comments.length;
+      });
+
+      let html = `
+        <div class="admin-tabs">
+          <button class="${currentAdminView === 'reviews' ? 'active' : ''}" onclick="switchAdminView('reviews')">
+            Reviews (${shops.length})
+          </button>
+          <button class="${currentAdminView === 'userReviews' ? 'active' : ''}" onclick="switchAdminView('userReviews')">
+            Gebruikersreviews (${totalUserReviews})
+          </button>
+          <button class="${currentAdminView === 'requests' ? 'active' : ''}" onclick="switchAdminView('requests')">
+            🥪 Aanvragen (${requests.length})
+          </button>
+          <button class="${currentAdminView === 'comments' ? 'active' : ''}" onclick="switchAdminView('comments')">
+            💬 Comments (${totalComments})
+          </button>
+          <button class="${currentAdminView === 'events' ? 'active' : ''}" onclick="switchAdminView('events')">
+            Evenementen (${events.filter(e => new Date(e.dateTime) >= new Date()).length})
+          </button>
+          <button class="${currentAdminView === 'settings' ? 'active' : ''}" onclick="switchAdminView('settings')">
+            ⚙️ Instellingen
+          </button>
+        </div>
+      `;
+
+      if (currentAdminView === 'reviews') {
+        html += `
+          <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.875rem;">
+            💡 <strong>Tip:</strong> Houd de kaart 1 seconde ingedrukt om snel een review of evenement toe te voegen met automatische locatie!
+          </div>
+          <button class="btn-save" style="width: 100%; margin-bottom: 0.75rem;" onclick="showAddShop()">
+            + Nieuwe Review Toevoegen
+          </button>
+          <div class="admin-table">
+            <div class="admin-table-header">
+              <div>Naam</div>
+              <div>Beoordeling</div>
+              <div>Prijs</div>
+              <div>Actions</div>
+            </div>
+        `;
+        shops.forEach(shop => {
+          html += `
+            <div class="admin-table-row">
+              <div><strong>${shop.name}</strong><br><small style="color: #86868b;">${shop.address}</small></div>
+              <div>${shop.rating} ⭐</div>
+              <div>${shop.price}</div>
+              <div>
+                <button class="btn-small btn-edit" onclick="editShop(${shop.id})" style="background: white; color: #22c55e; border-color: #22c55e;">Bewerken</button>
+                <button class="btn-small btn-delete" onclick="deleteShop(${shop.id})" style="background: white; color: #dc2626; border-color: #dc2626;">Verwijderen</button>
+              </div>
+            </div>
+          `;
+        });
+        html += `</div>`;
+      } else if (currentAdminView === 'userReviews') {
+        html += `<div class="admin-table">
+          <div class="admin-table-header" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
+            <div>Review</div>
+            <div>Author</div>
+            <div>Rating</div>
+            <div>Actions</div>
+          </div>
+        `;
+        shops.forEach(shop => {
+          if (shop.userReviews && shop.userReviews.length > 0) {
+            shop.userReviews.forEach(ur => {
+              html += `
+                <div class="admin-table-row" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
+                  <div><strong>${shop.name}</strong><br><small style="color: #86868b;">${ur.text.substring(0, 50)}...</small></div>
+                  <div>${ur.userName}</div>
+                  <div>${ur.rating} ⭐</div>
+                  <div>
+                    <button class="btn-small btn-delete" onclick="deleteUserReview(${shop.id}, ${ur.id}); renderAdminPanel();" style="background: white; color: #dc2626; border-color: #dc2626;">Verwijderen</button>
+                  </div>
+                </div>
+              `;
+            });
+          }
+        });
+        html += `</div>`;
+      } else if (currentAdminView === 'requests') {
+        html += `<div class="admin-table">
+          <div class="admin-table-header" style="grid-template-columns: 2fr 1.5fr 1fr;">
+            <div>Zaak Naam</div>
+            <div>Aangevraagd Op</div>
+            <div>Actions</div>
+          </div>
+        `;
+        
+        if (requests.length === 0) {
+          html += `
+            <div style="padding: 2rem; text-align: center; color: #86868b;">
+              Nog geen aanvragen 🥪
+            </div>
+          `;
+        } else {
+          // Sort by date (newest first)
+          const sortedRequests = [...requests].sort((a, b) => 
+            new Date(b.createdAt) - new Date(a.createdAt)
+          );
+          
+          sortedRequests.forEach(request => {
+            const date = new Date(request.createdAt);
+            const formattedDate = date.toLocaleDateString('nl-NL', { 
+              day: 'numeric', 
+              month: 'short', 
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            
+            html += `
+              <div class="admin-table-row" style="grid-template-columns: 2fr 1.5fr 1fr;">
+                <div>
+                  <strong>${request.shopName}</strong>
+                </div>
+                <div style="color: #86868b;">
+                  ${formattedDate}
+                </div>
+                <div>
+                  <button class="btn-small btn-delete" onclick="deleteRequest('${request.firebaseKey}')" style="background: white; color: #dc2626; border-color: #dc2626;">Verwijderen</button>
+                </div>
+              </div>
+            `;
+          });
+        }
+        
+        html += `</div>`;
+      } else if (currentAdminView === 'comments') {
+        html += `<div class="admin-table">
+          <div class="admin-table-header" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
+            <div>Comment</div>
+            <div>Shop</div>
+            <div>Author</div>
+            <div>Actions</div>
+          </div>
+        `;
+        
+        // Collect all comments from all shops
+        let allComments = [];
+        shops.forEach(shop => {
+          if (shop.comments && shop.comments.length > 0) {
+            shop.comments.forEach(comment => {
+              allComments.push({
+                ...comment,
+                shopId: shop.id,
+                shopName: shop.name
+              });
+            });
+          }
+        });
+        
+        // Sort by date (newest first)
+        allComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        if (allComments.length === 0) {
+          html += `
+            <div style="padding: 2rem; text-align: center; color: #86868b;">
+              Nog geen comments
+            </div>
+          `;
+        } else {
+          allComments.forEach(comment => {
+            html += `
+              <div class="admin-table-row" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
+                <div>
+                  <small style="color: #86868b;">${new Date(comment.createdAt).toLocaleDateString()}</small><br>
+                  ${comment.text.substring(0, 60)}${comment.text.length > 60 ? '...' : ''}
+                </div>
+                <div><strong>${comment.shopName}</strong></div>
+                <div>${comment.userName}</div>
+                <div>
+                  <button class="btn-small btn-delete" onclick="deleteComment(${comment.shopId}, ${comment.id}); renderAdminPanel();" style="background: white; color: #dc2626; border-color: #dc2626;">🗑️ Verwijder</button>
+                </div>
+              </div>
+            `;
+          });
+        }
+        html += `</div>`;
+      } else if (currentAdminView === 'events') {
+        const futureEvenementen = events.filter(e => new Date(e.dateTime) >= new Date());
+        html += `
+          <button class="btn-save" style="width: 100%; margin-bottom: 0.75rem;" onclick="showAddEvent()">
+            + Nieuw Evenement Toevoegen
+          </button>
+          <div class="admin-table">
+            <div class="admin-table-header" style="grid-template-columns: 2fr 2fr 1.5fr;">
+              <div>Name</div>
+              <div>Datum & Tijd</div>
+              <div>Actions</div>
+            </div>
+        `;
+        futureEvenementen.forEach(event => {
+          html += `
+            <div class="admin-table-row" style="grid-template-columns: 2fr 2fr 1.5fr;">
+              <div><strong>${event.name}</strong><br><small style="color: #86868b;">${event.location}</small></div>
+              <div>${new Date(event.dateTime).toLocaleString()}</div>
+              <div>
+                <button class="btn-small btn-edit" onclick="editEvent(${event.id})" style="background: white; color: #9333ea; border-color: #9333ea;">Bewerken</button>
+                <button class="btn-small btn-delete" onclick="deleteEvent(${event.id})" style="background: white; color: #dc2626; border-color: #dc2626;">Verwijderen</button>
+              </div>
+            </div>
+          `;
+        });
+        html += `</div>`;
+      } else if (currentAdminView === 'settings') {
+        html += `
+          <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem;">
+            <h3 style="margin: 0 0 0.5rem 0; color: white;">📝 Text & Label Instellingen</h3>
+            <p style="margin: 0; opacity: 0.95; line-height: 1.6;">
+              <strong>Wat kun je hier doen?</strong><br>
+              Pas alle teksten in de app aan naar jouw wens. Denk aan knoppen, labels, menu items, etc.<br>
+              <strong>Hoe werkt het?</strong><br>
+              1️⃣ Wijzig de tekst in de velden hieronder<br>
+              2️⃣ Klik op "💾 Opslaan All Instellingen"<br>
+              3️⃣ Alle gebruikers zien de nieuwe teksten direct (via Firebase sync)
+            </p>
+          </div>
+
+          <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 0.75rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <strong style="color: #856404;">⚠️ LET OP:</strong><br>
+            Als je een "Permission Denied" error krijgt, moet je eerst je Firebase rules updaten.<br>
+            <a href="https://console.firebase.google.com/project/tilburg-interactive-map/database/tilburg-interactive-map-default-rtdb/rules" target="_blank" style="color: #0066cc; text-decoration: underline;">
+              → Klik hier om Firebase Rules te openen
+            </a><br>
+            Voeg toe: <code style="background: white; padding: 2px 6px; border-radius: 4px;">"appTexts": {".read": true, ".write": true}</code>
+          </div>
+          
+          <div style="display: grid; gap: 1rem; max-height: 50vh; overflow-y: auto; padding: 0.5rem; background: #f9fafb; border-radius: 8px;">
+            <div style="background: white; padding: 0.75rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">📱 App Title (Header)</label>
+              <input type="text" id="text-appTitle" value="\${appTexts.appTitle}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit; font-size: 0.9375rem;">
+              <small style="color: #86868b; display: block; margin-top: 0.5rem;">
+                📍 Wordt getoond: Bovenaan in de groene header<br>
+                💡 Voorbeeld: "Hier moette zèn kaort" of "De Beste Broodjes"
+              </small>
+            </div>
+            
+            <div style="background: white; padding: 0.75rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">👨‍💼 Review Label (Admin Review)</label>
+              <input type="text" id="text-reviewLabel" value="\${appTexts.reviewLabel}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit; font-size: 0.9375rem;">
+              <small style="color: #86868b; display: block; margin-top: 0.5rem;">
+                📍 Wordt getoond: Boven jouw review in shop modals<br>
+                💡 Voorbeeld: "Review van Bastiaan" of "Bastiaan's Mening"
+              </small>
+            </div>
+            
+            <div style="background: white; padding: 0.75rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">👥 Gebruikersreviews Label</label>
+              <input type="text" id="text-userReviewsLabel" value="\${appTexts.userReviewsLabel}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit; font-size: 0.9375rem;">
+              <small style="color: #86868b; display: block; margin-top: 0.5rem;">
+                📍 Wordt getoond: Boven user reviews sectie<br>
+                💡 Voorbeeld: "Reviews van Bezoekers" of "Wat anderen zeggen"
+              </small>
+            </div>
+            
+            <div style="background: white; padding: 0.75rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">✍️ Add Review Button</label>
+              <input type="text" id="text-addReviewButton" value="\${appTexts.addReviewButton}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit; font-size: 0.9375rem;">
+              <small style="color: #86868b; display: block; margin-top: 0.5rem;">
+                📍 Wordt getoond: Oranje knop in shop modals<br>
+                💡 Voorbeeld: "Voeg Je Review Toe" of "Deel je mening"
+              </small>
+            </div>
+            
+            <div style="background: white; padding: 0.75rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">🧭 Navigate Button</label>
+              <input type="text" id="text-navigateButton" value="\${appTexts.navigateButton}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit; font-size: 0.9375rem;">
+              <small style="color: #86868b; display: block; margin-top: 0.5rem;">
+                📍 Wordt getoond: Blauwe knop naast adres<br>
+                💡 Voorbeeld: "Navigate" of "Navigeer" of "Route"
+              </small>
+            </div>
+            
+            <div style="background: white; padding: 0.75rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">💬 Comments Label</label>
+              <input type="text" id="text-commentsLabel" value="\${appTexts.commentsLabel}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit; font-size: 0.9375rem;">
+              <small style="color: #86868b; display: block; margin-top: 0.5rem;">
+                📍 Wordt getoond: Boven comments sectie<br>
+                💡 Voorbeeld: "Comments" of "Reacties" of "Opmerkingen"
+              </small>
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">📱 Social Media Label</label>
+              <input type="text" id="text-seeReviewHere" value="\${appTexts.seeReviewHere}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+              <small style="color: #86868b;">Example: "See my review here:"</small>
+            </div>
+            
+            <div style="border-top: 2px solid #f5f5f7; padding-top: 1rem; margin-top: 1rem;">
+              <h4 style="margin-bottom: 0.75rem; color: #1d1d1f;">🍔 Menu Texts</h4>
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">📝 Request Review Menu Item</label>
+              <input type="text" id="text-requestReview" value="\${appTexts.requestReview}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+              <small style="color: #86868b;">Example: "Vraag een Review Aan"</small>
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">🔐 Admin Inloggen Menu Item</label>
+              <input type="text" id="text-adminInloggen" value="\${appTexts.adminInloggen}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+              <small style="color: #86868b;">Example: "Admin Inloggen"</small>
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">⚙️ Beheerpaneel Menu Item</label>
+              <input type="text" id="text-adminPanel" value="\${appTexts.adminPanel}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+              <small style="color: #86868b;">Example: "Beheerpaneel"</small>
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">🚪 Logout Menu Item</label>
+              <input type="text" id="text-logout" value="\${appTexts.logout}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+              <small style="color: #86868b;">Example: "Logout"</small>
+            </div>
+            
+            <div style="border-top: 2px solid #f5f5f7; padding-top: 1rem; margin-top: 1rem;">
+              <h4 style="margin-bottom: 0.75rem; color: #1d1d1f;">⚙️ Beheerpaneel Texts</h4>
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Panel Title</label>
+              <input type="text" id="text-adminPanelTitle" value="\${appTexts.adminPanelTitle}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Reviews Tab</label>
+              <input type="text" id="text-reviewsTab" value="\${appTexts.reviewsTab}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Gebruikersreviews Tab</label>
+              <input type="text" id="text-userReviewsTab" value="\${appTexts.userReviewsTab}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Evenementen Tab</label>
+              <input type="text" id="text-eventsTab" value="\${appTexts.eventsTab}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Instellingen Tab</label>
+              <input type="text" id="text-settingsTab" value="\${appTexts.settingsTab}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Add New Review Button</label>
+              <input type="text" id="text-addNewReview" value="\${appTexts.addNewReview}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Nieuw Evenement Toevoegen Button</label>
+              <input type="text" id="text-addNewEvent" value="\${appTexts.addNewEvent}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+            </div>
+            
+            <div style="border-top: 2px solid #f5f5f7; padding-top: 1rem; margin-top: 1rem;">
+              <h4 style="margin-bottom: 0.75rem; color: #1d1d1f;">➕ Long Press Modal</h4>
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Modal Title</label>
+              <input type="text" id="text-whatToAdd" value="\${appTexts.whatToAdd}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+              <small style="color: #86868b;">Example: "Wat wil je toevoegen?"</small>
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Add Review Option</label>
+              <input type="text" id="text-addReviewOption" value="\${appTexts.addReviewOption}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Add Event Option</label>
+              <input type="text" id="text-addEventOption" value="\${appTexts.addEventOption}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+            </div>
+          </div>
+          
+          <button class="btn-save" style="width: 100%; margin-top: 1.5rem;" onclick="saveAppTexts()">
+            💾 Opslaan All Instellingen
+          </button>
+          
+          <button class="btn-cancel" style="width: 100%; margin-top: 0.5rem;" onclick="resetToDefaults()">
+            🔄 Reset to Defaults
+          </button>
+        `;
+      }
+
+      content.innerHTML = html;
+    }
+
+    function switchAdminView(view) {
+      currentAdminView = view;
+      renderAdminPanel();
+    }
+
+    function showAddShop() {
+      editingShopId = null;
+      document.getElementById('formTitle').textContent = 'Add New Review';
+      document.getElementById('shopName').value = '';
+      document.getElementById('shopAdres').value = '';
+      document.getElementById('shopMapUrl').value = '';
+      document.getElementById('shopLat').value = '51.5555';
+      document.getElementById('shopLng').value = '5.0913';
+      document.getElementById('shopRating').value = '8.0';
+      document.getElementById('shopPrice').value = '€€';
+      document.getElementById('shopPhoto').value = '';
+      document.getElementById('shopReview').value = '';
+      document.getElementById('shopFormModal').classList.add('active');
+      hideAdminPanel();
+    }
+
+    function editShop(shopId) {
+      const shop = shops.find(s => s.id === shopId);
+      if (!shop) return;
+
+      editingShopId = shopId;
+      document.getElementById('formTitle').textContent = 'Bewerken Review';
+      document.getElementById('shopName').value = shop.name;
+      document.getElementById('shopAdres').value = shop.address;
+      document.getElementById('shopMapUrl').value = '';
+      document.getElementById('shopLat').value = shop.lat;
+      document.getElementById('shopLng').value = shop.lng;
+      document.getElementById('shopRating').value = shop.rating;
+      document.getElementById('shopPrice').value = shop.price;
+      document.getElementById('shopPhoto').value = shop.photoUrl || '';
+      document.getElementById('shopReview').value = shop.review;
+      document.getElementById('shopTikTok').value = shop.tiktokUrl || '';
+      document.getElementById('shopInstagram').value = shop.instagramUrl || '';
+      document.getElementById('shopFormModal').classList.add('active');
+      hideAdminPanel();
+    }
+
+    function hideShopForm() {
+      document.getElementById('shopFormModal').classList.remove('active');
+      editingShopId = null;
+    }
+
+    async function saveShop() {
+      const name = document.getElementById('shopName').value.trim();
+      const address = document.getElementById('shopAdres').value.trim();
+      const review = document.getElementById('shopReview').value.trim();
+
+      if (!name || !address || !review) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      const shopData = {
+        name: name,
+        address: address,
+        lat: parseFloat(document.getElementById('shopLat').value),
+        lng: parseFloat(document.getElementById('shopLng').value),
+        rating: parseFloat(document.getElementById('shopRating').value),
+        price: document.getElementById('shopPrice').value,
+        photoUrl: document.getElementById('shopPhoto').value.trim(),
+        review: review,
+        tiktokUrl: document.getElementById('shopTikTok').value.trim(),
+        instagramUrl: document.getElementById('shopInstagram').value.trim()
+      };
+
+      if (editingShopId) {
+        const index = shops.findIndex(s => s.id === editingShopId);
+        if (index > -1) {
+          shops[index] = { ...shops[index], ...shopData };
+        }
+      } else {
+        shopData.id = Date.now();
+        shopData.likes = [];
+        shopData.comments = [];
+        shopData.userReviews = [];
+        shopData.createdAt = new Date().toISOString();
+        shops.push(shopData);
+      }
+
+      await saveShops();
+      renderMarkers();
+      hideShopForm();
+    }
+
+    async function deleteShop(shopId) {
+      if (!confirm('Verwijderen this review?')) return;
+
+      shops = shops.filter(s => s.id !== shopId);
+      await saveShops();
+      renderMarkers();
+      renderAdminPanel();
+      
+      if (selectedShop?.id === shopId) {
+        hideShopDetailModal();
+      }
+    }
+
+    function showAddEvent() {
+      editingEventId = null;
+      document.getElementById('eventFormTitle').textContent = 'Nieuw Evenement Toevoegen';
+      document.getElementById('eventName').value = '';
+      document.getElementById('eventLocatie').value = '';
+      document.getElementById('eventMapUrl').value = '';
+      document.getElementById('eventLat').value = '51.5555';
+      document.getElementById('eventLng').value = '5.0913';
+      document.getElementById('eventDateTime').value = '';
+      document.getElementById('eventPhoto').value = '';
+      document.getElementById('eventBeschrijving').value = '';
+      document.getElementById('eventFormModal').classList.add('active');
+      hideAdminPanel();
+    }
+
+    function editEvent(eventId) {
+      const event = events.find(e => e.id === eventId);
+      if (!event) return;
+
+      editingEventId = eventId;
+      document.getElementById('eventFormTitle').textContent = 'Evenement Bewerken';
+      document.getElementById('eventName').value = event.name;
+      document.getElementById('eventLocatie').value = event.location;
+      document.getElementById('eventMapUrl').value = '';
+      document.getElementById('eventLat').value = event.lat;
+      document.getElementById('eventLng').value = event.lng;
+      document.getElementById('eventDateTime').value = event.dateTime;
+      document.getElementById('eventPhoto').value = event.photoUrl || '';
+      document.getElementById('eventBeschrijving').value = event.description;
+      document.getElementById('eventFormModal').classList.add('active');
+      hideAdminPanel();
+    }
+
+    function hideEventForm() {
+      document.getElementById('eventFormModal').classList.remove('active');
+      editingEventId = null;
+    }
+
+    async function saveEvent() {
+      const name = document.getElementById('eventName').value.trim();
+      const location = document.getElementById('eventLocatie').value.trim();
+      const dateTime = document.getElementById('eventDateTime').value;
+      const description = document.getElementById('eventBeschrijving').value.trim();
+
+      if (!name || !location || !dateTime || !description) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      const eventData = {
+        name: name,
+        location: location,
+        lat: parseFloat(document.getElementById('eventLat').value),
+        lng: parseFloat(document.getElementById('eventLng').value),
+        dateTime: dateTime,
+        photoUrl: document.getElementById('eventPhoto').value.trim(),
+        description: description
+      };
+
+      if (editingEventId) {
+        const index = events.findIndex(e => e.id === editingEventId);
+        if (index > -1) {
+          events[index] = { ...events[index], ...eventData };
+        }
+      } else {
+        eventData.id = Date.now();
+        eventData.createdAt = new Date().toISOString();
+        events.push(eventData);
+      }
+
+      await saveEvenementen();
+      renderMarkers();
+      hideEventForm();
+    }
+
+    async function deleteEvent(eventId) {
+      if (!confirm('Verwijderen this event?')) return;
+
+      events = events.filter(e => e.id !== eventId);
+      await saveEvenementen();
+      renderMarkers();
+      renderAdminPanel();
+    }
+
+    // Modal handlers
+    const modals = ['adminModal', 'shopFormModal', 'adminPanelModal', 'eventFormModal', 'shopDetailModal', 'requestModal', 'userReviewModal', 'addTypeModal'];
+    modals.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.onclick = (e) => {
+          if (e.target === el) {
+            el.classList.remove('active');
+          }
+        };
+      }
+    });
+
+
+    // ============================================================================
+    // V3 FEATURES: Long Press, Social Links, Navigation
+    // ============================================================================
+
+    function setupMapLongPress() {
+      console.log('=== setupMapLongPress called ===');
+      console.log('map:', map);
+      console.log('isAdmin:', isAdmin);
+      console.log('typeof google:', typeof google);
+      console.log('typeof google.maps:', typeof google !== 'undefined' ? typeof google.maps : 'undefined');
+      
+      if (!map) {
+        console.error('❌ SETUP FAILED: map is null/undefined');
+        return;
+      }
+      
+      if (!isAdmin) {
+        console.warn('⚠️ SETUP SKIPPED: user is not admin');
+        return;
+      }
+      
+      if (typeof google === 'undefined' || !google.maps) {
+        console.error('❌ SETUP FAILED: Google Maps not loaded');
+        return;
+      }
+      
+      console.log('✅ Prerequisites OK, setting up listeners...');
+      
+      let pressTimer;
+      
+      // Desktop: Mouse events
+      const mousedownListener = google.maps.event.addListener(map, 'mousedown', (e) => {
+        console.log('🖱️ mousedown event triggered');
+        console.log('  isAdmin:', isAdmin);
+        console.log('  e.latLng:', e.latLng);
+        
+        if (!isAdmin || !e.latLng) {
+          console.warn('  ⚠️ Skipped: not admin or no latLng');
+          return;
+        }
+        
+        longPressCoords = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+        console.log('  ✅ Coords captured:', longPressCoords);
+        console.log('  ⏰ Starting 800ms timer...');
+        
+        pressTimer = setTimeout(() => {
+          console.log('  ⏰ Timer completed! Opening modal...');
+          console.log('  longPressCoords at timer end:', longPressCoords);
+          showAddTypeModal();
+        }, 800);
+      });
+      
+      const mouseupListener = google.maps.event.addListener(map, 'mouseup', () => {
+        console.log('🖱️ mouseup - clearing timer');
+        clearTimeout(pressTimer);
+      });
+      
+      // Mobile: Touch events
+      const touchstartListener = google.maps.event.addListener(map, 'touchstart', (e) => {
+        console.log('👆 touchstart event triggered');
+        console.log('  isAdmin:', isAdmin);
+        console.log('  e.latLng:', e.latLng);
+        
+        if (!isAdmin || !e.latLng) {
+          console.warn('  ⚠️ Skipped: not admin or no latLng');
+          return;
+        }
+        
+        longPressCoords = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+        console.log('  ✅ Coords captured:', longPressCoords);
+        console.log('  ⏰ Starting 800ms timer...');
+        
+        pressTimer = setTimeout(() => {
+          console.log('  ⏰ Timer completed! Opening modal...');
+          console.log('  longPressCoords at timer end:', longPressCoords);
+          showAddTypeModal();
+        }, 800);
+      });
+      
+      const touchendListener = google.maps.event.addListener(map, 'touchend', () => {
+        console.log('👆 touchend - clearing timer');
+        clearTimeout(pressTimer);
+      });
+      
+      mapListeners = [mousedownListener, mouseupListener, touchstartListener, touchendListener];
+      console.log('✅ Long press enabled for admin');
+      console.log('   Listeners added:', mapListeners.length);
+      console.log('=== setupMapLongPress complete ===');
+    }
+
+    function removeMapLongPress() {
+      mapListeners.forEach(listener => google.maps.event.removeListener(listener));
+      mapListeners = [];
+      longPressCoords = null;
+      console.log('❌ Long press disabled');
+    }
+
+    function showAddTypeModal() {
+      console.log('showAddTypeModal called with coords:', longPressCoords);
+      document.getElementById('addTypeModal').classList.add('active');
+    }
+
+    function hideAddTypeModal() {
+      document.getElementById('addTypeModal').classList.remove('active');
+      // DON'T clear longPressCoords here! It's needed in selectAddType
+      // It will be cleared after processing
+    }
+
+    async function selectAddType(type) {
+      console.log('selectAddType called with type:', type);
+      console.log('longPressCoords:', longPressCoords);
+      
+      hideAddTypeModal();
+      
+      if (!longPressCoords) {
+        console.error('No longPressCoords available!');
+        alert('Fout: Geen locatie beschikbaar. Probeer opnieuw.');
+        return;
+      }
+      
+      // Save coords locally before they might get cleared
+      const coords = { ...longPressCoords };
+      
+      const geocoder = new google.maps.Geocoder();
+      try {
+        console.log('Starting geocoding...');
+        const result = await geocoder.geocode({ location: coords });
+        const address = result.results[0]?.formatted_address || '';
+        console.log('Geocoded address:', address);
+        
+        if (type === 'review') {
+          console.log('Opening shop form with location');
+          showAddShopWithLocation(coords, address);
+        } else {
+          console.log('Opening event form with location');
+          showAddEventWithLocation(coords, address);
+        }
+        
+        // Clear coords after successful form open
+        longPressCoords = null;
+        
+      } catch (error) {
+        console.error('Geocoding failed:', error);
+        // Fallback: open form without address
+        if (type === 'review') {
+          showAddShopWithLocation(coords, '');
+        } else {
+          showAddEventWithLocation(coords, '');
+        }
+        
+        // Clear coords after form open
+        longPressCoords = null;
+      }
+    }
+
+    function showAddShopWithLocation(coords, address) {
+      console.log('showAddShopWithLocation called:', coords, address);
+      
+      editingShopId = null;
+      
+      // Update form title
+      const formTitle = document.getElementById('formTitle');
+      if (formTitle) formTitle.textContent = 'Nieuwe Review Toevoegen';
+      
+      // Clear and set form values
+      document.getElementById('shopName').value = '';
+      
+      const adresField = document.getElementById('shopAdres');
+      if (adresField) {
+        adresField.value = address;
+        console.log('Address set to:', address);
+      } else {
+        console.error('shopAdres field not found!');
+      }
+      
+      document.getElementById('shopMapUrl').value = '';
+      
+      const latField = document.getElementById('shopLat');
+      const lngField = document.getElementById('shopLng');
+      if (latField && lngField) {
+        latField.value = coords.lat.toFixed(6);
+        lngField.value = coords.lng.toFixed(6);
+        console.log('Coordinates set:', coords.lat.toFixed(6), coords.lng.toFixed(6));
+      } else {
+        console.error('Lat/Lng fields not found!');
+      }
+      
+      document.getElementById('shopRating').value = '8.0';
+      document.getElementById('shopPrice').value = '€€';
+      document.getElementById('shopPhoto').value = '';
+      document.getElementById('shopReview').value = '';
+      
+      const tiktokField = document.getElementById('shopTikTok');
+      const instaField = document.getElementById('shopInstagram');
+      if (tiktokField) tiktokField.value = '';
+      if (instaField) instaField.value = '';
+      
+      // Open modal
+      const modal = document.getElementById('shopFormModal');
+      if (modal) {
+        modal.classList.add('active');
+        console.log('Modal opened');
+      } else {
+        console.error('shopFormModal not found!');
+      }
+    }
+
+    function showAddEventWithLocation(coords, address) {
+      console.log('showAddEventWithLocation called:', coords, address);
+      
+      editingEventId = null;
+      
+      const formTitle = document.getElementById('eventFormTitle');
+      if (formTitle) formTitle.textContent = 'Nieuw Evenement Toevoegen';
+      
+      document.getElementById('eventName').value = '';
+      document.getElementById('eventLocatie').value = address;
+      document.getElementById('eventMapUrl').value = '';
+      document.getElementById('eventLat').value = coords.lat.toFixed(6);
+      document.getElementById('eventLng').value = coords.lng.toFixed(6);
+      document.getElementById('eventDateTime').value = '';
+      document.getElementById('eventPhoto').value = '';
+      document.getElementById('eventBeschrijving').value = '';
+      document.getElementById('eventFormModal').classList.add('active');
+    }
+
+    function navigateToLocation(lat, lng, name) {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isAndroid = /Android/.test(navigator.userAgent);
+      
+      let url;
+      if (isIOS) {
+        url = `maps://maps.google.com/maps?daddr=${lat},${lng}`;
+        setTimeout(() => window.location = `https://maps.google.com/maps?daddr=${lat},${lng}`, 500);
+      } else if (isAndroid) {
+        url = `geo:${lat},${lng}?q=${lat},${lng}(${encodeURIComponent(name)})`;
+      } else {
+        url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+      }
+      
+      window.open(url, '_blank');
+    }
+
+    function getSocialLinksHTML(shop) {
+      if (!shop.tiktokUrl && !shop.instagramUrl) return '';
+      
+      let html = '<div style="display: flex; align-items: center; gap: 0.5rem; margin-left: auto;">';
+      html += `<span style="font-size: 0.8125rem; color: #86868b; white-space: nowrap;">${appTexts.seeReviewHere}</span>`;
+      
+      if (shop.tiktokUrl) {
+        html += `<a href="${shop.tiktokUrl}" target="_blank" rel="noopener" class="badge" style="background: #000; color: white; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; transition: transform 0.2s; padding: 0.375rem; border-radius: 8px; min-width: 32px; height: 32px;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="TikTok">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+          </svg>
+        </a>`;
+      }
+      
+      if (shop.instagramUrl) {
+        html += `<a href="${shop.instagramUrl}" target="_blank" rel="noopener" class="badge" style="background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); color: white; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; transition: transform 0.2s; padding: 0.375rem; border-radius: 8px; min-width: 32px; height: 32px;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="Instagram">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+          </svg>
+        </a>`;
+      }
+      
+      html += '</div>';
+      return html;
+    }
+
+    // ============================================================================
+
+    
+    // ============================================================================
+    // TEXT CONFIGURATION MANAGEMENT
+    // ============================================================================
+
+    async function saveAppTexts() {
+      // Get all values from inputs
+      const newTexts = {
+        appTitle: document.getElementById('text-appTitle').value.trim(),
+        reviewLabel: document.getElementById('text-reviewLabel').value.trim(),
+        userReviewsLabel: document.getElementById('text-userReviewsLabel').value.trim(),
+        addReviewButton: document.getElementById('text-addReviewButton').value.trim(),
+        navigateButton: document.getElementById('text-navigateButton').value.trim(),
+        commentsLabel: document.getElementById('text-commentsLabel').value.trim(),
+        seeReviewHere: document.getElementById('text-seeReviewHere').value.trim(),
+        adminPanelTitle: document.getElementById('text-adminPanelTitle').value.trim(),
+        reviewsTab: document.getElementById('text-reviewsTab').value.trim(),
+        userReviewsTab: document.getElementById('text-userReviewsTab').value.trim(),
+        eventsTab: document.getElementById('text-eventsTab').value.trim(),
+        settingsTab: document.getElementById('text-settingsTab').value.trim(),
+        addNewReview: document.getElementById('text-addNewReview').value.trim(),
+        addNewEvent: document.getElementById('text-addNewEvent').value.trim(),
+        menuTitle: appTexts.menuTitle,
+        requestReview: document.getElementById('text-requestReview').value.trim(),
+        adminInloggen: document.getElementById('text-adminInloggen').value.trim(),
+        adminPanel: document.getElementById('text-adminPanel').value.trim(),
+        logout: document.getElementById('text-logout').value.trim(),
+        whatToAdd: document.getElementById('text-whatToAdd').value.trim(),
+        addReviewOption: document.getElementById('text-addReviewOption').value.trim(),
+        addEventOption: document.getElementById('text-addEventOption').value.trim()
+      };
+
+      // Update global
+      appTexts = { ...appTexts, ...newTexts };
+
+      // Opslaan to Firebase
+      try {
+        if (database) {
+          await database.ref('appTexts').set(appTexts);
+          alert('✅ Instellingen saved! All users will see the updated text immediately.');
+          updateAllTexts();
+        } else {
+          localStorage.setItem('tilburg-app-texts', JSON.stringify(appTexts));
+          alert('✅ Instellingen saved locally!');
+          updateAllTexts();
+        }
+      } catch (error) {
+        console.error('Failed to save texts:', error);
+        alert('❌ Failed to save settings: ' + error.message);
+      }
+    }
+
+    function updateAllTexts() {
+      // Update header title
+      const headerTitle = document.querySelector('.header h1');
+      if (headerTitle) {
+        headerTitle.textContent = appTexts.appTitle;
+      }
+
+      // Update sync status (if needed)
+      updateSyncStatus();
+
+      // If shop detail is open, refresh it
+      if (selectedShop) {
+        showShopDetail(selectedShop.id);
+      }
+
+      // Refresh admin panel if open
+      if (isAdmin && document.getElementById('adminPanelModal').classList.contains('active')) {
+        renderAdminPanel();
+      }
+
+      console.log('✅ All texts updated globally');
+    }
+
+    async function resetToDefaults() {
+      if (!confirm('⚠️ Reset all text to default values? This cannot be undone.')) {
+        return;
+      }
+
+      const defaults = {
+        appTitle: "Hier moette zèn kaort",
+        reviewLabel: "Review van Bastiaan",
+        userReviewsLabel: "Reviews van Bezoekers",
+        addReviewButton: "Voeg Je Review Toe",
+        navigateButton: "Navigate",
+        commentsLabel: "Comments",
+        seeReviewHere: "See my review here:",
+        adminPanelTitle: "Beheerpaneel",
+        reviewsTab: "Reviews",
+        userReviewsTab: "Gebruikersreviews",
+        eventsTab: "Evenementen",
+        settingsTab: "Instellingen",
+        addNewReview: "Add New Review",
+        addNewEvent: "Nieuw Evenement Toevoegen",
+        menuTitle: "Menu",
+        requestReview: "Vraag een Review Aan",
+        adminInloggen: "Admin Inloggen",
+        adminPanel: "Beheerpaneel",
+        logout: "Logout",
+        whatToAdd: "Wat wil je toevoegen?",
+        addReviewOption: "Add Review",
+        addEventOption: "Evenement Toevoegen"
+      };
+
+      appTexts = defaults;
+
+      try {
+        if (database) {
+          await database.ref('appTexts').set(appTexts);
+          alert('✅ Reset to defaults! All users will see the original text.');
+        } else {
+          localStorage.setItem('tilburg-app-texts', JSON.stringify(appTexts));
+          alert('✅ Reset to defaults locally!');
+        }
+        updateAllTexts();
+        renderAdminPanel(); // Refresh form
+      } catch (error) {
+        console.error('Failed to reset:', error);
+        alert('❌ Failed to reset: ' + error.message);
+      }
+    }
+
+    // ============================================================================
+
+    
+    window.initMap = initMap;
+  </script>
+</body>
+</html>
