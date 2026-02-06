@@ -901,8 +901,117 @@
       transition: all 0.2s;
     }
 
+    /* Cookie Banner */
+    .cookie-banner {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+      padding: 1.25rem 1.5rem;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      z-index: 10000;
+      animation: slideUp 0.3s ease-out;
+    }
+
+    .cookie-banner.active {
+      display: flex;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .cookie-banner-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .cookie-banner-text {
+      font-size: 0.9375rem;
+      color: #1d1d1f;
+      line-height: 1.4;
+    }
+
+    .cookie-banner-actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .cookie-btn {
+      padding: 0.625rem 1.5rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      font-family: inherit;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .cookie-btn-accept {
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      color: white;
+    }
+
+    .cookie-btn-accept:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+    }
+
+    .cookie-btn-info {
+      background: #f5f5f7;
+      color: #1d1d1f;
+    }
+
+    .cookie-btn-info:hover {
+      background: #e5e5e7;
+    }
+
     /* Mobile */
     @media (max-width: 768px) {
+      .cookie-banner {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+        gap: 1rem;
+      }
+
+      .cookie-banner-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+
+      .cookie-banner-text {
+        font-size: 0.875rem;
+      }
+
+      .cookie-banner-actions {
+        width: 100%;
+        flex-direction: column;
+      }
+
+      .cookie-btn {
+        width: 100%;
+        padding: 0.75rem;
+      }
+
       .header h1 {
         font-size: 1rem;
       }
@@ -988,8 +1097,76 @@
           🔐
         </div>
 
+        <div class="menu-login-link" onclick="showPrivacyPage(); toggleMenu();" style="border-top: 1px solid #e5e5e5;">
+          📜 Privacy
+        </div>
+
         <div class="menu-login-link hidden" id="menuLogoutLink" onclick="logout(); toggleMenu();" style="background: #fee; color: #dc2626; border-top: 1px solid #fca;">
           🚪 Uitloggen
+        </div>
+      </div>
+    </div>
+
+    <!-- Privacy Modal -->
+    <div class="modal-overlay" id="privacyModal">
+      <div class="modal" style="max-width: 650px;" onclick="event.stopPropagation()">
+        <button onclick="hidePrivacyModal()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 2rem; color: #86868b; cursor: pointer; z-index: 10;">×</button>
+        <div style="padding: 1rem;">
+          <h2 style="margin-bottom: 1rem; color: #22c55e;">📜 Privacy bij Broodjes Reten 🥪</h2>
+          
+          <p style="margin-bottom: 1rem; line-height: 1.6;">
+            Hé broodjesliefhebber! Hartstikke mooi dat je op mijn kaart kijkt om de beste lunchplekken van Tilburg te ontdekken. 
+            Omdat ik wil dat je met een gerust hart je volgende broodje kiest, heb ik hier kort opgeschreven hoe ik met privacy omga.
+          </p>
+
+          <p style="margin-bottom: 1.5rem; font-weight: 600; color: #22c55e;">
+            De korte versie: Ik heb niks aan je gegevens, ik heb alleen verstand van broodjes.
+          </p>
+
+          <h3 style="margin-bottom: 0.75rem; color: #1d1d1f; font-size: 1.125rem;">1. Wat ik verzamel (en wat niet)</h3>
+          <ul style="margin-bottom: 1.5rem; padding-left: 1.5rem; line-height: 1.8;">
+            <li><strong>Geen accounts:</strong> Je hoeft niet in te loggen om de ratings te zien. Ik weet dus niet wie je bent.</li>
+            <li><strong>Geen handel:</strong> Ik verkoop je gegevens niet door. Ik ben hier om broodjes te 'reten', niet om data te dealen.</li>
+            <li><strong>Statistieken:</strong> Ik gebruik Google Analytics om te zien:
+              <ul style="padding-left: 1.5rem; margin-top: 0.5rem;">
+                <li>Hoeveel mensen de site bezoeken</li>
+                <li>Welke broodjeszaken populair zijn</li>
+                <li>Welke knoppen worden gebruikt</li>
+                <li>Je algemene locatie (stad/land, niet je huisadres!)</li>
+              </ul>
+              Dit is volledig anoniem en helpt me de kaart te verbeteren.
+            </li>
+          </ul>
+
+          <h3 style="margin-bottom: 0.75rem; color: #1d1d1f; font-size: 1.125rem;">2. De Kaart</h3>
+          <p style="margin-bottom: 1.5rem; line-height: 1.6;">
+            Om de locaties in Tilburg mooi in beeld te brengen, gebruik ik Google Maps. Google kan je IP-adres zien om de kaart aan jou te tonen. 
+            Daar heb ik verder geen invloed op en ik doe daar zelf niets mee.
+          </p>
+
+          <h3 style="margin-bottom: 0.75rem; color: #1d1d1f; font-size: 1.125rem;">3. Tips Insturen</h3>
+          <p style="margin-bottom: 1.5rem; line-height: 1.6;">
+            Stuur je mij een tip voor een nieuwe locatie via het formulier? Dan zie ik alleen de naam van de zaak die je invult. 
+            Geen namen, geen mailadressen, niks persoonlijks.
+          </p>
+
+          <h3 style="margin-bottom: 0.75rem; color: #1d1d1f; font-size: 1.125rem;">4. Cookies 🍪</h3>
+          <p style="margin-bottom: 1.5rem; line-height: 1.6;">
+            Ik gebruik alleen cookies voor Google Analytics (om te zien hoe de site gebruikt wordt) en om te onthouden dat je de cookie-melding hebt gezien. 
+            Je kunt cookies altijd blokkeren in je browserinstellingen als je dat wilt.
+          </p>
+
+          <p style="margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid #e5e5e5; font-weight: 600; color: #22c55e;">
+            Kortom: Ik ben er om je te helpen het lekkerste broodje van de stad te vinden, zonder gedoe.
+          </p>
+
+          <p style="margin-top: 1rem; font-size: 1.25rem;">
+            Smakelijk eten! 🥪
+          </p>
+
+          <div style="margin-top: 2rem; padding: 1rem; background: #f5f5f7; border-radius: 8px; font-size: 0.875rem; color: #666;">
+            <strong>Contact:</strong> Vragen over privacy? Stuur een tip in met "Privacy vraag" als onderwerp en ik help je graag verder.
+          </div>
         </div>
       </div>
     </div>
@@ -1180,6 +1357,20 @@
           <span>Add Event</span>
         </button>
         <button onclick="hideAddTypeModal()" class="btn-cancel">Annuleren</button>
+      </div>
+    </div>
+
+    <!-- Cookie Banner -->
+    <div class="cookie-banner" id="cookieBanner">
+      <div class="cookie-banner-content">
+        <span style="font-size: 1.5rem;">🍪</span>
+        <div class="cookie-banner-text">
+          We gebruiken cookies voor analytics om de site te verbeteren. Door verder te gaan, ga je hiermee akkoord.
+        </div>
+      </div>
+      <div class="cookie-banner-actions">
+        <button class="cookie-btn cookie-btn-info" onclick="showPrivacyInfo()">Meer info</button>
+        <button class="cookie-btn cookie-btn-accept" onclick="acceptCookies()">Accepteren</button>
       </div>
     </div>
 
@@ -3407,6 +3598,86 @@
 
     // ============================================================================
 
+    // ============================================================================
+    // COOKIE BANNER FUNCTIONS
+    // ============================================================================
+
+    function checkCookieConsent() {
+      const consent = localStorage.getItem('cookieConsent');
+      if (!consent) {
+        // Show banner after 1 second
+        setTimeout(() => {
+          document.getElementById('cookieBanner').classList.add('active');
+        }, 1000);
+      } else if (consent === 'accepted') {
+        // Analytics is already loaded, consent was given
+        console.log('Cookie consent previously accepted');
+      }
+    }
+
+    function acceptCookies() {
+      localStorage.setItem('cookieConsent', 'accepted');
+      document.getElementById('cookieBanner').classList.remove('active');
+      
+      // Track the acceptance
+      trackEvent('cookie_consent', {
+        action: 'accepted'
+      });
+    }
+
+    function showPrivacyInfo() {
+      alert(`🍪 Privacy & Cookies bij Broodjes Reten
+
+Hé broodjesliefhebber! 
+
+De korte versie: Ik heb niks aan je gegevens, ik heb alleen verstand van broodjes.
+
+WAT IK VERZAMEL (EN WAT NIET):
+• Geen accounts - Je hoeft niet in te loggen
+• Geen namen of persoonlijke gegevens
+• Google Analytics - Anonieme statistieken:
+  - Welke reviews je bekijkt
+  - Welke knoppen je klikt
+  - Hoe lang je op de site bent
+  - Je algemene locatie (stad/land)
+
+WAARVOOR:
+• Om te zien welke broodjeszaken populair zijn
+• Om de site te verbeteren
+• Om te weten of mensen de kaart gebruiken
+
+DE KAART:
+• Google Maps kan je IP-adres zien
+• Dit is nodig om de kaart te tonen
+• Hier heb ik geen invloed op
+
+TIPS INSTUREN:
+• Via het formulier of Firebase
+• Alleen de naam van de zaak
+• Geen persoonlijke data nodig
+
+Kortom: Ik ben er om je te helpen het lekkerste broodje van de stad te vinden, zonder gedoe.
+
+Smakelijk eten! 🥪`);
+      
+      trackEvent('cookie_banner', {
+        action: 'view_privacy_info'
+      });
+    }
+
+    function showPrivacyPage() {
+      document.getElementById('privacyModal').classList.add('active');
+      trackEvent('view_privacy_page');
+    }
+
+    function hidePrivacyModal() {
+      document.getElementById('privacyModal').classList.remove('active');
+    }
+
+    // Check consent on page load
+    window.addEventListener('load', checkCookieConsent);
+
+    // ============================================================================
     
     window.initMap = initMap;
   </script>
