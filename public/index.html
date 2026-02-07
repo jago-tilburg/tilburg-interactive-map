@@ -533,7 +533,7 @@
 
     .shop-detail-columns {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 2fr 1fr; /* Linker kolom 2x zo breed als rechts */
       gap: 2rem;
       align-items: start;
     }
@@ -546,6 +546,8 @@
       position: sticky;
       top: 1rem;
       min-width: 0; /* Prevent overflow */
+      display: flex;
+      justify-content: flex-end; /* Align naar rechts */
     }
 
     @media (max-width: 968px) {
@@ -753,22 +755,23 @@
     .instagram-embed-container {
       margin: 0;
       display: flex;
-      justify-content: center;
+      justify-content: flex-end; /* Align naar rechts */
       align-items: flex-start;
       min-height: 200px;
+      width: 100%;
     }
 
     .instagram-embed-wrapper {
       width: 100%;
-      max-width: 378px; /* 30% smaller than default 540px */
-      transform-origin: top center;
+      max-width: 450px; /* Iets groter dan 378px */
+      transform-origin: top right; /* Van rechts schalen */
     }
 
     /* Scale Instagram embed proportionally */
     .instagram-embed-wrapper .instagram-media {
-      transform: scale(0.7);
-      transform-origin: top center;
-      margin: 0 auto;
+      transform: scale(0.85); /* Van 0.7 naar 0.85 = groter */
+      transform-origin: top right; /* Van rechts schalen */
+      margin: 0;
     }
 
     .instagram-loading {
@@ -2438,12 +2441,12 @@
             <!-- Star Rating Section -->
             <div class="review-section">
               <div class="review-label">Geef je beoordeling</div>
-              <div style="background: #f5f5f7; padding: 1.25rem; border-radius: 12px; text-align: center;">
-                <div class="star-rating" style="font-size: 2rem; margin-bottom: 0.75rem;">
+              <div style="background: #f5f5f7; padding: 1rem; border-radius: 12px; text-align: center;">
+                <div class="star-rating" style="font-size: 1.5rem; margin-bottom: 0.5rem;">
                   ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => `
                     <span class="star ${userRating && star <= userRating.rating ? 'active' : ''}" 
                           onclick="submitRating(${shop.id}, ${star})"
-                          style="cursor: pointer; margin: 0 0.125rem; transition: all 0.2s;"
+                          style="cursor: pointer; margin: 0 0.1rem; transition: all 0.2s;"
                           onmouseover="highlightStars(${star})"
                           onmouseout="resetStars()">
                       ${star <= (userRating?.rating || 0) ? '⭐' : '☆'}
@@ -2451,11 +2454,11 @@
                   `).join('')}
                 </div>
                 ${userRating ? `
-                  <div style="color: #22c55e; font-size: 0.875rem; font-weight: 600;">
+                  <div style="color: #22c55e; font-size: 0.8125rem; font-weight: 600;">
                     ✓ Je gaf ${userRating.rating} sterren
                   </div>
                 ` : `
-                  <div style="color: #86868b; font-size: 0.875rem;">
+                  <div style="color: #86868b; font-size: 0.8125rem;">
                     Klik op de sterren om te beoordelen
                   </div>
                 `}
