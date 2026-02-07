@@ -760,6 +760,15 @@
 
     .instagram-embed-wrapper {
       width: 100%;
+      max-width: 378px; /* 30% smaller than default 540px */
+      transform-origin: top center;
+    }
+
+    /* Scale Instagram embed proportionally */
+    .instagram-embed-wrapper .instagram-media {
+      transform: scale(0.7);
+      transform-origin: top center;
+      margin: 0 auto;
     }
 
     .instagram-loading {
@@ -779,6 +788,26 @@
       color: #c33;
       font-size: 0.875rem;
       text-align: center;
+    }
+
+    /* Star Rating */
+    .star-rating {
+      display: flex;
+      justify-content: center;
+      gap: 0.25rem;
+    }
+
+    .star-rating .star {
+      transition: transform 0.2s, color 0.2s;
+      user-select: none;
+    }
+
+    .star-rating .star:hover {
+      transform: scale(1.2);
+    }
+
+    .star-rating .star.active {
+      color: #fbbf24;
     }
 
     .review-section {
@@ -2364,11 +2393,18 @@
       currentShopForReview = shop;
       const userId = getUserId();
       const hasLiked = (shop.likes || []).includes(userId);
-      const comments = shop.comments || [];
-      const userReviews = shop.userReviews || [];
+      const userRatings = shop.userRatings || []; // Array of { userId, rating, createdAt }
+
+      // Calculate average rating
+      const avgRating = userRatings.length > 0 
+        ? (userRatings.reduce((sum, r) => sum + r.rating, 0) / userRatings.length).toFixed(1)
+        : null;
 
       // Get view count
       const viewCount = await getShopViews(shopId);
+
+      // Check if current user has rated
+      const userRating = userRatings.find(r => r.userId === userId);
 
       let html = `
         <div class="shop-detail-header">
@@ -2384,6 +2420,7 @@
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
             <span class="badge badge-rating">${shop.rating} ⭐</span>
             <span class="badge badge-price">${shop.price}</span>
+            ${avgRating ? `<span class="badge" style="background: #3b82f6; color: white;">👥 ${avgRating} ⭐ (${userRatings.length})</span>` : ''}
             <span class="badge" style="background: #e5e5e5; color: #666;">👁️ ${viewCount} views</span>
             ${getSocialLinksHTML(shop)}
           </div>
@@ -2398,32 +2435,36 @@
               <div class="review-text">${shop.review}</div>
             </div>
 
-            ${userReviews.length > 0 ? `
-              <div class="review-section">
-                <div class="review-label">${appTexts.userReviewsLabel} (${userReviews.length})</div>
-                ${userReviews.map(ur => `
-                  <div class="user-review">
-                    <div class="user-review-header">
-                      <span class="user-review-author">${ur.userName}</span>
-                      <span class="user-review-rating">${ur.rating} ⭐</span>
-                    </div>
-                    <div class="user-review-text">${ur.text}</div>
-                    ${isAdmin ? `<button class="btn-delete" style="margin-top: 0.5rem; width: 100%;" onclick="deleteUserReview(${shop.id}, ${ur.id})">Verwijderen</button>` : ''}
+            <!-- Star Rating Section -->
+            <div class="review-section">
+              <div class="review-label">Geef je beoordeling</div>
+              <div style="background: #f5f5f7; padding: 1.25rem; border-radius: 12px; text-align: center;">
+                <div class="star-rating" style="font-size: 2rem; margin-bottom: 0.75rem;">
+                  ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => `
+                    <span class="star ${userRating && star <= userRating.rating ? 'active' : ''}" 
+                          onclick="submitRating(${shop.id}, ${star})"
+                          style="cursor: pointer; margin: 0 0.125rem; transition: all 0.2s;"
+                          onmouseover="highlightStars(${star})"
+                          onmouseout="resetStars()">
+                      ${star <= (userRating?.rating || 0) ? '⭐' : '☆'}
+                    </span>
+                  `).join('')}
+                </div>
+                ${userRating ? `
+                  <div style="color: #22c55e; font-size: 0.875rem; font-weight: 600;">
+                    ✓ Je gaf ${userRating.rating} sterren
                   </div>
-                `).join('')}
+                ` : `
+                  <div style="color: #86868b; font-size: 0.875rem;">
+                    Klik op de sterren om te beoordelen
+                  </div>
+                `}
               </div>
-            ` : ''}
+            </div>
 
-            <button class="btn-save" style="width: 100%; margin: 0.75rem 0;" onclick="showUserReviewModal()">
-              ✍️ ${appTexts.addReviewButton}
-            </button>
-
-            <div class="interaction-bar">
+            <div class="interaction-bar" style="margin-top: 1rem;">
               <button class="interaction-btn ${hasLiked ? 'liked' : ''}" onclick="toggleLike(${shop.id})">
                 👍 ${(shop.likes || []).length}
-              </button>
-              <button class="interaction-btn">
-                💬 ${comments.length}
               </button>
             </div>
 
@@ -2433,25 +2474,6 @@
                 <button class="btn-delete" onclick="deleteShop(${shop.id})">🗑️ Verwijderen</button>
               </div>
             ` : ''}
-
-            <div style="margin-top: 1.5rem;">
-              <div class="review-label">Comments (${comments.length})</div>
-              ${comments.map(c => `
-                <div class="comment">
-                  <div class="comment-header">
-                    <span class="comment-author">${c.userName}</span>
-                    <span class="comment-date">${new Date(c.createdAt).toLocaleDateString()}</span>
-                    ${isAdmin ? `<button onclick="deleteComment(${shop.id}, ${c.id})" style="background: #ef4444; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: auto;">🗑️ Verwijder</button>` : ''}
-                  </div>
-                  <div class="comment-text">${c.text}</div>
-                </div>
-              `).join('')}
-              
-              <div class="comment-form">
-                <textarea id="commentInput" placeholder="Voeg een reactie toe..." rows="3"></textarea>
-                <button onclick="addComment()">Versturen</button>
-              </div>
-            </div>
           </div>
 
           <div class="shop-detail-right">
@@ -2480,6 +2502,74 @@
       if (shop.instagramUrl) {
         loadInstagramEmbed(shop.id, shop.instagramUrl);
       }
+    }
+
+    // ============================================================================
+    // INSTAGRAM EMBED FUNCTIONS
+    // ============================================================================
+    // RATING FUNCTIONS
+    // ============================================================================
+
+    async function submitRating(shopId, rating) {
+      const shop = shops.find(s => s.id === shopId);
+      if (!shop) return;
+
+      const userId = getUserId();
+      
+      // Initialize userRatings if it doesn't exist
+      if (!shop.userRatings) {
+        shop.userRatings = [];
+      }
+
+      // Check if user already rated
+      const existingRatingIndex = shop.userRatings.findIndex(r => r.userId === userId);
+
+      if (existingRatingIndex >= 0) {
+        // Update existing rating
+        shop.userRatings[existingRatingIndex].rating = rating;
+        shop.userRatings[existingRatingIndex].updatedAt = Date.now();
+      } else {
+        // Add new rating
+        shop.userRatings.push({
+          userId: userId,
+          rating: rating,
+          createdAt: Date.now()
+        });
+      }
+
+      // Save to Firebase
+      try {
+        if (database) {
+          const shopIndex = shops.findIndex(s => s.id === shopId);
+          if (shopIndex !== -1) {
+            await database.ref(`shops/${shopIndex}/userRatings`).set(shop.userRatings);
+            console.log('✅ Rating saved to Firebase');
+          }
+        } else {
+          localStorage.setItem('tilburg-shops', JSON.stringify(shops));
+        }
+
+        // Refresh the shop detail to show updated rating
+        showShopDetail(shopId);
+        
+        // Track rating event
+        trackEvent('submit_rating', {
+          shop_id: shopId,
+          shop_name: shop.name,
+          rating: rating
+        });
+      } catch (error) {
+        console.error('Error saving rating:', error);
+        alert('Failed to save rating: ' + error.message);
+      }
+    }
+
+    function highlightStars(count) {
+      // Optional: add visual feedback on hover
+    }
+
+    function resetStars() {
+      // Optional: reset hover state
     }
 
     // ============================================================================
