@@ -690,6 +690,22 @@
 
       .instagram-embed-container {
         min-height: 150px;
+        justify-content: center !important;
+        padding: 0;
+      }
+
+      .instagram-embed-wrapper {
+        max-width: 100% !important;
+        width: 100% !important;
+        transform-origin: top center !important;
+      }
+
+      .instagram-embed-wrapper .instagram-media {
+        transform: scale(1.0) !important;
+        transform-origin: top center !important;
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
       }
 
       .instagram-loading {
@@ -763,13 +779,13 @@
 
     .instagram-embed-wrapper {
       width: 100%;
-      max-width: 450px; /* Iets groter dan 378px */
+      max-width: 540px; /* 20% breder dan 450px */
       transform-origin: top right; /* Van rechts schalen */
     }
 
     /* Scale Instagram embed proportionally */
     .instagram-embed-wrapper .instagram-media {
-      transform: scale(0.85); /* Van 0.7 naar 0.85 = groter */
+      transform: scale(1.02); /* 20% breder: van 0.85 naar 1.02 */
       transform-origin: top right; /* Van rechts schalen */
       margin: 0;
     }
