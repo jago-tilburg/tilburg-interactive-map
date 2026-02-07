@@ -528,6 +528,36 @@
       margin-bottom: 1.5rem;
       padding-bottom: 1.5rem;
       border-bottom: 1px solid #e5e5e5;
+      grid-column: 1 / -1; /* Span both columns */
+    }
+
+    .shop-detail-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    .shop-detail-left {
+      min-width: 0; /* Prevent overflow */
+    }
+
+    .shop-detail-right {
+      position: sticky;
+      top: 1rem;
+      min-width: 0; /* Prevent overflow */
+    }
+
+    @media (max-width: 968px) {
+      .shop-detail-columns {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      .shop-detail-right {
+        position: relative;
+        top: 0;
+      }
     }
 
     .shop-name {
@@ -577,15 +607,14 @@
 
     /* Instagram Embed */
     .instagram-embed-container {
-      margin: 1.5rem 0;
+      margin: 0;
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: flex-start;
       min-height: 200px;
     }
 
     .instagram-embed-wrapper {
-      max-width: 540px;
       width: 100%;
     }
 
@@ -594,6 +623,8 @@
       padding: 2rem;
       color: #86868b;
       font-size: 0.875rem;
+      background: #f5f5f7;
+      border-radius: 8px;
     }
 
     .instagram-error {
@@ -2114,75 +2145,86 @@
           </div>
         </div>
 
-        ${shop.photoUrl ? `<img src="${shop.photoUrl}" alt="${shop.name}" class="shop-photo">` : ''}
+        <div class="shop-detail-columns">
+          <div class="shop-detail-left">
+            ${shop.photoUrl ? `<img src="${shop.photoUrl}" alt="${shop.name}" class="shop-photo">` : ''}
 
-        ${shop.instagramUrl ? `
-          <div class="instagram-embed-container" id="instagram-embed-${shop.id}">
-            <div class="instagram-embed-wrapper">
-              <div class="instagram-loading">
-                📷 Instagram post laden...
-              </div>
+            <div class="review-section">
+              <div class="review-label">${appTexts.reviewLabel}</div>
+              <div class="review-text">${shop.review}</div>
             </div>
-          </div>
-        ` : ''}
 
-        <div class="review-section">
-          <div class="review-label">${appTexts.reviewLabel}</div>
-          <div class="review-text">${shop.review}</div>
-        </div>
+            ${userReviews.length > 0 ? `
+              <div class="review-section">
+                <div class="review-label">${appTexts.userReviewsLabel} (${userReviews.length})</div>
+                ${userReviews.map(ur => `
+                  <div class="user-review">
+                    <div class="user-review-header">
+                      <span class="user-review-author">${ur.userName}</span>
+                      <span class="user-review-rating">${ur.rating} ⭐</span>
+                    </div>
+                    <div class="user-review-text">${ur.text}</div>
+                    ${isAdmin ? `<button class="btn-delete" style="margin-top: 0.5rem; width: 100%;" onclick="deleteUserReview(${shop.id}, ${ur.id})">Verwijderen</button>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
 
-        ${userReviews.length > 0 ? `
-          <div class="review-section">
-            <div class="review-label">${appTexts.userReviewsLabel} (${userReviews.length})</div>
-            ${userReviews.map(ur => `
-              <div class="user-review">
-                <div class="user-review-header">
-                  <span class="user-review-author">${ur.userName}</span>
-                  <span class="user-review-rating">${ur.rating} ⭐</span>
+            <button class="btn-save" style="width: 100%; margin: 0.75rem 0;" onclick="showUserReviewModal()">
+              ✍️ ${appTexts.addReviewButton}
+            </button>
+
+            <div class="interaction-bar">
+              <button class="interaction-btn ${hasLiked ? 'liked' : ''}" onclick="toggleLike(${shop.id})">
+                👍 ${(shop.likes || []).length}
+              </button>
+              <button class="interaction-btn">
+                💬 ${comments.length}
+              </button>
+            </div>
+
+            ${isAdmin ? `
+              <div class="admin-actions">
+                <button class="btn-edit" onclick="editShop(${shop.id})">✏️ Bewerken</button>
+                <button class="btn-delete" onclick="deleteShop(${shop.id})">🗑️ Verwijderen</button>
+              </div>
+            ` : ''}
+
+            <div style="margin-top: 1.5rem;">
+              <div class="review-label">Comments (${comments.length})</div>
+              ${comments.map(c => `
+                <div class="comment">
+                  <div class="comment-header">
+                    <span class="comment-author">${c.userName}</span>
+                    <span class="comment-date">${new Date(c.createdAt).toLocaleDateString()}</span>
+                    ${isAdmin ? `<button onclick="deleteComment(${shop.id}, ${c.id})" style="background: #ef4444; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: auto;">🗑️ Verwijder</button>` : ''}
+                  </div>
+                  <div class="comment-text">${c.text}</div>
                 </div>
-                <div class="user-review-text">${ur.text}</div>
-                ${isAdmin ? `<button class="btn-delete" style="margin-top: 0.5rem; width: 100%;" onclick="deleteUserReview(${shop.id}, ${ur.id})">Verwijderen</button>` : ''}
+              `).join('')}
+              
+              <div class="comment-form">
+                <textarea id="commentInput" placeholder="Voeg een reactie toe..." rows="3"></textarea>
+                <button onclick="addComment()">Versturen</button>
               </div>
-            `).join('')}
-          </div>
-        ` : ''}
-
-        <button class="btn-save" style="width: 100%; margin: 0.75rem 0;" onclick="showUserReviewModal()">
-          ✍️ ${appTexts.addReviewButton}
-        </button>
-
-        <div class="interaction-bar">
-          <button class="interaction-btn ${hasLiked ? 'liked' : ''}" onclick="toggleLike(${shop.id})">
-            👍 ${(shop.likes || []).length}
-          </button>
-          <button class="interaction-btn">
-            💬 ${comments.length}
-          </button>
-        </div>
-
-        ${isAdmin ? `
-          <div class="admin-actions">
-            <button class="btn-edit" onclick="editShop(${shop.id})">✏️ Bewerken</button>
-            <button class="btn-delete" onclick="deleteShop(${shop.id})">🗑️ Verwijderen</button>
-          </div>
-        ` : ''}
-
-        <div style="margin-top: 1.5rem;">
-          <div class="review-label">Comments (${comments.length})</div>
-          ${comments.map(c => `
-            <div class="comment">
-              <div class="comment-header">
-                <span class="comment-author">${c.userName}</span>
-                <span class="comment-date">${new Date(c.createdAt).toLocaleDateString()}</span>
-                ${isAdmin ? `<button onclick="deleteComment(${shop.id}, ${c.id})" style="background: #ef4444; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: auto;">🗑️ Verwijder</button>` : ''}
-              </div>
-              <div class="comment-text">${c.text}</div>
             </div>
-          `).join('')}
-          
-          <div class="comment-form">
-            <textarea id="commentInput" placeholder="Voeg een reactie toe..." rows="3"></textarea>
-            <button onclick="addComment()">Versturen</button>
+          </div>
+
+          <div class="shop-detail-right">
+            ${shop.instagramUrl ? `
+              <div class="instagram-embed-container" id="instagram-embed-${shop.id}">
+                <div class="instagram-embed-wrapper">
+                  <div class="instagram-loading">
+                    📷 Instagram post laden...
+                  </div>
+                </div>
+              </div>
+            ` : `
+              <div style="background: #f5f5f7; border-radius: 12px; padding: 2rem; text-align: center; color: #86868b; font-size: 0.875rem;">
+                <div style="font-size: 3rem; margin-bottom: 0.5rem;">📷</div>
+                <div>Geen Instagram post beschikbaar</div>
+              </div>
+            `}
           </div>
         </div>
       `;
