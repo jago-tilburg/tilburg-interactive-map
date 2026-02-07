@@ -1135,7 +1135,7 @@
 
     .admin-table-header {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1.5fr;
+      grid-template-columns: 2fr 1fr 1fr 0.8fr 1.5fr;
       gap: 1rem;
       background: #f5f5f7;
       padding: 1rem 1.5rem;
@@ -1145,7 +1145,7 @@
 
     .admin-table-row {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1.5fr;
+      grid-template-columns: 2fr 1fr 1fr 0.8fr 1.5fr;
       gap: 1rem;
       padding: 1rem 1.5rem;
       border-top: 1px solid #e5e5e5;
@@ -2441,7 +2441,6 @@
             <span class="badge badge-rating">${shop.rating} ⭐</span>
             <span class="badge badge-price">${shop.price}</span>
             ${avgRating ? `<span class="badge" style="background: #3b82f6; color: white;">👥 ${avgRating} ⭐ (${userRatings.length})</span>` : ''}
-            <span class="badge" style="background: #e5e5e5; color: #666;">👁️ ${viewCount} views</span>
             ${getSocialLinksHTML(shop)}
           </div>
         </div>
@@ -3188,7 +3187,7 @@
       document.getElementById('adminPanelModal').classList.remove('active');
     }
 
-    function renderAdminPanel() {
+    async function renderAdminPanel() {
       const content = document.getElementById('adminPanelContent');
       
       // Count user reviews
@@ -3236,15 +3235,20 @@
               <div>Naam</div>
               <div>Beoordeling</div>
               <div>Prijs</div>
+              <div>👁️ Views</div>
               <div>Actions</div>
             </div>
         `;
-        shops.forEach(shop => {
+        
+        // Render shops with view counts
+        for (const shop of shops) {
+          const viewCount = await getShopViews(shop.id);
           html += `
             <div class="admin-table-row">
               <div><strong>${shop.name}</strong><br><small style="color: #86868b;">${shop.address}</small></div>
               <div>${shop.rating} ⭐</div>
               <div>${shop.price}</div>
+              <div style="color: #666;">${viewCount}</div>
               <div>
                 <button class="btn-small btn-edit" onclick="editShop(${shop.id})" style="background: white; color: #22c55e; border-color: #22c55e;">Bewerken</button>
                 <button class="btn-small btn-delete" onclick="deleteShop(${shop.id})" style="background: white; color: #dc2626; border-color: #dc2626;">Verwijderen</button>
