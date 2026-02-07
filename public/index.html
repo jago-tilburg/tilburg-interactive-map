@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>2 happies bij - Tilburg Food Map</title>
   
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAAgACADASIAAhEBAxEB/8QAGAABAQEBAQAAAAAAAAAAAAAABwgJBAb/xAAsEAACAwIFAwMDBQAAAAAAAAABAgMEBREABgchUQgSYTJRcRMkQUKBkaHB/8QAGAEAAwEBAAAAAAAAAAAAAAAAAgMEBQb/xAAqEQABAQYFAgcBAAAAAAAAAAABAwACBAURITFBUXGxgZEGEiJCYeHwcv/aAAwDAQACEQMRAD8AjeHGkTJTcWIw7IkOqCW2mkFS1qPAAG5OKJ0q6W61XYaajnKa5RWXE3mishKn/lRNwn43824wr9NOn+nlJy7RMxR4Ydr8iC28uVIcKrKcQCoIHpTyRsL22JO+HrHHRs/fWJchjQCxOf1z026lLQkAVhUnt98btCesHThmnJ6XKjl8uV+lJF1fTR9w0PKR6h5Tv4/OA1QKVFKgQQbEH8Y1dUAoEKAIPIOJ+6mtJ8i1TLtVzKy2mmV2LFdk98YAB8oQVWcTwb2tfnjewthkFP3kyHIm4wrn116diwrS0KVKNjp+w/YNydPeZcq5kyrCpjFVZjToFPZaXHWsNuNrQgJUoA+pJte49/wcK8KvyKW4liRIZmsf pW24CQP8xm5DlSYUpuVDkOx5DSu5t1pZSpJ9wRuMOGmmvLkNTMTOUUy0t27JrLYKtuPqI2Cvkfwc QTTw0qmo9EQ7xPwKV7WrzuzYOanyhF4ClfcTS+hvTjZqvrmapr47KSysi1ikLQlR/dagP7wOaw1N2nZUqzuaapToyJsB9mLBbeDrjrikEJ7iOTcjZOw5Jx4LUvX9Cy2xkiO0lSgS/KfjdoHsEIvz5It4wEVyr1OuVFyoVac/MlOepx1Vz8D2HgbDAymQRKigXiLD5Hq6DB3e5auMm6SaDyCQFTmNP6ONc6Ab//Z">
+  
   <!-- Google Analytics 4 -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-V0S98HPQ52"></script>
   <script>
@@ -23,6 +26,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  
+  <!-- Instagram Embed Script -->
+  <script async src="//www.instagram.com/embed.js"></script>
   
   <style>
     * {
@@ -567,6 +573,37 @@
       object-fit: cover;
       border-radius: 12px;
       margin: 0.75rem 0;
+    }
+
+    /* Instagram Embed */
+    .instagram-embed-container {
+      margin: 1.5rem 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 200px;
+    }
+
+    .instagram-embed-wrapper {
+      max-width: 540px;
+      width: 100%;
+    }
+
+    .instagram-loading {
+      text-align: center;
+      padding: 2rem;
+      color: #86868b;
+      font-size: 0.875rem;
+    }
+
+    .instagram-error {
+      background: #fee;
+      border: 1px solid #fcc;
+      border-radius: 8px;
+      padding: 1rem;
+      color: #c33;
+      font-size: 0.875rem;
+      text-align: center;
     }
 
     .review-section {
@@ -2079,6 +2116,16 @@
 
         ${shop.photoUrl ? `<img src="${shop.photoUrl}" alt="${shop.name}" class="shop-photo">` : ''}
 
+        ${shop.instagramUrl ? `
+          <div class="instagram-embed-container" id="instagram-embed-${shop.id}">
+            <div class="instagram-embed-wrapper">
+              <div class="instagram-loading">
+                📷 Instagram post laden...
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
         <div class="review-section">
           <div class="review-label">${appTexts.reviewLabel}</div>
           <div class="review-text">${shop.review}</div>
@@ -2142,7 +2189,83 @@
 
       document.getElementById('shopDetailContent').innerHTML = html;
       document.getElementById('shopDetailModal').classList.add('active');
+      
+      // Load Instagram embed if URL exists
+      if (shop.instagramUrl) {
+        loadInstagramEmbed(shop.id, shop.instagramUrl);
+      }
     }
+
+    // ============================================================================
+    // INSTAGRAM EMBED FUNCTIONS
+    // ============================================================================
+
+    function loadInstagramEmbed(shopId, instagramUrl) {
+      const container = document.getElementById(`instagram-embed-${shopId}`);
+      if (!container) return;
+
+      // Validate Instagram URL
+      const embedUrl = getInstagramEmbedUrl(instagramUrl);
+      
+      if (!embedUrl) {
+        container.innerHTML = `
+          <div class="instagram-error">
+            ⚠️ Ongeldige Instagram URL. Zorg dat de URL begint met instagram.com/p/ of instagram.com/reel/
+          </div>
+        `;
+        return;
+      }
+
+      // Create blockquote for Instagram embed
+      const wrapper = container.querySelector('.instagram-embed-wrapper');
+      wrapper.innerHTML = `
+        <blockquote class="instagram-media" data-instgrm-permalink="${embedUrl}" data-instgrm-version="14" style="background:#FFF; border:0; border-radius:3px; box-shadow:0 0 1px 0 rgba(0,0,0,0.5),0 1px 10px 0 rgba(0,0,0,0.15); margin: 1px; max-width:540px; min-width:326px; padding:0; width:99.375%; width:-webkit-calc(100% - 2px); width:calc(100% - 2px);">
+          <div style="padding:16px;">
+            <a href="${embedUrl}" style="background:#FFFFFF; line-height:0; padding:0 0; text-align:center; text-decoration:none; width:100%;" target="_blank">
+              Loading Instagram post...
+            </a>
+          </div>
+        </blockquote>
+      `;
+
+      // Process Instagram embeds
+      if (window.instgrm) {
+        window.instgrm.Embeds.process();
+      }
+    }
+
+    function getInstagramEmbedUrl(url) {
+      if (!url) return null;
+
+      // Clean URL
+      url = url.trim();
+
+      // Match Instagram post or reel URL patterns
+      const patterns = [
+        /(?:https?:\/\/)?(?:www\.)?instagram\.com\/p\/([A-Za-z0-9_-]+)/,
+        /(?:https?:\/\/)?(?:www\.)?instagram\.com\/reel\/([A-Za-z0-9_-]+)/,
+        /(?:https?:\/\/)?(?:www\.)?instagram\.com\/tv\/([A-Za-z0-9_-]+)/
+      ];
+
+      for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) {
+          const code = match[1];
+          // Return clean Instagram URL
+          if (url.includes('/reel/')) {
+            return `https://www.instagram.com/reel/${code}/`;
+          } else if (url.includes('/tv/')) {
+            return `https://www.instagram.com/tv/${code}/`;
+          } else {
+            return `https://www.instagram.com/p/${code}/`;
+          }
+        }
+      }
+
+      return null;
+    }
+
+    // ============================================================================
 
     function hideShopDetailModal() {
       document.getElementById('shopDetailModal').classList.remove('active');
