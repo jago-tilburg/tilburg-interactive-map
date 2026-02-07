@@ -1552,7 +1552,7 @@
 
     <!-- Shop Detail Modal -->
     <div class="modal-overlay" id="shopDetailModal">
-      <div class="modal" style="max-width: 1100px;" onclick="event.stopPropagation()">
+      <div class="modal" style="max-width: 900px;" onclick="event.stopPropagation()">
         <button onclick="hideShopDetailModal()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 2rem; color: #86868b; cursor: pointer; z-index: 10;">×</button>
         <div id="shopDetailContent"></div>
       </div>
@@ -3190,16 +3190,10 @@
     async function renderAdminPanel() {
       const content = document.getElementById('adminPanelContent');
       
-      // Count user reviews
-      let totalUserReviews = 0;
+      // Count user ratings
+      let totalUserRatings = 0;
       shops.forEach(shop => {
-        if (shop.userReviews) totalUserReviews += shop.userReviews.length;
-      });
-
-      // Count comments
-      let totalComments = 0;
-      shops.forEach(shop => {
-        if (shop.comments) totalComments += shop.comments.length;
+        if (shop.userRatings) totalUserRatings += shop.userRatings.length;
       });
 
       let html = `
@@ -3207,14 +3201,11 @@
           <button class="${currentAdminView === 'reviews' ? 'active' : ''}" onclick="switchAdminView('reviews')">
             Reviews (${shops.length})
           </button>
-          <button class="${currentAdminView === 'userReviews' ? 'active' : ''}" onclick="switchAdminView('userReviews')">
-            Gebruikersreviews (${totalUserReviews})
+          <button class="${currentAdminView === 'userRatings' ? 'active' : ''}" onclick="switchAdminView('userRatings')">
+            ⭐ User Ratings (${totalUserRatings})
           </button>
           <button class="${currentAdminView === 'requests' ? 'active' : ''}" onclick="switchAdminView('requests')">
             🥪 Aanvragen (${requests.length})
-          </button>
-          <button class="${currentAdminView === 'comments' ? 'active' : ''}" onclick="switchAdminView('comments')">
-            💬 Comments (${totalComments})
           </button>
           <button class="${currentAdminView === 'events' ? 'active' : ''}" onclick="switchAdminView('events')">
             Evenementen (${events.filter(e => new Date(e.dateTime) >= new Date()).length})
@@ -3257,31 +3248,46 @@
           `;
         }
         html += `</div>`;
-      } else if (currentAdminView === 'userReviews') {
+      } else if (currentAdminView === 'userRatings') {
         html += `<div class="admin-table">
           <div class="admin-table-header" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
-            <div>Review</div>
-            <div>Author</div>
+            <div>Shop</div>
+            <div>User ID</div>
             <div>Rating</div>
-            <div>Actions</div>
+            <div>Datum</div>
           </div>
         `;
+        
+        let hasRatings = false;
         shops.forEach(shop => {
-          if (shop.userReviews && shop.userReviews.length > 0) {
-            shop.userReviews.forEach(ur => {
+          if (shop.userRatings && shop.userRatings.length > 0) {
+            hasRatings = true;
+            shop.userRatings.forEach(rating => {
+              const date = new Date(rating.createdAt);
+              const formattedDate = date.toLocaleDateString('nl-NL', { 
+                day: 'numeric', 
+                month: 'short'
+              });
               html += `
                 <div class="admin-table-row" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
-                  <div><strong>${shop.name}</strong><br><small style="color: #86868b;">${ur.text.substring(0, 50)}...</small></div>
-                  <div>${ur.userName}</div>
-                  <div>${ur.rating} ⭐</div>
-                  <div>
-                    <button class="btn-small btn-delete" onclick="deleteUserReview(${shop.id}, ${ur.id}); renderAdminPanel();" style="background: white; color: #dc2626; border-color: #dc2626;">Verwijderen</button>
-                  </div>
+                  <div><strong>${shop.name}</strong></div>
+                  <div style="font-family: monospace; font-size: 0.75rem;">${rating.userId.substring(0, 8)}...</div>
+                  <div>${rating.rating} ⭐</div>
+                  <div style="color: #86868b; font-size: 0.875rem;">${formattedDate}</div>
                 </div>
               `;
             });
           }
         });
+        
+        if (!hasRatings) {
+          html += `
+            <div style="padding: 2rem; text-align: center; color: #86868b;">
+              Nog geen ratings van gebruikers ⭐
+            </div>
+          `;
+        }
+        
         html += `</div>`;
       } else if (currentAdminView === 'requests') {
         html += `<div class="admin-table">
@@ -3330,57 +3336,6 @@
           });
         }
         
-        html += `</div>`;
-      } else if (currentAdminView === 'comments') {
-        html += `<div class="admin-table">
-          <div class="admin-table-header" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
-            <div>Comment</div>
-            <div>Shop</div>
-            <div>Author</div>
-            <div>Actions</div>
-          </div>
-        `;
-        
-        // Collect all comments from all shops
-        let allComments = [];
-        shops.forEach(shop => {
-          if (shop.comments && shop.comments.length > 0) {
-            shop.comments.forEach(comment => {
-              allComments.push({
-                ...comment,
-                shopId: shop.id,
-                shopName: shop.name
-              });
-            });
-          }
-        });
-        
-        // Sort by date (newest first)
-        allComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        
-        if (allComments.length === 0) {
-          html += `
-            <div style="padding: 2rem; text-align: center; color: #86868b;">
-              Nog geen comments
-            </div>
-          `;
-        } else {
-          allComments.forEach(comment => {
-            html += `
-              <div class="admin-table-row" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
-                <div>
-                  <small style="color: #86868b;">${new Date(comment.createdAt).toLocaleDateString()}</small><br>
-                  ${comment.text.substring(0, 60)}${comment.text.length > 60 ? '...' : ''}
-                </div>
-                <div><strong>${comment.shopName}</strong></div>
-                <div>${comment.userName}</div>
-                <div>
-                  <button class="btn-small btn-delete" onclick="deleteComment(${comment.shopId}, ${comment.id}); renderAdminPanel();" style="background: white; color: #dc2626; border-color: #dc2626;">🗑️ Verwijder</button>
-                </div>
-              </div>
-            `;
-          });
-        }
         html += `</div>`;
       } else if (currentAdminView === 'events') {
         const futureEvenementen = events.filter(e => new Date(e.dateTime) >= new Date());
