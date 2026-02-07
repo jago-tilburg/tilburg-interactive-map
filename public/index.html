@@ -1505,7 +1505,6 @@
       menuRequestReview: "📝 Vraag een Review Aan",
       menuAdminPanel: "⚙️ Beheerpaneel",
       menuAdminInloggen: "🔐 Admin Inloggen",
-      menuLogout: "🚪 Logout"
     };
 
     // Firebase Configuration
@@ -1582,14 +1581,6 @@
           }
         } else {
           requests = [];
-        }
-      });
-
-      database.ref('appTexts').on('value', (snapshot) => {
-        if (snapshot.exists()) {
-          const savedTexts = snapshot.val();
-          appTexts = { ...appTexts, ...savedTexts };
-          updateAllTexts();
         }
       });
     } catch (error) {
@@ -1797,9 +1788,6 @@
         fullscreenControl: true,
         styles: customMapStyle
       });
-
-      // Set initial title
-      document.getElementById('appTitle').textContent = appTexts.appTitle;
 
       loadShops();
       loadEvenementen();
@@ -2713,9 +2701,6 @@
           <button class="${currentAdminView === 'events' ? 'active' : ''}" onclick="switchAdminView('events')">
             Evenementen (${events.filter(e => new Date(e.dateTime) >= new Date()).length})
           </button>
-          <button class="${currentAdminView === 'settings' ? 'active' : ''}" onclick="switchAdminView('settings')">
-            ⚙️ Instellingen
-          </button>
         </div>
       `;
 
@@ -2900,186 +2885,6 @@
           `;
         });
         html += `</div>`;
-      } else if (currentAdminView === 'settings') {
-        html += `
-          <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem;">
-            <h3 style="margin: 0 0 0.5rem 0; color: white;">📝 Text & Label Instellingen</h3>
-            <p style="margin: 0; opacity: 0.95; line-height: 1.6;">
-              <strong>Wat kun je hier doen?</strong><br>
-              Pas alle teksten in de app aan naar jouw wens. Denk aan knoppen, labels, menu items, etc.<br>
-              <strong>Hoe werkt het?</strong><br>
-              1️⃣ Wijzig de tekst in de velden hieronder<br>
-              2️⃣ Klik op "💾 Opslaan All Instellingen"<br>
-              3️⃣ Alle gebruikers zien de nieuwe teksten direct (via Firebase sync)
-            </p>
-          </div>
-
-          <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 0.75rem; border-radius: 8px; margin-bottom: 1.5rem;">
-            <strong style="color: #856404;">⚠️ LET OP:</strong><br>
-            Als je een "Permission Denied" error krijgt, moet je eerst je Firebase rules updaten.<br>
-            <a href="https://console.firebase.google.com/project/tilburg-interactive-map/database/tilburg-interactive-map-default-rtdb/rules" target="_blank" style="color: #0066cc; text-decoration: underline;">
-              → Klik hier om Firebase Rules te openen
-            </a><br>
-            Voeg toe: <code style="background: white; padding: 2px 6px; border-radius: 4px;">"appTexts": {".read": true, ".write": true}</code>
-          </div>
-          
-          <div style="display: grid; gap: 1rem; max-height: 50vh; overflow-y: auto; padding: 0.5rem; background: #f9fafb; border-radius: 8px;">
-            <div style="background: white; padding: 0.75rem; border-radius: 8px; border: 1px solid #e5e7eb;">
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">📱 App Title (Header)</label>
-              <input type="text" id="text-appTitle" value="\${appTexts.appTitle}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit; font-size: 0.9375rem;">
-              <small style="color: #86868b; display: block; margin-top: 0.5rem;">
-                📍 Wordt getoond: Bovenaan in de groene header<br>
-                💡 Voorbeeld: "2 happies bij" of "De Beste Broodjes"
-              </small>
-            </div>
-            
-            <div style="background: white; padding: 0.75rem; border-radius: 8px; border: 1px solid #e5e7eb;">
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">👨‍💼 Review Label (Admin Review)</label>
-              <input type="text" id="text-reviewLabel" value="\${appTexts.reviewLabel}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit; font-size: 0.9375rem;">
-              <small style="color: #86868b; display: block; margin-top: 0.5rem;">
-                📍 Wordt getoond: Boven jouw review in shop modals<br>
-                💡 Voorbeeld: "Review van Bastiaan" of "Bastiaan's Mening"
-              </small>
-            </div>
-            
-            <div style="background: white; padding: 0.75rem; border-radius: 8px; border: 1px solid #e5e7eb;">
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">👥 Gebruikersreviews Label</label>
-              <input type="text" id="text-userReviewsLabel" value="\${appTexts.userReviewsLabel}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit; font-size: 0.9375rem;">
-              <small style="color: #86868b; display: block; margin-top: 0.5rem;">
-                📍 Wordt getoond: Boven user reviews sectie<br>
-                💡 Voorbeeld: "Reviews van Bezoekers" of "Wat anderen zeggen"
-              </small>
-            </div>
-            
-            <div style="background: white; padding: 0.75rem; border-radius: 8px; border: 1px solid #e5e7eb;">
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">✍️ Add Review Button</label>
-              <input type="text" id="text-addReviewButton" value="\${appTexts.addReviewButton}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit; font-size: 0.9375rem;">
-              <small style="color: #86868b; display: block; margin-top: 0.5rem;">
-                📍 Wordt getoond: Oranje knop in shop modals<br>
-                💡 Voorbeeld: "Voeg Je Review Toe" of "Deel je mening"
-              </small>
-            </div>
-            
-            <div style="background: white; padding: 0.75rem; border-radius: 8px; border: 1px solid #e5e7eb;">
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">🧭 Navigate Button</label>
-              <input type="text" id="text-navigateButton" value="\${appTexts.navigateButton}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit; font-size: 0.9375rem;">
-              <small style="color: #86868b; display: block; margin-top: 0.5rem;">
-                📍 Wordt getoond: Blauwe knop naast adres<br>
-                💡 Voorbeeld: "Navigate" of "Navigeer" of "Route"
-              </small>
-            </div>
-            
-            <div style="background: white; padding: 0.75rem; border-radius: 8px; border: 1px solid #e5e7eb;">
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">💬 Comments Label</label>
-              <input type="text" id="text-commentsLabel" value="\${appTexts.commentsLabel}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit; font-size: 0.9375rem;">
-              <small style="color: #86868b; display: block; margin-top: 0.5rem;">
-                📍 Wordt getoond: Boven comments sectie<br>
-                💡 Voorbeeld: "Comments" of "Reacties" of "Opmerkingen"
-              </small>
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">📱 Social Media Label</label>
-              <input type="text" id="text-seeReviewHere" value="\${appTexts.seeReviewHere}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-              <small style="color: #86868b;">Example: "See my review here:"</small>
-            </div>
-            
-            <div style="border-top: 2px solid #f5f5f7; padding-top: 1rem; margin-top: 1rem;">
-              <h4 style="margin-bottom: 0.75rem; color: #1d1d1f;">🍔 Menu Texts</h4>
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">📝 Request Review Menu Item</label>
-              <input type="text" id="text-requestReview" value="\${appTexts.requestReview}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-              <small style="color: #86868b;">Example: "Vraag een Review Aan"</small>
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">🔐 Admin Inloggen Menu Item</label>
-              <input type="text" id="text-adminInloggen" value="\${appTexts.adminInloggen}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-              <small style="color: #86868b;">Example: "Admin Inloggen"</small>
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">⚙️ Beheerpaneel Menu Item</label>
-              <input type="text" id="text-adminPanel" value="\${appTexts.adminPanel}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-              <small style="color: #86868b;">Example: "Beheerpaneel"</small>
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">🚪 Logout Menu Item</label>
-              <input type="text" id="text-logout" value="\${appTexts.logout}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-              <small style="color: #86868b;">Example: "Logout"</small>
-            </div>
-            
-            <div style="border-top: 2px solid #f5f5f7; padding-top: 1rem; margin-top: 1rem;">
-              <h4 style="margin-bottom: 0.75rem; color: #1d1d1f;">⚙️ Beheerpaneel Texts</h4>
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Panel Title</label>
-              <input type="text" id="text-adminPanelTitle" value="\${appTexts.adminPanelTitle}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Reviews Tab</label>
-              <input type="text" id="text-reviewsTab" value="\${appTexts.reviewsTab}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Gebruikersreviews Tab</label>
-              <input type="text" id="text-userReviewsTab" value="\${appTexts.userReviewsTab}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Evenementen Tab</label>
-              <input type="text" id="text-eventsTab" value="\${appTexts.eventsTab}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Instellingen Tab</label>
-              <input type="text" id="text-settingsTab" value="\${appTexts.settingsTab}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Add New Review Button</label>
-              <input type="text" id="text-addNewReview" value="\${appTexts.addNewReview}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Nieuw Evenement Toevoegen Button</label>
-              <input type="text" id="text-addNewEvent" value="\${appTexts.addNewEvent}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-            </div>
-            
-            <div style="border-top: 2px solid #f5f5f7; padding-top: 1rem; margin-top: 1rem;">
-              <h4 style="margin-bottom: 0.75rem; color: #1d1d1f;">➕ Long Press Modal</h4>
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Modal Title</label>
-              <input type="text" id="text-whatToAdd" value="\${appTexts.whatToAdd}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-              <small style="color: #86868b;">Example: "Wat wil je toevoegen?"</small>
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Add Review Option</label>
-              <input type="text" id="text-addReviewOption" value="\${appTexts.addReviewOption}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-            </div>
-            
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1d1d1f;">Add Event Option</label>
-              <input type="text" id="text-addEventOption" value="\${appTexts.addEventOption}" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
-            </div>
-          </div>
-          
-          <button class="btn-save" style="width: 100%; margin-top: 1.5rem;" onclick="saveAppTexts()">
-            💾 Opslaan All Instellingen
-          </button>
-          
-          <button class="btn-cancel" style="width: 100%; margin-top: 0.5rem;" onclick="resetToDefaults()">
-            🔄 Reset to Defaults
-          </button>
-        `;
       }
 
       content.innerHTML = html;
@@ -3565,129 +3370,6 @@
 
     
     // ============================================================================
-    // TEXT CONFIGURATION MANAGEMENT
-    // ============================================================================
-
-    async function saveAppTexts() {
-      // Get all values from inputs
-      const newTexts = {
-        appTitle: document.getElementById('text-appTitle').value.trim(),
-        reviewLabel: document.getElementById('text-reviewLabel').value.trim(),
-        userReviewsLabel: document.getElementById('text-userReviewsLabel').value.trim(),
-        addReviewButton: document.getElementById('text-addReviewButton').value.trim(),
-        navigateButton: document.getElementById('text-navigateButton').value.trim(),
-        commentsLabel: document.getElementById('text-commentsLabel').value.trim(),
-        seeReviewHere: document.getElementById('text-seeReviewHere').value.trim(),
-        adminPanelTitle: document.getElementById('text-adminPanelTitle').value.trim(),
-        reviewsTab: document.getElementById('text-reviewsTab').value.trim(),
-        userReviewsTab: document.getElementById('text-userReviewsTab').value.trim(),
-        eventsTab: document.getElementById('text-eventsTab').value.trim(),
-        settingsTab: document.getElementById('text-settingsTab').value.trim(),
-        addNewReview: document.getElementById('text-addNewReview').value.trim(),
-        addNewEvent: document.getElementById('text-addNewEvent').value.trim(),
-        menuTitle: appTexts.menuTitle,
-        requestReview: document.getElementById('text-requestReview').value.trim(),
-        adminInloggen: document.getElementById('text-adminInloggen').value.trim(),
-        adminPanel: document.getElementById('text-adminPanel').value.trim(),
-        logout: document.getElementById('text-logout').value.trim(),
-        whatToAdd: document.getElementById('text-whatToAdd').value.trim(),
-        addReviewOption: document.getElementById('text-addReviewOption').value.trim(),
-        addEventOption: document.getElementById('text-addEventOption').value.trim()
-      };
-
-      // Update global
-      appTexts = { ...appTexts, ...newTexts };
-
-      // Opslaan to Firebase
-      try {
-        if (database) {
-          await database.ref('appTexts').set(appTexts);
-          alert('✅ Instellingen saved! All users will see the updated text immediately.');
-          updateAllTexts();
-        } else {
-          localStorage.setItem('tilburg-app-texts', JSON.stringify(appTexts));
-          alert('✅ Instellingen saved locally!');
-          updateAllTexts();
-        }
-      } catch (error) {
-        console.error('Failed to save texts:', error);
-        alert('❌ Failed to save settings: ' + error.message);
-      }
-    }
-
-    function updateAllTexts() {
-      // Update header title
-      const headerTitle = document.querySelector('.header h1');
-      if (headerTitle) {
-        headerTitle.textContent = appTexts.appTitle;
-      }
-
-      // Update sync status (if needed)
-      updateSyncStatus();
-
-      // If shop detail is open, refresh it
-      if (selectedShop) {
-        showShopDetail(selectedShop.id);
-      }
-
-      // Refresh admin panel if open
-      if (isAdmin && document.getElementById('adminPanelModal').classList.contains('active')) {
-        renderAdminPanel();
-      }
-
-      console.log('✅ All texts updated globally');
-    }
-
-    async function resetToDefaults() {
-      if (!confirm('⚠️ Reset all text to default values? This cannot be undone.')) {
-        return;
-      }
-
-      const defaults = {
-        appTitle: "2 happies bij",
-        reviewLabel: "Review van Bastiaan",
-        userReviewsLabel: "Reviews van Bezoekers",
-        addReviewButton: "Voeg Je Review Toe",
-        navigateButton: "Navigate",
-        commentsLabel: "Comments",
-        seeReviewHere: "See my review here:",
-        adminPanelTitle: "Beheerpaneel",
-        reviewsTab: "Reviews",
-        userReviewsTab: "Gebruikersreviews",
-        eventsTab: "Evenementen",
-        settingsTab: "Instellingen",
-        addNewReview: "Add New Review",
-        addNewEvent: "Nieuw Evenement Toevoegen",
-        menuTitle: "Menu",
-        requestReview: "Vraag een Review Aan",
-        adminInloggen: "Admin Inloggen",
-        adminPanel: "Beheerpaneel",
-        logout: "Logout",
-        whatToAdd: "Wat wil je toevoegen?",
-        addReviewOption: "Add Review",
-        addEventOption: "Evenement Toevoegen"
-      };
-
-      appTexts = defaults;
-
-      try {
-        if (database) {
-          await database.ref('appTexts').set(appTexts);
-          alert('✅ Reset to defaults! All users will see the original text.');
-        } else {
-          localStorage.setItem('tilburg-app-texts', JSON.stringify(appTexts));
-          alert('✅ Reset to defaults locally!');
-        }
-        updateAllTexts();
-        renderAdminPanel(); // Refresh form
-      } catch (error) {
-        console.error('Failed to reset:', error);
-        alert('❌ Failed to reset: ' + error.message);
-      }
-    }
-
-    // ============================================================================
-
     // ============================================================================
     // COOKIE BANNER FUNCTIONS
     // ============================================================================
