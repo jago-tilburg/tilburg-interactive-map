@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>2 happies bij - Tilburg Food Map</title>
   
   <!-- Google Analytics 4 -->
@@ -72,7 +72,7 @@
       background: rgba(255, 255, 255, 0.15);
       border: 1px solid rgba(255, 255, 255, 0.3);
       border-radius: 8px;
-      padding: 0.5rem 1rem;
+      padding: 0 1rem;
       cursor: pointer;
       color: white;
       font-size: 0.875rem;
@@ -80,6 +80,10 @@
       font-family: inherit;
       transition: all 0.2s;
       white-space: nowrap;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .request-btn:hover {
@@ -91,7 +95,7 @@
       background: rgba(255, 255, 255, 0.15);
       border: 1px solid rgba(255, 255, 255, 0.3);
       border-radius: 8px;
-      padding: 0.5rem;
+      padding: 0;
       cursor: pointer;
       display: flex;
       justify-content: center;
@@ -101,6 +105,7 @@
       font-size: 1.5rem;
       line-height: 1;
       transition: all 0.2s;
+      flex-shrink: 0;
     }
 
     .menu-btn:hover {
@@ -1027,9 +1032,10 @@
 
       .request-btn {
         font-size: 0.6875rem;
-        padding: 0.375rem 0.5rem;
+        padding: 0 0.5rem;
         border-radius: 6px;
         white-space: nowrap;
+        height: 36px;
       }
 
       .menu-btn {
@@ -1065,7 +1071,7 @@
       <h1 id="appTitle">2 happies bij</h1>
       <div style="display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0;">
         <button class="request-btn" onclick="showRequestModal()">
-          📝 Vraag hier je favo broodjeszaak aan
+          📝 Vraag een review aan
         </button>
         <button class="menu-btn" onclick="toggleMenu()">
           🥪
@@ -1125,7 +1131,7 @@
       <div class="modal" style="max-width: 650px;" onclick="event.stopPropagation()">
         <button onclick="hidePrivacyModal()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 2rem; color: #86868b; cursor: pointer; z-index: 10;">×</button>
         <div style="padding: 1rem;">
-          <h2 style="margin-bottom: 1rem; color: #22c55e;">📜 Privacy bij Broodjes Reten 🥪</h2>
+          <h2 style="margin-bottom: 1rem; color: #22c55e;">📜 Privacy bij Broodjes raten 🥪</h2>
           
           <p style="margin-bottom: 1rem; line-height: 1.6;">
             Hé broodjesliefhebber! Hartstikke mooi dat je op mijn kaart kijkt om de beste lunchplekken van Tilburg te ontdekken. 
@@ -1139,7 +1145,7 @@
           <h3 style="margin-bottom: 0.75rem; color: #1d1d1f; font-size: 1.125rem;">1. Wat ik verzamel (en wat niet)</h3>
           <ul style="margin-bottom: 1.5rem; padding-left: 1.5rem; line-height: 1.8;">
             <li><strong>Geen accounts:</strong> Je hoeft niet in te loggen om de ratings te zien. Ik weet dus niet wie je bent.</li>
-            <li><strong>Geen handel:</strong> Ik verkoop je gegevens niet door. Ik ben hier om broodjes te 'reten', niet om data te dealen.</li>
+            <li><strong>Geen handel:</strong> Ik verkoop je gegevens niet door. Ik ben hier om broodjes te 'raten', niet om data te dealen.</li>
             <li><strong>Statistieken:</strong> Ik gebruik Google Analytics om te zien:
               <ul style="padding-left: 1.5rem; margin-top: 0.5rem;">
                 <li>Hoeveel mensen de site bezoeken</li>
@@ -1378,7 +1384,7 @@
       <div class="cookie-banner-content">
         <span style="font-size: 1.5rem;">🍪</span>
         <div class="cookie-banner-text">
-          We gebruiken cookies voor analytics om de site te verbeteren. Door verder te gaan, ga je hiermee akkoord.
+          Wil je twee happies van deze cookies?
         </div>
       </div>
       <div class="cookie-banner-actions">
@@ -3710,7 +3716,7 @@
     }
 
     function showPrivacyInfo() {
-      alert(`🍪 Privacy & Cookies bij Broodjes Reten
+      alert(`🍪 Privacy & Cookies bij Broodjes raten
 
 Hé broodjesliefhebber! 
 
