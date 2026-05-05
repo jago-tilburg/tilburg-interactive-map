@@ -2531,23 +2531,13 @@
 
       // Staggered initial drop
       if (isInitialLoad && stagedForDrop.length > 0) {
-        // Lock immediately so any subsequent renderMarkers call during the animation
-        // sees markersInitiallyLoaded = true and doesn't re-stage the same markers
         markersInitiallyLoaded = true;
-
         const STAGGER = 110;
-        const DROP_LAND = 950;
-
         stagedForDrop.forEach(({ shop, markerId }, i) => {
-          const dropStart = i * STAGGER;
           setTimeout(() => {
-            markerCache.delete(markerId); // remove placeholder
+            markerCache.delete(markerId);
             createShopMarker(shop, markerId, { animate: true, showLabel: false, wiggle: false });
-          }, dropStart);
-          setTimeout(() => {
-            const cached = markerCache.get(markerId);
-            if (cached && cached.marker) cached.marker.setIcon(cached.iconWithText);
-          }, dropStart + DROP_LAND);
+          }, i * STAGGER);
         });
       }
 
@@ -2590,21 +2580,46 @@
     }
 
     function createShopMarker(shop, markerId, options = {}) {
-      const { animate = false, showLabel = true, onMap = true, wiggle = animate } = options;
+      const { animate = false, showLabel = true, wiggle = animate } = options;
       const color = shop.rating >= 7 ? '#16a34a' : shop.rating >= 5 ? '#d97706' : '#dc2626';
 
       const iconWithText = makeDropIcon(shop.rating, color, true);
       const iconNoText  = makeDropIcon(shop.rating, color, false);
 
+      // For staggered initial load: start marker above the viewport so there's no
+      // first-frame flash at the real position (built-in DROP animation has this bug)
+      const targetLat = shop.lat;
+      const targetLng = shop.lng;
+      let startLat = targetLat;
+      if (animate && !wiggle) {
+        const bounds = map.getBounds();
+        startLat = bounds ? bounds.getNorthEast().lat() + 0.03 : targetLat + 0.12;
+      }
+
       const marker = new google.maps.Marker({
-        position: { lat: shop.lat, lng: shop.lng },
-        map: onMap ? map : null,
+        position: { lat: startLat, lng: targetLng },
+        map: map,
         icon: showLabel ? iconWithText : iconNoText,
         title: shop.name,
-        animation: animate ? google.maps.Animation.DROP : null
+        animation: wiggle ? google.maps.Animation.DROP : null
       });
 
-      if (wiggle) {
+      if (animate && !wiggle) {
+        // Custom rAF drop — eases out from above viewport to real position, then reveals number
+        const duration = 600;
+        const start = performance.now();
+        (function step(now) {
+          const t = Math.min((now - start) / duration, 1);
+          const eased = 1 - Math.pow(1 - t, 3);
+          marker.setPosition({ lat: startLat + (targetLat - startLat) * eased, lng: targetLng });
+          if (t < 1) {
+            requestAnimationFrame(step);
+          } else {
+            const cached = markerCache.get(markerId);
+            if (cached) cached.marker.setIcon(cached.iconWithText);
+          }
+        })(start);
+      } else if (wiggle) {
         setTimeout(() => {
           marker.setAnimation(google.maps.Animation.BOUNCE);
           setTimeout(() => marker.setAnimation(null), 500);
@@ -2612,7 +2627,6 @@
       }
 
       marker.addListener('click', () => showShopDetail(shop.id));
-
       markerCache.set(markerId, { marker, rating: shop.rating, iconWithText });
     }
     
