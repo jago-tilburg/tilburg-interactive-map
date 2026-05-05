@@ -29,6 +29,11 @@
   
   <!-- Instagram Embed Script -->
   <script async src="//www.instagram.com/embed.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=DM+Sans:wght@400;500;600&family=Paytone+One&display=swap" rel="stylesheet">
   
   <style>
     * {
@@ -38,9 +43,9 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: #f5f5f7;
-      color: #1d1d1f;
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #faf8f5;
+      color: #1c1917;
       height: 100vh;
       overflow: hidden;
       -webkit-font-smoothing: antialiased;
@@ -65,10 +70,11 @@
     }
 
     .header h1 {
+      font-family: 'Paytone One', sans-serif;
       font-size: 1.25rem;
-      font-weight: 700;
+      font-weight: 400;
       color: white;
-      letter-spacing: -0.5px;
+      letter-spacing: 0;
       margin: 0;
       flex-shrink: 0;
       white-space: nowrap;
@@ -170,11 +176,12 @@
       justify-content: space-between;
       align-items: center;
       padding: 1.5rem 2rem;
-      border-bottom: 2px solid #e5e5e5;
+      border-bottom: 2px solid #e8e2db;
       background: linear-gradient(135deg, #22c55e 0%, #ff6b35 100%);
     }
 
     .menu-header h2 {
+      font-family: 'Fraunces', serif;
       font-size: 1.5rem;
       font-weight: 700;
       color: white;
@@ -223,7 +230,7 @@
 
     .menu-actions {
       padding: 1.5rem 2rem;
-      border-bottom: 1px solid #e5e5e5;
+      border-bottom: 1px solid #e8e2db;
       display: flex;
       gap: 0.75rem;
       flex-wrap: wrap;
@@ -253,12 +260,12 @@
     }
 
     .menu-btn-secondary {
-      background: #f5f5f7;
-      color: #1d1d1f;
+      background: #faf8f5;
+      color: #1c1917;
     }
 
     .menu-btn-secondary:hover {
-      background: #e5e5e5;
+      background: #e8e2db;
     }
 
     .menu-btn-admin {
@@ -273,8 +280,8 @@
 
     .menu-sort {
       padding: 1rem 2rem;
-      background: #fafafa;
-      border-bottom: 1px solid #e5e5e5;
+      background: #f9f6f2;
+      border-bottom: 1px solid #e8e2db;
       display: flex;
       align-items: center;
       gap: 1rem;
@@ -283,12 +290,12 @@
     .menu-sort label {
       font-weight: 600;
       font-size: 0.875rem;
-      color: #86868b;
+      color: #78716c;
     }
 
     .menu-sort select {
       padding: 0.5rem 1rem;
-      border: 1px solid #e5e5e5;
+      border: 1px solid #e8e2db;
       border-radius: 8px;
       background: white;
       font-size: 0.875rem;
@@ -297,8 +304,8 @@
 
     .menu-filter {
       padding: 0.75rem 2rem;
-      background: #fafafa;
-      border-bottom: 1px solid #e5e5e5;
+      background: #f9f6f2;
+      border-bottom: 1px solid #e8e2db;
       display: flex;
       align-items: center;
       gap: 0.5rem;
@@ -307,14 +314,14 @@
 
     .filter-btn {
       padding: 0.375rem 0.75rem;
-      border: 1px solid #e5e5e5;
+      border: 1px solid #e8e2db;
       border-radius: 20px;
       background: white;
       font-size: 0.8125rem;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s;
-      color: #1d1d1f;
+      color: #1c1917;
       font-family: inherit;
     }
 
@@ -346,53 +353,73 @@
     }
 
     .menu-review-item {
-      display: grid;
-      grid-template-columns: 2fr 1fr 2fr;
-      gap: 1rem;
-      padding: 1rem;
-      margin-bottom: 0.75rem;
-      background: #fafafa;
-      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+      padding: 0.875rem 1rem;
+      margin-bottom: 0.5rem;
+      background: white;
+      border: 1px solid #e8e2db;
+      border-radius: 14px;
       cursor: pointer;
       transition: all 0.2s;
-      align-items: center;
     }
 
     .menu-review-item:hover {
-      background: #f0f9ff;
-      transform: translateX(4px);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      border-color: #22c55e;
+      box-shadow: 0 2px 12px rgba(34,197,94,0.12);
+      transform: translateX(3px);
+    }
+
+    .menu-review-pill {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.875rem;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .menu-review-info {
+      flex: 1;
+      min-width: 0;
     }
 
     .menu-review-name {
       font-weight: 600;
-      font-size: 1rem;
-      color: #1d1d1f;
-    }
-
-    .menu-review-rating {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-weight: 700;
-      font-size: 1.125rem;
-    }
-
-    .menu-review-rating .stars {
-      color: #fbbf24;
+      font-size: 0.9375rem;
+      color: #1c1917;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .menu-review-address {
-      font-size: 0.875rem;
-      color: #86868b;
+      font-size: 0.8125rem;
+      color: #78716c;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      margin-top: 0.125rem;
+    }
+
+    .menu-review-price {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #78716c;
+      border: 1px solid #e8e2db;
+      border-radius: 999px;
+      padding: 0.2rem 0.5rem;
+      flex-shrink: 0;
     }
 
     .menu-login-link {
       padding: 0.5rem 1rem;
-      color: #86868b;
+      color: #78716c;
       font-size: 0.75rem;
       text-align: center;
       cursor: pointer;
@@ -497,7 +524,7 @@
     }
 
     .modal h3 {
-      color: #1d1d1f;
+      color: #1c1917;
       margin-bottom: 1.5rem;
       font-size: 1.5rem;
       font-weight: 700;
@@ -559,8 +586,8 @@
     }
 
     .btn-cancel {
-      background: #f5f5f7;
-      color: #1d1d1f;
+      background: #faf8f5;
+      color: #1c1917;
     }
 
     .btn-cancel:hover {
@@ -571,7 +598,7 @@
     .shop-detail-header {
       margin-bottom: 1.5rem;
       padding-bottom: 1.5rem;
-      border-bottom: 1px solid #e5e5e5;
+      border-bottom: 1px solid #e8e2db;
       grid-column: 1 / -1; /* Span both columns */
     }
 
@@ -767,15 +794,16 @@
         gap: 0.5rem;
       }
     }
-      font-size: 1.5rem;
+      font-family: 'Fraunces', serif;
+      font-size: 1.75rem;
       font-weight: 700;
-      color: #1d1d1f;
+      color: #1c1917;
       margin-bottom: 0.5rem;
       letter-spacing: -0.5px;
     }
 
     .shop-address {
-      color: #86868b;
+      color: #78716c;
       font-size: 0.875rem;
       margin-bottom: 0.75rem;
     }
@@ -787,14 +815,17 @@
     }
 
     .badge {
-      padding: 0.375rem 0.75rem;
-      border-radius: 8px;
+      padding: 0.3rem 0.75rem;
+      border-radius: 999px;
       font-weight: 600;
       font-size: 0.875rem;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
     }
 
     .badge-rating {
-      background: #22c55e;
+      background: #16a34a;
       color: white;
     }
 
@@ -837,9 +868,9 @@
     .instagram-loading {
       text-align: center;
       padding: 2rem;
-      color: #86868b;
+      color: #78716c;
       font-size: 0.875rem;
-      background: #f5f5f7;
+      background: #faf8f5;
       border-radius: 8px;
     }
 
@@ -880,25 +911,25 @@
     .review-label {
       font-size: 0.875rem;
       font-weight: 600;
-      color: #86868b;
+      color: #78716c;
       margin-bottom: 0.5rem;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
     .review-text {
-      background: #f5f5f7;
+      background: #faf8f5;
       padding: 0.75rem;
       border-radius: 10px;
       line-height: 1.6;
-      color: #1d1d1f;
+      color: #1c1917;
       font-size: 0.9375rem;
       margin-bottom: 0.75rem;
     }
 
     .user-review {
       background: white;
-      border: 1px solid #e5e5e5;
+      border: 1px solid #e8e2db;
       padding: 0.75rem;
       border-radius: 10px;
       margin-bottom: 0.75rem;
@@ -913,7 +944,7 @@
 
     .user-review-author {
       font-weight: 600;
-      color: #1d1d1f;
+      color: #1c1917;
       font-size: 0.9375rem;
     }
 
@@ -924,7 +955,7 @@
     }
 
     .user-review-text {
-      color: #1d1d1f;
+      color: #1c1917;
       line-height: 1.5;
       font-size: 0.9375rem;
     }
@@ -941,7 +972,7 @@
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      background: #f5f5f7;
+      background: #faf8f5;
       border: none;
       padding: 0.75rem;
       border-radius: 10px;
@@ -950,7 +981,7 @@
       font-weight: 600;
       font-size: 0.875rem;
       transition: all 0.2s;
-      color: #1d1d1f;
+      color: #1c1917;
     }
 
     .interaction-btn:hover {
@@ -964,7 +995,7 @@
     }
 
     .comment {
-      background: #f5f5f7;
+      background: #faf8f5;
       padding: 0.75rem;
       margin-bottom: 0.5rem;
       border-radius: 8px;
@@ -984,13 +1015,13 @@
     }
 
     .comment-date {
-      color: #86868b;
+      color: #78716c;
       font-size: 0.75rem;
       margin-left: auto;
     }
 
     .comment-text {
-      color: #1d1d1f;
+      color: #1c1917;
       line-height: 1.4;
       font-size: 0.875rem;
     }
@@ -1034,7 +1065,7 @@
       gap: 0.5rem;
       margin-top: 1rem;
       padding-top: 1rem;
-      border-top: 1px solid #e5e5e5;
+      border-top: 1px solid #e8e2db;
     }
 
     .btn-edit, .btn-delete {
@@ -1075,7 +1106,7 @@
     .social-links {
       margin: 1.5rem 0;
       padding: 0.75rem;
-      background: #f5f5f7;
+      background: #faf8f5;
       border-radius: 12px;
     }
 
@@ -1085,10 +1116,10 @@
       gap: 0.5rem;
       padding: 0.75rem 1rem;
       background: white;
-      border: 1px solid #e5e5e5;
+      border: 1px solid #e8e2db;
       border-radius: 10px;
       text-decoration: none;
-      color: #1d1d1f;
+      color: #1c1917;
       font-weight: 600;
       font-size: 0.9375rem;
       transition: all 0.2s;
@@ -1108,7 +1139,7 @@
 
     /* Navigate Button */
     .btn-navigate {
-      background: #3b82f6;
+      background: #d97706;
       color: white;
       border: none;
       padding: 0.875rem;
@@ -1127,8 +1158,30 @@
     }
 
     .btn-navigate:hover {
-      background: #2563eb;
+      background: #b45309;
       transform: scale(1.02);
+    }
+
+    /* Modal close button */
+    .btn-close {
+      width: 36px;
+      height: 36px;
+      background: #f5f0eb;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #1c1917;
+      font-size: 1.25rem;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .btn-close:hover {
+      background: #ede8e3;
     }
 
     .hidden {
@@ -1144,7 +1197,7 @@
     .admin-tabs {
       display: flex;
       gap: 0.5rem;
-      border-bottom: 2px solid #e5e5e5;
+      border-bottom: 2px solid #e8e2db;
       margin-bottom: 1.5rem;
       overflow-x: auto;
     }
@@ -1157,13 +1210,13 @@
       cursor: pointer;
       font-weight: 600;
       font-size: 0.9375rem;
-      color: #86868b;
+      color: #78716c;
       white-space: nowrap;
       transition: all 0.2s;
     }
 
     .admin-tabs button:hover {
-      color: #1d1d1f;
+      color: #1c1917;
     }
 
     .admin-tabs button.active {
@@ -1172,7 +1225,7 @@
     }
 
     .admin-table {
-      border: 1px solid #e5e5e5;
+      border: 1px solid #e8e2db;
       border-radius: 12px;
       overflow: hidden;
     }
@@ -1181,7 +1234,7 @@
       display: grid;
       grid-template-columns: 2fr 1fr 1fr 0.8fr 1.5fr;
       gap: 1rem;
-      background: #f5f5f7;
+      background: #faf8f5;
       padding: 1rem 1.5rem;
       font-weight: 600;
       font-size: 0.875rem;
@@ -1192,13 +1245,13 @@
       grid-template-columns: 2fr 1fr 1fr 0.8fr 1.5fr;
       gap: 1rem;
       padding: 1rem 1.5rem;
-      border-top: 1px solid #e5e5e5;
+      border-top: 1px solid #e8e2db;
       align-items: center;
       font-size: 0.9375rem;
     }
 
     .admin-table-row:hover {
-      background: #fafafa;
+      background: #f9f6f2;
     }
 
     .btn-small {
@@ -1253,7 +1306,7 @@
 
     .cookie-banner-text {
       font-size: 0.9375rem;
-      color: #1d1d1f;
+      color: #1c1917;
       line-height: 1.4;
     }
 
@@ -1286,8 +1339,8 @@
     }
 
     .cookie-btn-info {
-      background: #f5f5f7;
-      color: #1d1d1f;
+      background: #faf8f5;
+      color: #1c1917;
     }
 
     .cookie-btn-info:hover {
@@ -1467,9 +1520,82 @@
         gap: 0.5rem;
       }
     }
+
+    /* Toast notification */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      z-index: 99999;
+      padding: 0.75rem 1.25rem;
+      border-radius: 999px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: white;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    #toast.toast-show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    #toast.toast-success { background: #16a34a; }
+    #toast.toast-error { background: #dc2626; }
+    #toast.toast-info { background: #1c1917; }
+
+    /* Skeleton loading */
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .skeleton-card {
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+      padding: 0.875rem 1rem;
+      margin-bottom: 0.5rem;
+      background: white;
+      border: 1px solid #e8e2db;
+      border-radius: 14px;
+    }
+    .skeleton-pill {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: linear-gradient(90deg, #f0ebe4 25%, #e8e2db 50%, #f0ebe4 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    .skeleton-info { flex: 1; }
+    .skeleton-line {
+      height: 14px;
+      border-radius: 7px;
+      background: linear-gradient(90deg, #f0ebe4 25%, #e8e2db 50%, #f0ebe4 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      margin-bottom: 0.5rem;
+    }
+    .skeleton-line.short { width: 60%; height: 11px; margin-bottom: 0; }
+
+    /* Mobile header compact */
+    @media (max-width: 390px) {
+      .header h1 { font-size: 1rem; }
+    }
+
+    /* Star rating mobile touch targets */
+    @media (max-width: 768px) {
+      .star-rating .star { font-size: 2rem !important; padding: 0.25rem; }
+    }
   </style>
 </head>
 <body>
+  <div id="toast"></div>
   <div class="app-container">
     <div class="header">
       <h1 id="appTitle">2 HAPPIES BIJ</h1>
@@ -1527,7 +1653,7 @@
           🔐
         </div>
 
-        <div class="menu-login-link" onclick="showPrivacyPage(); toggleMenu();" style="border-top: 1px solid #e5e5e5;">
+        <div class="menu-login-link" onclick="showPrivacyPage(); toggleMenu();" style="border-top: 1px solid #e8e2db;">
           📜 Privacy
         </div>
 
@@ -1540,7 +1666,7 @@
     <!-- Privacy Modal -->
     <div class="modal-overlay" id="privacyModal">
       <div class="modal" style="max-width: 650px;" onclick="event.stopPropagation()">
-        <button onclick="hidePrivacyModal()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 2rem; color: #86868b; cursor: pointer; z-index: 10;">×</button>
+        <button onclick="hidePrivacyModal()" class="btn-close" style="position: absolute; top: 1rem; right: 1rem; z-index: 10;">×</button>
         <div style="padding: 1rem;">
           <h2 style="margin-bottom: 1rem; color: #22c55e;">📜 Privacy bij Broodjes raten 🥪</h2>
           
@@ -1553,7 +1679,7 @@
             De korte versie: Ik heb niks aan je gegevens, ik heb alleen verstand van broodjes.
           </p>
 
-          <h3 style="margin-bottom: 0.75rem; color: #1d1d1f; font-size: 1.125rem;">1. Wat ik verzamel (en wat niet)</h3>
+          <h3 style="margin-bottom: 0.75rem; color: #1c1917; font-size: 1.125rem;">1. Wat ik verzamel (en wat niet)</h3>
           <ul style="margin-bottom: 1.5rem; padding-left: 1.5rem; line-height: 1.8;">
             <li><strong>Geen accounts:</strong> Je hoeft niet in te loggen om de ratings te zien. Ik weet dus niet wie je bent.</li>
             <li><strong>Geen handel:</strong> Ik verkoop je gegevens niet door. Ik ben hier om broodjes te 'raten', niet om data te dealen.</li>
@@ -1568,25 +1694,25 @@
             </li>
           </ul>
 
-          <h3 style="margin-bottom: 0.75rem; color: #1d1d1f; font-size: 1.125rem;">2. De Kaart</h3>
+          <h3 style="margin-bottom: 0.75rem; color: #1c1917; font-size: 1.125rem;">2. De Kaart</h3>
           <p style="margin-bottom: 1.5rem; line-height: 1.6;">
             Om de locaties in Tilburg mooi in beeld te brengen, gebruik ik Google Maps. Google kan je IP-adres zien om de kaart aan jou te tonen. 
             Daar heb ik verder geen invloed op en ik doe daar zelf niets mee.
           </p>
 
-          <h3 style="margin-bottom: 0.75rem; color: #1d1d1f; font-size: 1.125rem;">3. Tips Insturen</h3>
+          <h3 style="margin-bottom: 0.75rem; color: #1c1917; font-size: 1.125rem;">3. Tips Insturen</h3>
           <p style="margin-bottom: 1.5rem; line-height: 1.6;">
             Stuur je mij een tip voor een nieuwe locatie via het formulier? Dan zie ik alleen de naam van de zaak die je invult. 
             Geen namen, geen mailadressen, niks persoonlijks.
           </p>
 
-          <h3 style="margin-bottom: 0.75rem; color: #1d1d1f; font-size: 1.125rem;">4. Cookies 🍪</h3>
+          <h3 style="margin-bottom: 0.75rem; color: #1c1917; font-size: 1.125rem;">4. Cookies 🍪</h3>
           <p style="margin-bottom: 1.5rem; line-height: 1.6;">
             Ik gebruik alleen cookies voor Google Analytics (om te zien hoe de site gebruikt wordt) en om te onthouden dat je de cookie-melding hebt gezien. 
             Je kunt cookies altijd blokkeren in je browserinstellingen als je dat wilt.
           </p>
 
-          <p style="margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid #e5e5e5; font-weight: 600; color: #22c55e;">
+          <p style="margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid #e8e2db; font-weight: 600; color: #22c55e;">
             Kortom: Ik ben er om je te helpen het lekkerste broodje van de stad te vinden, zonder gedoe.
           </p>
 
@@ -1594,7 +1720,7 @@
             Smakelijk eten! 🥪
           </p>
 
-          <div style="margin-top: 2rem; padding: 1rem; background: #f5f5f7; border-radius: 8px; font-size: 0.875rem; color: #666;">
+          <div style="margin-top: 2rem; padding: 1rem; background: #faf8f5; border-radius: 8px; font-size: 0.875rem; color: #666;">
             <strong>Contact:</strong> Vragen over privacy? Stuur een tip in met "Privacy vraag" als onderwerp en ik help je graag verder.
           </div>
         </div>
@@ -1604,7 +1730,7 @@
     <!-- Shop Detail Modal -->
     <div class="modal-overlay" id="shopDetailModal">
       <div class="modal" style="max-width: 900px;" onclick="event.stopPropagation()">
-        <button onclick="hideShopDetailModal()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 2rem; color: #86868b; cursor: pointer; z-index: 10;">×</button>
+        <button onclick="hideShopDetailModal()" class="btn-close" style="position: absolute; top: 1rem; right: 1rem; z-index: 10;">×</button>
         <div id="shopDetailContent"></div>
       </div>
     </div>
@@ -1613,7 +1739,7 @@
     <div class="modal-overlay" id="requestModal">
       <div class="modal" onclick="event.stopPropagation()">
         <h3>Vraag een Review Aan</h3>
-        <p style="margin-bottom: 0.75rem; color: #86868b;">Ken je een top broodjeszaak die ik moet proberen?</p>
+        <p style="margin-bottom: 0.75rem; color: #78716c;">Ken je een top broodjeszaak die ik moet proberen?</p>
         <input type="text" id="requestInput" placeholder="Naam van de zaak...">
         <div class="form-actions">
           <button class="btn-save" onclick="submitRequest()">Versturen</button>
@@ -1627,7 +1753,7 @@
       <div class="modal" onclick="event.stopPropagation()" style="text-align: center; max-width: 400px;">
         <div style="font-size: 4rem; margin-bottom: 1rem;">🥪</div>
         <h3 style="margin-bottom: 0.5rem;">Bedankt voor je suggestie!</h3>
-        <p style="color: #86868b; margin-bottom: 1.5rem;">We gaan hem bekijken</p>
+        <p style="color: #78716c; margin-bottom: 1.5rem;">We gaan hem bekijken</p>
         <button class="btn-save" onclick="hideRequestConfirmation()" style="width: 100%;">Sluiten</button>
       </div>
     </div>
@@ -1652,7 +1778,7 @@
     <div class="modal-overlay" id="commentNameModal">
       <div class="modal" onclick="event.stopPropagation()">
         <h3>Wat is je naam?</h3>
-        <p style="margin-bottom: 1rem; color: #86868b; font-size: 0.875rem;">
+        <p style="margin-bottom: 1rem; color: #78716c; font-size: 0.875rem;">
           Je naam wordt getoond bij je reactie
         </p>
         <input type="text" id="commentNameInput" placeholder="Jouw naam">
@@ -1667,7 +1793,7 @@
     <div class="modal-overlay" id="adminModal">
       <div class="modal" onclick="event.stopPropagation()">
         <h3>🔐 Admin Inloggen</h3>
-        <p style="margin-bottom: 1rem; color: #86868b; font-size: 0.875rem;">
+        <p style="margin-bottom: 1rem; color: #78716c; font-size: 0.875rem;">
           Login met je Firebase admin account
         </p>
         <div style="margin-bottom: 1rem;">
@@ -1749,7 +1875,7 @@
       <div class="modal modal-large" onclick="event.stopPropagation()">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
           <h3 style="margin: 0;">Beheerpaneel</h3>
-          <button onclick="hideAdminPanel()" style="background: none; border: none; font-size: 2rem; color: #86868b; cursor: pointer;">×</button>
+          <button onclick="hideAdminPanel()" class="btn-close">×</button>
         </div>
         <div id="adminPanelContent"></div>
       </div>
@@ -1791,7 +1917,7 @@
     <div class="modal-overlay" id="addTypeModal">
       <div class="modal" style="max-width: 400px;" onclick="event.stopPropagation()">
         <h3>Wat wil je toevoegen?</h3>
-        <p style="margin-bottom: 1.5rem; color: #86868b;">Long press detected at this location</p>
+        <p style="margin-bottom: 1.5rem; color: #78716c;">Long press detected at this location</p>
         <button onclick="selectAddType('review')" class="btn-save" style="margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem;">
           <span style="font-size: 1.75rem;">🥪</span>
           <span>Add Review</span>
@@ -1835,6 +1961,22 @@
     let longPressTimer = null;
     let longPressCoords = null;
     let mapListeners = [];
+    let toastTimer = null;
+    let shopsLoaded = false;
+    let markersInitiallyLoaded = false;
+
+    // ============================================================================
+    // TOAST NOTIFICATION
+    // ============================================================================
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      if (toastTimer) clearTimeout(toastTimer);
+      toast.textContent = message;
+      toast.className = `toast-${type}`;
+      void toast.offsetWidth;
+      toast.classList.add('toast-show');
+      toastTimer = setTimeout(() => toast.classList.remove('toast-show'), 3000);
+    }
 
     // ============================================================================
     // GOOGLE ANALYTICS TRACKING FUNCTIONS
@@ -1980,6 +2122,7 @@
       });
       
       database.ref('shops').on('value', (snapshot) => {
+        shopsLoaded = true;
         if (snapshot.exists()) {
           const val = snapshot.val();
           shops = Array.isArray(val) ? val : Object.values(val || {}).filter(Boolean);
@@ -2258,7 +2401,7 @@
         }
         return true;
       } catch (error) {
-        alert('Failed to save: ' + error.message);
+        showToast('Opslaan mislukt: ' + error.message, 'error');
         return false;
       }
     }
@@ -2280,7 +2423,7 @@
         return true;
       } catch (error) {
         console.error('Error saving user review:', error);
-        alert('Failed to save: ' + error.message);
+        showToast('Opslaan mislukt: ' + error.message, 'error');
         return false;
       }
     }
@@ -2301,7 +2444,7 @@
         return true;
       } catch (error) {
         console.error('Error saving comment:', error);
-        alert('Failed to save: ' + error.message);
+        showToast('Opslaan mislukt: ' + error.message, 'error');
         return false;
       }
     }
@@ -2322,7 +2465,7 @@
         return true;
       } catch (error) {
         console.error('Error saving likes:', error);
-        alert('Failed to save: ' + error.message);
+        showToast('Opslaan mislukt: ' + error.message, 'error');
         return false;
       }
     }
@@ -2336,7 +2479,7 @@
         }
         return true;
       } catch (error) {
-        alert('Failed to save events: ' + error.message);
+        showToast('Opslaan mislukt: ' + error.message, 'error');
         return false;
       }
     }
@@ -2358,29 +2501,57 @@
     
     function renderMarkersImmediate() {
       if (!map) return;
+      const isInitialLoad = !markersInitiallyLoaded;
       const existingIds = new Set();
-      
+      const stagedForDrop = []; // markers waiting for staggered initial drop
+
       // Update or create shop markers
       shops.forEach(shop => {
         if (!shop || !shop.id) return;
         const markerId = `shop-${shop.id}`;
         existingIds.add(markerId);
-        
+
         if (markerCache.has(markerId)) {
-          // Update existing marker if needed
           const cached = markerCache.get(markerId);
           if (cached.rating !== shop.rating) {
-            // Rating changed, need to update color
             cached.marker.setMap(null);
             markerCache.delete(markerId);
-            createShopMarker(shop, markerId);
+            createShopMarker(shop, markerId, { animate: !isInitialLoad });
           }
         } else {
-          // Create new marker
-          createShopMarker(shop, markerId);
+          if (isInitialLoad) {
+            // Create off-map with hidden label — will be staged below
+            createShopMarker(shop, markerId, { animate: false, showLabel: false, onMap: false });
+            stagedForDrop.push(markerCache.get(markerId));
+          } else {
+            // New shop added after load — single drop + wiggle
+            createShopMarker(shop, markerId, { animate: true });
+          }
         }
       });
-      
+
+      // Staggered initial drop: one by one, then reveal all labels together
+      if (isInitialLoad && stagedForDrop.length > 0) {
+        const STAGGER = 110; // ms between each drop
+        const DROP_LAND = 950; // ms for a single drop to land
+
+        stagedForDrop.forEach((cached, i) => {
+          const dropStart = i * STAGGER;
+          setTimeout(() => {
+            cached.marker.setMap(map);
+            cached.marker.setAnimation(google.maps.Animation.DROP);
+          }, dropStart);
+          // Each marker reveals its own number as soon as it lands
+          setTimeout(() => {
+            cached.marker.setIcon(cached.iconWithText);
+          }, dropStart + DROP_LAND);
+        });
+
+        // Mark initial load complete after all drops finish
+        const lastLands = (stagedForDrop.length - 1) * STAGGER + DROP_LAND;
+        setTimeout(() => { markersInitiallyLoaded = true; }, lastLands);
+      }
+
       // Update or create event markers
       const now = new Date();
       events.forEach(event => {
@@ -2388,13 +2559,12 @@
         if (eventDate >= now) {
           const markerId = `event-${event.id}`;
           existingIds.add(markerId);
-          
           if (!markerCache.has(markerId)) {
             createEventMarker(event, markerId);
           }
         }
       });
-      
+
       // Remove markers that no longer exist
       for (const [markerId, cached] of markerCache.entries()) {
         if (!existingIds.has(markerId)) {
@@ -2402,47 +2572,49 @@
           markerCache.delete(markerId);
         }
       }
-      
-      // Update markers array for backwards compatibility
+
       markers = Array.from(markerCache.values()).map(c => c.marker);
     }
-    
-    function createShopMarker(shop, markerId) {
-      const color = shop.rating >= 7 ? '#22c55e' : shop.rating >= 5 ? '#f59e0b' : '#ef4444';
-      
-      const markerIcon = {
-        path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
-        fillColor: color,
-        fillOpacity: 1,
-        strokeColor: '#ffffff',
-        strokeWeight: 3,
-        scale: 2.2,
-        anchor: new google.maps.Point(12, 24),
-        labelOrigin: new google.maps.Point(12, 9)
+
+    function makeDropIcon(rating, color, showText = true) {
+      const text = showText ? parseFloat(rating || 0).toFixed(1) : '';
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 28" width="40" height="47">
+        <path d="M12 1C7.58 1 4 4.58 4 9c0 6.75 8 18 8 18s8-11.25 8-18c0-4.42-3.58-8-8-8z"
+              fill="${color}" stroke="white" stroke-width="1.5"/>
+        ${text ? `<text x="12" y="10" font-family="sans-serif" font-size="7" font-weight="700" fill="white" text-anchor="middle" dominant-baseline="middle">${text}</text>` : ''}
+      </svg>`;
+      return {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+        scaledSize: new google.maps.Size(40, 47),
+        anchor: new google.maps.Point(20, 47)
       };
+    }
+
+    function createShopMarker(shop, markerId, options = {}) {
+      const { animate = false, showLabel = true, onMap = true } = options;
+      const color = shop.rating >= 7 ? '#16a34a' : shop.rating >= 5 ? '#d97706' : '#dc2626';
+
+      const iconWithText = makeDropIcon(shop.rating, color, true);
+      const iconNoText  = makeDropIcon(shop.rating, color, false);
 
       const marker = new google.maps.Marker({
         position: { lat: shop.lat, lng: shop.lng },
-        map: map,
-        icon: markerIcon,
+        map: onMap ? map : null,
+        icon: showLabel ? iconWithText : iconNoText,
         title: shop.name,
-        label: {
-          text: shop.rating.toString(),
-          color: '#ffffff',
-          fontSize: '13px',
-          fontWeight: 'bold'
-        }
-        // Removed animation for better performance
+        animation: animate ? google.maps.Animation.DROP : null
       });
 
-      marker.addListener('click', () => {
-        showShopDetail(shop.id);
-      });
-      
-      markerCache.set(markerId, {
-        marker: marker,
-        rating: shop.rating
-      });
+      if (animate) {
+        setTimeout(() => {
+          marker.setAnimation(google.maps.Animation.BOUNCE);
+          setTimeout(() => marker.setAnimation(null), 500);
+        }, 950);
+      }
+
+      marker.addListener('click', () => showShopDetail(shop.id));
+
+      markerCache.set(markerId, { marker, rating: shop.rating, iconWithText });
     }
     
     function createEventMarker(event, markerId) {
@@ -2505,7 +2677,7 @@
                class="shop-address" 
                style="cursor: pointer; margin-bottom: 0.75rem; transition: color 0.2s;"
                onmouseover="this.style.color='#0066cc'" 
-               onmouseout="this.style.color='#86868b'">
+               onmouseout="this.style.color='#78716c'">
             📍 ${shop.address}
           </div>
           
@@ -2530,7 +2702,7 @@
             <!-- Star Rating Section -->
             <div class="review-section">
               <div class="review-label">Geef je beoordeling</div>
-              <div style="background: #f5f5f7; padding: 1rem; border-radius: 12px; text-align: center;">
+              <div style="background: #faf8f5; padding: 1rem; border-radius: 12px; text-align: center;">
                 <div class="star-rating" style="font-size: 1.5rem; margin-bottom: 0.5rem;">
                   ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => `
                     <span class="star ${userRating && star <= userRating.rating ? 'active' : ''}" 
@@ -2547,7 +2719,7 @@
                     ✓ Je gaf ${userRating.rating} sterren
                   </div>
                 ` : `
-                  <div style="color: #86868b; font-size: 0.8125rem;">
+                  <div style="color: #78716c; font-size: 0.8125rem;">
                     Klik op de sterren om te beoordelen
                   </div>
                 `}
@@ -2578,7 +2750,7 @@
                 </div>
               </div>
             ` : `
-              <div style="background: #f5f5f7; border-radius: 12px; padding: 2rem; text-align: center; color: #86868b; font-size: 0.875rem;">
+              <div style="background: #faf8f5; border-radius: 12px; padding: 2rem; text-align: center; color: #78716c; font-size: 0.875rem;">
                 <div style="font-size: 3rem; margin-bottom: 0.5rem;">📷</div>
                 <div>Geen Instagram post beschikbaar</div>
               </div>
@@ -2644,6 +2816,7 @@
           localStorage.setItem('tilburg-shops', JSON.stringify(shops));
         }
 
+        showToast('Rating opgeslagen!', 'success');
         // Refresh the shop detail to show updated rating
         showShopDetail(shopId);
         
@@ -2655,7 +2828,7 @@
         });
       } catch (error) {
         console.error('Error saving rating:', error);
-        alert('Failed to save rating: ' + error.message);
+        showToast('Rating opslaan mislukt: ' + error.message, 'error');
       }
     }
 
@@ -2808,7 +2981,7 @@
       const text = textInput.value.trim();
       
       if (!text) {
-        alert('Vul een reactie in');
+        showToast('Vul een reactie in', 'info');
         return;
       }
       
@@ -2829,7 +3002,7 @@
       const name = document.getElementById('commentNameInput').value.trim();
       
       if (!name) {
-        alert('Je moet een naam invullen om een reactie te plaatsen');
+        showToast('Vul een naam in om een reactie te plaatsen', 'info');
         return;
       }
 
@@ -2858,6 +3031,7 @@
       // Use special function for comments (guests can write to this path)
       await saveCommentsToFirebase(shop.id, shop.comments);
       showShopDetail(shop.id);
+      showToast('Reactie geplaatst!', 'success');
     }
 
     function showUserReviewModal() {
@@ -2881,7 +3055,7 @@
       const text = document.getElementById('userReviewText').value.trim();
 
       if (!name || !rating || !text) {
-        alert('Please fill in all fields');
+        showToast('Vul alle velden in', 'info');
         return;
       }
 
@@ -2906,6 +3080,7 @@
       await saveUserReviewToFirebase(shop.id, shop.userReviews);
       hideUserReviewModal();
       showShopDetail(shop.id);
+      showToast('Review geplaatst!', 'success');
     }
 
     async function deleteUserReview(shopId, reviewId) {
@@ -2941,7 +3116,7 @@
         renderAdminPanel();
       } catch (error) {
         console.error('Failed to delete request:', error);
-        alert('Er ging iets mis bij het verwijderen.');
+        showToast('Er ging iets mis bij het verwijderen', 'error');
       }
     }
 
@@ -3004,25 +3179,33 @@
       }
 
       if (sortedShops.length === 0) {
-        listContainer.innerHTML = `
-          <div style="text-align: center; padding: 3rem; color: #86868b;">
-            <p style="font-size: 1.25rem; margin-bottom: 0.5rem;">🍔</p>
-            <p>Nog geen reviews beschikbaar</p>
-          </div>
-        `;
+        if (!shopsLoaded) {
+          const skeletonItem = `<div class="skeleton-card"><div class="skeleton-pill"></div><div class="skeleton-info"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>`;
+          listContainer.innerHTML = skeletonItem.repeat(5);
+        } else {
+          listContainer.innerHTML = `
+            <div style="text-align: center; padding: 3rem; color: #78716c;">
+              <p style="font-size: 1.25rem; margin-bottom: 0.5rem;">🍔</p>
+              <p>Nog geen reviews beschikbaar</p>
+            </div>
+          `;
+        }
         return;
       }
       
-      listContainer.innerHTML = sortedShops.map(shop => `
+      listContainer.innerHTML = sortedShops.map(shop => {
+        const ratingColor = (shop.rating || 0) >= 7 ? '#16a34a' : (shop.rating || 0) >= 5 ? '#d97706' : '#dc2626';
+        return `
         <div class="menu-review-item" data-shop-id="${shop.id}">
-          <div class="menu-review-name">${shop.name || 'Onbekend'}</div>
-          <div class="menu-review-rating">
-            <span class="stars">⭐</span>
-            <span>${(shop.rating || 0).toFixed(1)}</span>
+          <div class="menu-review-pill" style="background: ${ratingColor};">${(shop.rating || 0).toFixed(1)}</div>
+          <div class="menu-review-info">
+            <div class="menu-review-name">${shop.name || 'Onbekend'}</div>
+            <div class="menu-review-address">${shop.address || 'Geen adres'}</div>
           </div>
-          <div class="menu-review-address">${shop.address || 'Geen adres'}</div>
+          ${shop.price ? `<div class="menu-review-price">${shop.price}</div>` : ''}
         </div>
-      `).join('');
+        `;
+      }).join('');
       
       // Add click handlers after rendering
       listContainer.querySelectorAll('.menu-review-item').forEach(item => {
@@ -3117,7 +3300,7 @@
         showRequestConfirmation();
       } catch (error) {
         console.error('Failed:', error);
-        alert('Er ging iets mis. Probeer het opnieuw.');
+        showToast('Er ging iets mis. Probeer het opnieuw.', 'error');
       }
     }
 
@@ -3154,7 +3337,7 @@
           document.getElementById(urlInputId).style.borderColor = '';
         }, 1000);
       } else {
-        alert('Could not extract coordinates.');
+        showToast('Coördinaten niet gevonden', 'error');
       }
     }
 
@@ -3178,7 +3361,7 @@
       console.log('Password field exists:', !!password);
       
       if (!email || !password) {
-        alert('Vul email en wachtwoord in');
+        showToast('Vul email en wachtwoord in', 'info');
         return;
       }
       
@@ -3226,7 +3409,7 @@
             errorMessage = `Login mislukt: ${error.message}`;
         }
         
-        alert(errorMessage);
+        showToast(errorMessage, 'error');
       }
     }
 
@@ -3238,7 +3421,7 @@
         })
         .catch((error) => {
           console.error('Logout error:', error);
-          alert('Uitloggen mislukt');
+          showToast('Uitloggen mislukt', 'error');
         });
     }
     
@@ -3324,7 +3507,7 @@
           const viewCount = await getShopViews(shop.id);
           html += `
             <div class="admin-table-row">
-              <div><strong>${shop.name}</strong><br><small style="color: #86868b;">${shop.address}</small></div>
+              <div><strong>${shop.name}</strong><br><small style="color: #78716c;">${shop.address}</small></div>
               <div>${shop.rating} ⭐</div>
               <div>${shop.price}</div>
               <div style="color: #666;">${viewCount}</div>
@@ -3361,7 +3544,7 @@
                   <div><strong>${shop.name}</strong></div>
                   <div style="font-family: monospace; font-size: 0.75rem;">${rating.userId.substring(0, 8)}...</div>
                   <div>${rating.rating} ⭐</div>
-                  <div style="color: #86868b; font-size: 0.875rem;">${formattedDate}</div>
+                  <div style="color: #78716c; font-size: 0.875rem;">${formattedDate}</div>
                 </div>
               `;
             });
@@ -3370,7 +3553,7 @@
         
         if (!hasRatings) {
           html += `
-            <div style="padding: 2rem; text-align: center; color: #86868b;">
+            <div style="padding: 2rem; text-align: center; color: #78716c;">
               Nog geen ratings van gebruikers ⭐
             </div>
           `;
@@ -3388,7 +3571,7 @@
         
         if (requests.length === 0) {
           html += `
-            <div style="padding: 2rem; text-align: center; color: #86868b;">
+            <div style="padding: 2rem; text-align: center; color: #78716c;">
               Nog geen aanvragen 🥪
             </div>
           `;
@@ -3413,7 +3596,7 @@
                 <div>
                   <strong>${request.shopName}</strong>
                 </div>
-                <div style="color: #86868b;">
+                <div style="color: #78716c;">
                   ${formattedDate}
                 </div>
                 <div>
@@ -3441,7 +3624,7 @@
         futureEvenementen.forEach(event => {
           html += `
             <div class="admin-table-row" style="grid-template-columns: 2fr 2fr 1.5fr;">
-              <div><strong>${event.name}</strong><br><small style="color: #86868b;">${event.location}</small></div>
+              <div><strong>${event.name}</strong><br><small style="color: #78716c;">${event.location}</small></div>
               <div>${new Date(event.dateTime).toLocaleString()}</div>
               <div>
                 <button class="btn-small btn-edit" onclick="editEvent(${event.id})" style="background: white; color: #9333ea; border-color: #9333ea;">Bewerken</button>
@@ -3513,7 +3696,7 @@
       const review = document.getElementById('shopReview').value.trim();
 
       if (!name || !address || !review) {
-        alert('Please fill in all required fields');
+        showToast('Vul alle verplichte velden in', 'info');
         return;
       }
 
@@ -3552,6 +3735,7 @@
       await saveShops();
       renderMarkers();
       hideShopForm();
+      showToast('Opgeslagen!', 'success');
     }
 
     async function deleteShop(shopId) {
@@ -3612,7 +3796,7 @@
       const description = document.getElementById('eventBeschrijving').value.trim();
 
       if (!name || !location || !dateTime || !description) {
-        alert('Please fill in all required fields');
+        showToast('Vul alle verplichte velden in', 'info');
         return;
       }
 
@@ -3781,7 +3965,7 @@
       
       if (!longPressCoords) {
         console.error('No longPressCoords available!');
-        alert('Fout: Geen locatie beschikbaar. Probeer opnieuw.');
+        showToast('Geen locatie beschikbaar. Probeer opnieuw.', 'error');
         return;
       }
       
@@ -3928,7 +4112,7 @@
       if (!shop.tiktokUrl && !shop.instagramUrl) return '';
       
       let html = '<div style="display: flex; align-items: center; gap: 0.5rem; margin-left: auto;">';
-      html += `<span style="font-size: 0.8125rem; color: #86868b; white-space: nowrap;">${appTexts.seeReviewHere}</span>`;
+      html += `<span style="font-size: 0.8125rem; color: #78716c; white-space: nowrap;">${appTexts.seeReviewHere}</span>`;
       
       if (shop.tiktokUrl) {
         html += `<a href="${shop.tiktokUrl}" target="_blank" rel="noopener" class="badge" onclick="trackEvent('click_social_link', {shop_name: '${shop.name}', platform: 'tiktok'})" style="background: #000; color: white; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; transition: transform 0.2s; padding: 0.375rem; border-radius: 8px; min-width: 32px; height: 32px;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="TikTok">
