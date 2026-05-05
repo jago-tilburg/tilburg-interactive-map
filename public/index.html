@@ -2520,34 +2520,35 @@
           }
         } else {
           if (isInitialLoad) {
-            // Stage shop data — marker created inside the timeout so DROP fires cleanly
             stagedForDrop.push({ shop, markerId });
+            // Reserve the slot in markerCache immediately so re-renders don't double-create
+            markerCache.set(markerId, { marker: null, rating: shop.rating, iconWithText: null, pending: true });
           } else {
             createShopMarker(shop, markerId, { animate: true });
           }
         }
       });
 
-      // Staggered initial drop: create each marker fresh inside its timeout
+      // Staggered initial drop
       if (isInitialLoad && stagedForDrop.length > 0) {
+        // Lock immediately so any subsequent renderMarkers call during the animation
+        // sees markersInitiallyLoaded = true and doesn't re-stage the same markers
+        markersInitiallyLoaded = true;
+
         const STAGGER = 110;
         const DROP_LAND = 950;
 
         stagedForDrop.forEach(({ shop, markerId }, i) => {
           const dropStart = i * STAGGER;
-          // Create marker (with animation) inside the timeout — no pre-creation flash
           setTimeout(() => {
+            markerCache.delete(markerId); // remove placeholder
             createShopMarker(shop, markerId, { animate: true, showLabel: false, wiggle: false });
           }, dropStart);
-          // Reveal number as soon as this drop lands
           setTimeout(() => {
             const cached = markerCache.get(markerId);
-            if (cached) cached.marker.setIcon(cached.iconWithText);
+            if (cached && cached.marker) cached.marker.setIcon(cached.iconWithText);
           }, dropStart + DROP_LAND);
         });
-
-        const lastLands = (stagedForDrop.length - 1) * STAGGER + DROP_LAND;
-        setTimeout(() => { markersInitiallyLoaded = true; }, lastLands);
       }
 
       // Update or create event markers
@@ -2563,15 +2564,15 @@
         }
       });
 
-      // Remove markers that no longer exist
+      // Remove markers that no longer exist (skip pending placeholders)
       for (const [markerId, cached] of markerCache.entries()) {
-        if (!existingIds.has(markerId)) {
+        if (!existingIds.has(markerId) && !cached.pending) {
           cached.marker.setMap(null);
           markerCache.delete(markerId);
         }
       }
 
-      markers = Array.from(markerCache.values()).map(c => c.marker);
+      markers = Array.from(markerCache.values()).filter(c => c.marker).map(c => c.marker);
     }
 
     function makeDropIcon(rating, color, showText = true) {
