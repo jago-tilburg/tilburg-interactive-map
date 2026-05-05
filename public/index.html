@@ -1071,32 +1071,6 @@
     }
 
 
-    /* Shop Detail Two-Column Layout (with Instagram embed) */
-    .shop-detail-with-embed {
-      display: flex;
-      gap: 1.5rem;
-      align-items: flex-start;
-    }
-
-    .shop-detail-with-embed .shop-detail-main {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .shop-detail-embed {
-      width: 340px;
-      flex-shrink: 0;
-    }
-
-    @media (max-width: 768px) {
-      .shop-detail-with-embed {
-        flex-direction: column;
-      }
-      .shop-detail-embed {
-        width: 100%;
-      }
-    }
-
     /* Social Media Links */
     .social-links {
       margin: 1.5rem 0;
@@ -2614,35 +2588,9 @@
       `;
 
       const modalEl = document.querySelector('#shopDetailModal .modal');
+      modalEl.style.maxWidth = shop.instagramUrl ? '1050px' : '650px';
 
-      if (shop.instagramUrl) {
-        const embedHtml = `
-          <div class="shop-detail-with-embed">
-            <div class="shop-detail-main">${html}</div>
-            <div class="shop-detail-embed">
-              <blockquote class="instagram-media"
-                data-instgrm-permalink="${shop.instagramUrl}"
-                data-instgrm-version="14"
-                style="background:#FFF; border:0; border-radius:3px; box-shadow:0 0 1px 0 rgba(0,0,0,.5),0 1px 10px 0 rgba(0,0,0,.15); margin:0; max-width:100%; min-width:280px; padding:0; width:100%;">
-              </blockquote>
-            </div>
-          </div>`;
-        document.getElementById('shopDetailContent').innerHTML = embedHtml;
-        modalEl.style.maxWidth = '1050px';
-        if (window.instgrm) {
-          window.instgrm.Embeds.process();
-        } else if (!document.getElementById('instagram-embed-script')) {
-          const script = document.createElement('script');
-          script.id = 'instagram-embed-script';
-          script.src = 'https://www.instagram.com/embed.js';
-          script.async = true;
-          document.body.appendChild(script);
-        }
-      } else {
-        document.getElementById('shopDetailContent').innerHTML = html;
-        modalEl.style.maxWidth = '650px';
-      }
-
+      document.getElementById('shopDetailContent').innerHTML = html;
       document.getElementById('shopDetailModal').classList.add('active');
       
       // Load Instagram embed if URL exists
