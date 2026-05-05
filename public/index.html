@@ -2520,34 +2520,32 @@
           }
         } else {
           if (isInitialLoad) {
-            // Create off-map with hidden label — will be staged below
-            createShopMarker(shop, markerId, { animate: false, showLabel: false, onMap: false });
-            stagedForDrop.push(markerCache.get(markerId));
+            // Stage shop data — marker created inside the timeout so DROP fires cleanly
+            stagedForDrop.push({ shop, markerId });
           } else {
-            // New shop added after load — single drop + wiggle
             createShopMarker(shop, markerId, { animate: true });
           }
         }
       });
 
-      // Staggered initial drop: one by one, then reveal all labels together
+      // Staggered initial drop: create each marker fresh inside its timeout
       if (isInitialLoad && stagedForDrop.length > 0) {
-        const STAGGER = 110; // ms between each drop
-        const DROP_LAND = 950; // ms for a single drop to land
+        const STAGGER = 110;
+        const DROP_LAND = 950;
 
-        stagedForDrop.forEach((cached, i) => {
+        stagedForDrop.forEach(({ shop, markerId }, i) => {
           const dropStart = i * STAGGER;
+          // Create marker (with animation) inside the timeout — no pre-creation flash
           setTimeout(() => {
-            cached.marker.setMap(map);
-            cached.marker.setAnimation(google.maps.Animation.DROP);
+            createShopMarker(shop, markerId, { animate: true, showLabel: false, wiggle: false });
           }, dropStart);
-          // Each marker reveals its own number as soon as it lands
+          // Reveal number as soon as this drop lands
           setTimeout(() => {
-            cached.marker.setIcon(cached.iconWithText);
+            const cached = markerCache.get(markerId);
+            if (cached) cached.marker.setIcon(cached.iconWithText);
           }, dropStart + DROP_LAND);
         });
 
-        // Mark initial load complete after all drops finish
         const lastLands = (stagedForDrop.length - 1) * STAGGER + DROP_LAND;
         setTimeout(() => { markersInitiallyLoaded = true; }, lastLands);
       }
@@ -2591,7 +2589,7 @@
     }
 
     function createShopMarker(shop, markerId, options = {}) {
-      const { animate = false, showLabel = true, onMap = true } = options;
+      const { animate = false, showLabel = true, onMap = true, wiggle = animate } = options;
       const color = shop.rating >= 7 ? '#16a34a' : shop.rating >= 5 ? '#d97706' : '#dc2626';
 
       const iconWithText = makeDropIcon(shop.rating, color, true);
@@ -2605,7 +2603,7 @@
         animation: animate ? google.maps.Animation.DROP : null
       });
 
-      if (animate) {
+      if (wiggle) {
         setTimeout(() => {
           marker.setAnimation(google.maps.Animation.BOUNCE);
           setTimeout(() => marker.setAnimation(null), 500);
