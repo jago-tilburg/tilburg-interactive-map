@@ -2007,8 +2007,12 @@
       
       database.ref('shops').on('value', (snapshot) => {
         if (snapshot.exists()) {
-          shops = snapshot.val() || [];
+          const val = snapshot.val();
+          shops = Array.isArray(val) ? val : Object.values(val || {}).filter(Boolean);
           renderMarkers();
+          if (document.getElementById('menuOverlay').classList.contains('active')) {
+            renderMenuReviews();
+          }
         }
       });
 
@@ -2384,6 +2388,7 @@
       
       // Update or create shop markers
       shops.forEach(shop => {
+        if (!shop || !shop.id) return;
         const markerId = `shop-${shop.id}`;
         existingIds.add(markerId);
         
