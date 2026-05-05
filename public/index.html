@@ -295,6 +295,50 @@
       cursor: pointer;
     }
 
+    .menu-filter {
+      padding: 0.75rem 2rem;
+      background: #fafafa;
+      border-bottom: 1px solid #e5e5e5;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 0.375rem 0.75rem;
+      border: 1px solid #e5e5e5;
+      border-radius: 20px;
+      background: white;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: #1d1d1f;
+      font-family: inherit;
+    }
+
+    .filter-btn:hover {
+      border-color: #22c55e;
+      color: #22c55e;
+    }
+
+    .filter-btn.active {
+      background: #22c55e;
+      border-color: #22c55e;
+      color: white;
+    }
+
+    .badge-dietary {
+      background: #f0fdf4;
+      color: #15803d;
+      border: 1px solid #bbf7d0;
+      padding: 0.25rem 0.5rem;
+      border-radius: 8px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+    }
+
     .menu-reviews-list {
       flex: 1;
       overflow-y: auto;
@@ -1027,6 +1071,32 @@
     }
 
 
+    /* Shop Detail Two-Column Layout (with Instagram embed) */
+    .shop-detail-with-embed {
+      display: flex;
+      gap: 1.5rem;
+      align-items: flex-start;
+    }
+
+    .shop-detail-with-embed .shop-detail-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .shop-detail-embed {
+      width: 340px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 768px) {
+      .shop-detail-with-embed {
+        flex-direction: column;
+      }
+      .shop-detail-embed {
+        width: 100%;
+      }
+    }
+
     /* Social Media Links */
     .social-links {
       margin: 1.5rem 0;
@@ -1468,6 +1538,13 @@
           </select>
         </div>
 
+        <div class="menu-filter">
+          <button class="filter-btn active" id="filter-all" onclick="setDietaryFilter('all')">Alles</button>
+          <button class="filter-btn" id="filter-glutenvrij" onclick="setDietaryFilter('glutenvrij')">🌾 Glutenvrij</button>
+          <button class="filter-btn" id="filter-halal" onclick="setDietaryFilter('halal')">☪️ Halal</button>
+          <button class="filter-btn" id="filter-vega" onclick="setDietaryFilter('vega')">🌿 Vega</button>
+        </div>
+
         <div class="menu-reviews-list" id="menuReviewsList">
           <!-- Reviews worden hier dynamisch geladen -->
         </div>
@@ -1671,6 +1748,20 @@
           <input type="text" id="shopInstagram" placeholder="📸 Instagram URL (optional)" style="flex: 1;">
         </div>
         <input type="text" id="shopPhoto" placeholder="Foto URL (optional)">
+        <label style="display: block; margin-top: 1rem; margin-bottom: 0.5rem; color: #22c55e; font-weight: 600; font-size: 0.875rem;">
+          🥗 Aanbod:
+        </label>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+          <label style="display: flex; align-items: center; gap: 0.375rem; font-size: 0.9375rem; cursor: pointer;">
+            <input type="checkbox" id="shopGlutenvrij"> 🌾 Glutenvrij
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.375rem; font-size: 0.9375rem; cursor: pointer;">
+            <input type="checkbox" id="shopHalal"> ☪️ Halal
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.375rem; font-size: 0.9375rem; cursor: pointer;">
+            <input type="checkbox" id="shopVega"> 🌿 Vega
+          </label>
+        </div>
         <textarea id="shopReview" placeholder="Je review..." rows="6"></textarea>
         <div class="form-actions">
           <button class="btn-save" onclick="saveShop()">Opslaan</button>
@@ -2441,6 +2532,7 @@
             <span class="badge badge-rating">${shop.rating} ⭐</span>
             <span class="badge badge-price">${shop.price}</span>
             ${avgRating ? `<span class="badge" style="background: #3b82f6; color: white;">👥 ${avgRating} ⭐ (${userRatings.length})</span>` : ''}
+            ${getDietaryBadgesHTML(shop)}
             ${getSocialLinksHTML(shop)}
           </div>
         </div>
@@ -2514,7 +2606,36 @@
         </div>
       `;
 
-      document.getElementById('shopDetailContent').innerHTML = html;
+      const modalEl = document.querySelector('#shopDetailModal .modal');
+
+      if (shop.instagramUrl) {
+        const embedHtml = `
+          <div class="shop-detail-with-embed">
+            <div class="shop-detail-main">${html}</div>
+            <div class="shop-detail-embed">
+              <blockquote class="instagram-media"
+                data-instgrm-permalink="${shop.instagramUrl}"
+                data-instgrm-version="14"
+                style="background:#FFF; border:0; border-radius:3px; box-shadow:0 0 1px 0 rgba(0,0,0,.5),0 1px 10px 0 rgba(0,0,0,.15); margin:0; max-width:100%; min-width:280px; padding:0; width:100%;">
+              </blockquote>
+            </div>
+          </div>`;
+        document.getElementById('shopDetailContent').innerHTML = embedHtml;
+        modalEl.style.maxWidth = '1050px';
+        if (window.instgrm) {
+          window.instgrm.Embeds.process();
+        } else if (!document.getElementById('instagram-embed-script')) {
+          const script = document.createElement('script');
+          script.id = 'instagram-embed-script';
+          script.src = 'https://www.instagram.com/embed.js';
+          script.async = true;
+          document.body.appendChild(script);
+        }
+      } else {
+        document.getElementById('shopDetailContent').innerHTML = html;
+        modalEl.style.maxWidth = '650px';
+      }
+
       document.getElementById('shopDetailModal').classList.add('active');
       
       // Load Instagram embed if URL exists
@@ -2884,6 +3005,7 @@
 
     // Menu
     let menuReturnToList = false; // Track if we should return to menu after closing detail
+    let activeMenuFilter = 'all';
 
     function toggleMenu() {
       const menuOverlay = document.getElementById('menuOverlay');
@@ -2922,6 +3044,10 @@
           break;
       }
       
+      if (activeMenuFilter !== 'all') {
+        sortedShops = sortedShops.filter(shop => (shop.dietaryOptions || {})[activeMenuFilter]);
+      }
+
       if (sortedShops.length === 0) {
         listContainer.innerHTML = `
           <div style="text-align: center; padding: 3rem; color: #86868b;">
@@ -2953,6 +3079,13 @@
     }
 
     function sortMenuReviews() {
+      renderMenuReviews();
+    }
+
+    function setDietaryFilter(filter) {
+      activeMenuFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('filter-' + filter).classList.add('active');
       renderMenuReviews();
     }
 
@@ -3406,6 +3539,10 @@
       document.getElementById('shopReview').value = shop.review;
       document.getElementById('shopTikTok').value = shop.tiktokUrl || '';
       document.getElementById('shopInstagram').value = shop.instagramUrl || '';
+      const dietary = shop.dietaryOptions || {};
+      document.getElementById('shopGlutenvrij').checked = dietary.glutenvrij || false;
+      document.getElementById('shopHalal').checked = dietary.halal || false;
+      document.getElementById('shopVega').checked = dietary.vega || false;
       document.getElementById('shopFormModal').classList.add('active');
       hideAdminPanel();
     }
@@ -3435,7 +3572,12 @@
         photoUrl: document.getElementById('shopPhoto').value.trim(),
         review: review,
         tiktokUrl: document.getElementById('shopTikTok').value.trim(),
-        instagramUrl: document.getElementById('shopInstagram').value.trim()
+        instagramUrl: document.getElementById('shopInstagram').value.trim(),
+        dietaryOptions: {
+          glutenvrij: document.getElementById('shopGlutenvrij').checked,
+          halal: document.getElementById('shopHalal').checked,
+          vega: document.getElementById('shopVega').checked
+        }
       };
 
       if (editingShopId) {
@@ -3816,6 +3958,15 @@
       }
       
       window.open(url, '_blank');
+    }
+
+    function getDietaryBadgesHTML(shop) {
+      const d = shop.dietaryOptions || {};
+      let html = '';
+      if (d.glutenvrij) html += '<span class="badge badge-dietary" title="Glutenvrij">🌾 Glutenvrij</span>';
+      if (d.halal) html += '<span class="badge badge-dietary" title="Halal">☪️ Halal</span>';
+      if (d.vega) html += '<span class="badge badge-dietary" title="Vega">🌿 Vega</span>';
+      return html;
     }
 
     function getSocialLinksHTML(shop) {
