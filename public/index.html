@@ -2243,6 +2243,7 @@
       loadShops();
       loadEvenementen();
       updateSyncStatus();
+      renderMarkers();
     }
 
     function updateSyncStatus() {
@@ -2378,6 +2379,7 @@
     }
     
     function renderMarkersImmediate() {
+      if (!map) return;
       const existingIds = new Set();
       
       // Update or create shop markers
