@@ -502,6 +502,8 @@
       width: 100%;
       max-height: 90vh;
       overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
       animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
@@ -1588,40 +1590,10 @@
       .header h1 { font-size: 1rem; }
     }
 
-    /* Shop detail modal — bottom sheet on mobile */
-    @media (max-width: 768px) {
-      #shopDetailModal {
-        padding: 0;
-        align-items: flex-end;
-      }
-      #shopDetailModal .modal {
-        max-width: 100% !important;
-        width: 100%;
-        max-height: 92dvh;
-        border-radius: 20px 20px 0 0;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        flex-direction: column;
-      }
-      #shopDetailContent {
-        flex: 1;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
-        padding: 3rem 1rem 0.5rem; /* top: space for close button */
-      }
-      #shopRatingBar {
-        flex-shrink: 0;
-        padding: 0.75rem 1rem 1.5rem;
-        border-top: 1px solid #e8e2db;
-        background: white;
-      }
-    }
 
     /* Star rating mobile touch targets */
     @media (max-width: 768px) {
-      .star-rating .star { font-size: 2rem !important; padding: 0.25rem; }
+      .star-rating .star { font-size: 1.4rem !important; padding: 0.15rem; }
     }
   </style>
 </head>
@@ -1763,7 +1735,6 @@
       <div class="modal" style="max-width: 900px;" onclick="event.stopPropagation()">
         <button onclick="hideShopDetailModal()" class="btn-close" style="position: absolute; top: 1rem; right: 1rem; z-index: 10;">×</button>
         <div id="shopDetailContent"></div>
-        <div id="shopRatingBar"></div>
       </div>
     </div>
 
@@ -2744,6 +2715,39 @@
               <div class="review-text">${shop.review}</div>
             </div>
 
+            <!-- Star Rating Section -->
+            <div class="review-section">
+              <div class="review-label">Geef je beoordeling</div>
+              <div style="background: #faf8f5; padding: 1rem; border-radius: 12px; text-align: center;">
+                <div class="star-rating" style="font-size: 1.5rem; margin-bottom: 0.5rem;">
+                  ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => `
+                    <span class="star ${userRating && star <= userRating.rating ? 'active' : ''}"
+                          onclick="submitRating(${shop.id}, ${star})"
+                          style="cursor: pointer; margin: 0 0.1rem; transition: all 0.2s;"
+                          onmouseover="highlightStars(${star})"
+                          onmouseout="resetStars()">
+                      ${star <= (userRating?.rating || 0) ? '⭐' : '☆'}
+                    </span>
+                  `).join('')}
+                </div>
+                ${userRating ? `
+                  <div style="color: #22c55e; font-size: 0.8125rem; font-weight: 600;">
+                    ✓ Je gaf ${userRating.rating} sterren
+                  </div>
+                ` : `
+                  <div style="color: #78716c; font-size: 0.8125rem;">
+                    Klik op de sterren om te beoordelen
+                  </div>
+                `}
+              </div>
+            </div>
+
+            <div class="interaction-bar" style="margin-top: 1rem;">
+              <button class="interaction-btn ${hasLiked ? 'liked' : ''}" onclick="toggleLike(${shop.id})">
+                👍 ${(shop.likes || []).length}
+              </button>
+            </div>
+
             ${isAdmin ? `
               <div class="admin-actions">
                 <button class="btn-edit" onclick="editShop(${shop.id})">✏️ Bewerken</button>
@@ -2775,30 +2779,6 @@
       modalEl.style.maxWidth = shop.instagramUrl ? '1050px' : '650px';
 
       document.getElementById('shopDetailContent').innerHTML = html;
-
-      // Rating bar — rendered separately so CSS can pin it to bottom on mobile
-      const starsHTML = [1,2,3,4,5,6,7,8,9,10].map(star => `
-        <span class="star ${userRating && star <= userRating.rating ? 'active' : ''}"
-              onclick="submitRating(${shop.id}, ${star})"
-              style="cursor: pointer; margin: 0 0.1rem; transition: all 0.2s;"
-              onmouseover="highlightStars(${star})"
-              onmouseout="resetStars()">
-          ${star <= (userRating?.rating || 0) ? '⭐' : '☆'}
-        </span>`).join('');
-      document.getElementById('shopRatingBar').innerHTML = `
-        <div style="background: #faf8f5; padding: 0.875rem 1rem; border-radius: 12px; text-align: center; margin-bottom: 0.75rem;">
-          <div class="review-label" style="margin-bottom: 0.5rem;">Geef je beoordeling</div>
-          <div class="star-rating" style="font-size: 1.5rem; margin-bottom: 0.375rem;">${starsHTML}</div>
-          ${userRating
-            ? `<div style="color: #22c55e; font-size: 0.8125rem; font-weight: 600;">✓ Je gaf ${userRating.rating} sterren</div>`
-            : `<div style="color: #78716c; font-size: 0.8125rem;">Klik op de sterren om te beoordelen</div>`}
-        </div>
-        <div class="interaction-bar">
-          <button class="interaction-btn ${hasLiked ? 'liked' : ''}" onclick="toggleLike(${shop.id})">
-            👍 ${(shop.likes || []).length}
-          </button>
-        </div>`;
-
       document.getElementById('shopDetailModal').classList.add('active');
 
       // Load Instagram embed if URL exists
@@ -2949,7 +2929,7 @@
 
     function hideShopDetailModal() {
       document.getElementById('shopDetailModal').classList.remove('active');
-      document.getElementById('shopRatingBar').innerHTML = '';
+
       selectedShop = null;
       currentShopForReview = null;
 
@@ -3280,7 +3260,7 @@
 
     function hideShopDetailModal() {
       document.getElementById('shopDetailModal').classList.remove('active');
-      document.getElementById('shopRatingBar').innerHTML = '';
+
 
       // If we came from menu, return to menu
       if (menuReturnToList) {
