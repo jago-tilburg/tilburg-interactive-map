@@ -675,6 +675,7 @@
       .shop-detail-header {
         margin-bottom: 1rem;
         padding-bottom: 1rem;
+        padding-top: 2rem; /* keep title/address clear of the absolutely-positioned close button */
       }
 
       .shop-name {
@@ -1417,6 +1418,7 @@
       .shop-detail-header {
         margin-bottom: 1rem;
         padding-bottom: 1rem;
+        padding-top: 2rem; /* keep title/address clear of the absolutely-positioned close button */
       }
 
       .shop-name {
@@ -1956,6 +1958,7 @@
     let events = [];
     let requests = [];
     let selectedShop = null;
+    let shopModalHistoryPushed = false; // true while a history entry is reserved for the open shop/event modal
     let isAdmin = false;
     let editingShopId = null;
     let editingEventId = null;
@@ -2780,6 +2783,7 @@
 
       document.getElementById('shopDetailContent').innerHTML = html;
       document.getElementById('shopDetailModal').classList.add('active');
+      pushShopModalHistoryState();
 
       // Load Instagram embed if URL exists
       if (shop.instagramUrl) {
@@ -2969,6 +2973,7 @@
 
       document.getElementById('shopDetailContent').innerHTML = html;
       document.getElementById('shopDetailModal').classList.add('active');
+      pushShopModalHistoryState();
     }
 
     async function toggleLike(shopId) {
@@ -3258,9 +3263,16 @@
       showShopDetail(shopId);
     }
 
-    function hideShopDetailModal() {
-      document.getElementById('shopDetailModal').classList.remove('active');
+    function pushShopModalHistoryState() {
+      // Reserve a history entry so a mobile back-swipe closes the modal instead of leaving the page
+      if (!shopModalHistoryPushed) {
+        shopModalHistoryPushed = true;
+        history.pushState({ shopModalOpen: true }, '', location.href);
+      }
+    }
 
+    function closeShopDetailModalUI() {
+      document.getElementById('shopDetailModal').classList.remove('active');
 
       // If we came from menu, return to menu
       if (menuReturnToList) {
@@ -3271,6 +3283,22 @@
         }, 100);
       }
     }
+
+    function hideShopDetailModal() {
+      closeShopDetailModalUI();
+      if (shopModalHistoryPushed) {
+        shopModalHistoryPushed = false;
+        history.back();
+      }
+    }
+
+    window.addEventListener('popstate', () => {
+      // Fires when the user swipes/presses back — close the modal instead of leaving the page
+      if (shopModalHistoryPushed) {
+        shopModalHistoryPushed = false;
+        closeShopDetailModalUI();
+      }
+    });
 
     // Request Modal
     function showRequestModal() {
@@ -3860,7 +3888,11 @@
       if (el) {
         el.onclick = (e) => {
           if (e.target === el) {
-            el.classList.remove('active');
+            if (id === 'shopDetailModal') {
+              hideShopDetailModal(); // also pops the history entry pushed when it opened
+            } else {
+              el.classList.remove('active');
+            }
           }
         };
       }
