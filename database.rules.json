@@ -1,0 +1,60 @@
+{
+  "rules": {
+    "shops": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'd6JhdOvQt0TYmnEwhhRTF1yRDxa2'",
+      ".indexOn": ["id"],
+
+      "$shopId": {
+        "userReviews": {
+          ".write": true,
+          "$reviewId": {
+            ".write": true
+          }
+        },
+        "userRatings": {
+          ".read": true,
+          ".write": true
+        },
+        "comments": {
+          ".write": true,
+          "$commentId": {
+            ".write": true
+          }
+        },
+        "likes": {
+          ".read": true,
+          ".write": true
+        }
+      }
+    },
+    "shopViews": {
+      ".read": true,
+      "$shopId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "events": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'd6JhdOvQt0TYmnEwhhRTF1yRDxa2'",
+      ".indexOn": ["id", "dateTime"]
+    },
+    "requests": {
+      ".read": "auth != null && auth.uid === 'd6JhdOvQt0TYmnEwhhRTF1yRDxa2'",
+      ".write": true,
+      ".indexOn": ["timestamp"],
+      "$requestId": {
+        ".write": true
+      }
+    },
+    "appTexts": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'd6JhdOvQt0TYmnEwhhRTF1yRDxa2'"
+    },
+    "adminUsers": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'd6JhdOvQt0TYmnEwhhRTF1yRDxa2'"
+    }
+  }
+}
