@@ -481,6 +481,8 @@
       left: 0;
       right: 0;
       bottom: 0;
+      height: 100vh;
+      height: 100dvh; /* stay clear of iOS Safari's address/tab bar when it re-expands over a fixed element */
       background: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(10px);
       display: none;
@@ -501,6 +503,7 @@
       max-width: 500px;
       width: 100%;
       max-height: 90vh;
+      max-height: 90dvh;
       overflow-y: auto;
       overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch;
@@ -669,6 +672,7 @@
         padding: 1rem;
         max-width: 95%;
         max-height: 95vh;
+        max-height: 95dvh;
       }
 
       /* Shop Detail - compact on mobile */
@@ -1412,6 +1416,7 @@
         padding: 1rem;
         max-width: 95%;
         max-height: 95vh;
+        max-height: 95dvh;
       }
 
       /* Shop Detail - compact on mobile */
