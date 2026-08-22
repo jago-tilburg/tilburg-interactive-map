@@ -2285,6 +2285,12 @@
     let currentVisitor = null; // Firestore profile doc for the signed-in non-admin, non-business user, or null
     let currentBusiness = null; // Firestore profile doc for the signed-in business user, or null
     let suppressAutoProfileLoad = false; // true while a register flow is creating its own profile doc
+    let functionsInstance = null;
+    let approvedBusinessEvents = [];
+    let myBusinessEvents = [];
+    let myBusinessEventsUnsub = null;
+    let allBusinessEventsForAdmin = [];
+    let allBusinessEventsUnsub = null;
 
     try {
       firebase.initializeApp(firebaseConfig);
@@ -3714,12 +3720,6 @@
       anders: { label: 'Anders',         emoji: '📍' },
     };
 
-    let functionsInstance = null;
-    let approvedBusinessEvents = [];
-    let myBusinessEvents = [];
-    let myBusinessEventsUnsub = null;
-    let allBusinessEventsForAdmin = [];
-    let allBusinessEventsUnsub = null;
     let editingBusinessEventId = null;
 
     function initBusinessEventsListeners() {
