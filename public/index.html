@@ -3278,6 +3278,7 @@
 
     function closeShopDetailModalUI() {
       document.getElementById('shopDetailModal').classList.remove('active');
+      document.getElementById('shopDetailContent').innerHTML = ''; // tear down any live Instagram embed so its video stops
 
       // If we came from menu, return to menu
       if (menuReturnToList) {
