@@ -32,6 +32,44 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Business-submitted events (distinct from the legacy RTDB `events`
+    // node, which stays untouched). `status` and `paid` are the two fields
+    // this whole module exists to make server-authoritative:
+    //  - a client can never set status to 'approved' or 'rejected' — only
+    //    the approveEvent/rejectEvent Cloud Functions can (Admin SDK bypasses
+    //    these rules entirely). The one client-driven transition allowed is
+    //    approved -> pending, so editing a live event's core details pulls
+    //    it back for re-review without needing a dedicated function for that.
+    //  - `paid` can never be set by a direct client write at all — only the
+    //    confirmEventPaymentStub function (or a future real payment webhook)
+    //    can flip it, and only for an already-approved event.
+    match /businessEvents/{eventId} {
+      allow read: if resource.data.status == 'approved'
+        || (request.auth != null && request.auth.uid == resource.data.ownerId)
+        || (request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.paid == false
+        && request.resource.data.keys().hasAll([
+          'title', 'category', 'description', 'startDate', 'endDate',
+          'startTime', 'endTime', 'lat', 'lng', 'address', 'ownerId',
+          'status', 'paid', 'createdAt'
+        ]);
+
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.ownerId
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.paid == resource.data.paid
+        && (
+          request.resource.data.status == resource.data.status
+          || (resource.data.status == 'approved' && request.resource.data.status == 'pending')
+        );
+
+      allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
+    }
+
     // Everything else is closed by default until its module is built.
     match /{document=**} {
       allow read, write: if false;

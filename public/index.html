@@ -27,6 +27,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
   
   <!-- Instagram Embed Script -->
   <script async src="//www.instagram.com/embed.js"></script>
@@ -1891,14 +1892,70 @@
       <div class="modal" onclick="event.stopPropagation()">
         <h3>🎉 <span id="businessDashboardName"></span></h3>
         <p id="businessDashboardEmail" style="margin-bottom: 1rem; color: #78716c; font-size: 0.875rem;"></p>
-        <p style="margin-bottom: 1.5rem; color: #78716c; font-size: 0.85rem;">
-          Evenementen beheren komt hier binnenkort — dit onderdeel wordt als volgende module gebouwd.
-        </p>
+        <button class="btn-save" style="width:100%; margin-bottom: 1rem;" onclick="showBusinessEventFormModal(null)">+ Nieuw evenement</button>
+        <div id="businessDashboardEvents" style="margin-bottom: 1.5rem; max-height: 320px; overflow-y: auto;"></div>
         <div class="form-actions">
           <button class="btn-cancel" onclick="logoutBusiness()">🚪 Uitloggen</button>
           <button class="btn-cancel" style="background:#fee; color:#dc2626;" onclick="deleteBusinessAccountReal()">Account verwijderen</button>
           <button class="btn-cancel" onclick="hideBusinessDashboard()">Sluiten</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Business Event Form Modal (create / edit / duplicate) -->
+    <div class="modal-overlay" id="businessEventFormModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3 id="businessEventFormModalTitle">Nieuw evenement</h3>
+        <input type="text" id="beTitle" placeholder="Titel">
+        <label style="display:block; margin: 0.5rem 0 0.25rem; font-weight:600; font-size:0.875rem;">Categorie</label>
+        <select id="beCategory" style="width:100%; padding:0.75rem; border:1px solid #d2d2d7; border-radius:8px; font-family:inherit; margin-bottom:0.75rem;">
+          <option value="eten">🍔 Eten & Drinken</option>
+          <option value="muziek">🎵 Muziek</option>
+          <option value="sport">⚽ Sport</option>
+          <option value="markt">🛍️ Markt</option>
+          <option value="anders">📍 Anders</option>
+        </select>
+        <textarea id="beDescription" placeholder="Beschrijving" style="width:100%; min-height:80px; padding:0.75rem; border:1px solid #d2d2d7; border-radius:8px; font-family:inherit; margin-bottom:0.75rem;"></textarea>
+        <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
+          <div style="flex:1;">
+            <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;">Startdatum</label>
+            <input type="date" id="beStartDate" style="width:100%;">
+          </div>
+          <div style="flex:1;">
+            <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;">Einddatum</label>
+            <input type="date" id="beEndDate" style="width:100%;">
+          </div>
+        </div>
+        <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
+          <div style="flex:1;">
+            <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;">Starttijd</label>
+            <input type="time" id="beStartTime" style="width:100%;">
+          </div>
+          <div style="flex:1;">
+            <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;">Eindtijd</label>
+            <input type="time" id="beEndTime" style="width:100%;">
+          </div>
+        </div>
+        <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;">Google Maps URL</label>
+        <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
+          <input type="text" id="beMapUrl" placeholder="https://maps.google.com/..." style="flex:1;">
+          <button onclick="updateCoordsFromUrl('beMapUrl', 'beLat', 'beLng')" class="btn-save" style="padding:0.75rem 1rem; white-space:nowrap;">Extract</button>
+        </div>
+        <input type="text" id="beAddress" placeholder="Adres">
+        <input type="hidden" id="beLat">
+        <input type="hidden" id="beLng">
+        <div class="form-actions">
+          <button class="btn-save" onclick="saveBusinessEventForm()">Opslaan</button>
+          <button class="btn-cancel" onclick="hideBusinessEventFormModal()">Annuleren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Business Event Detail Modal (map marker click) -->
+    <div class="modal-overlay" id="businessEventDetailModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <button onclick="hideBusinessEventDetail()" class="btn-close" style="position:absolute; top:1rem; right:1rem; z-index:10;">×</button>
+        <div id="businessEventDetailContent"></div>
       </div>
     </div>
 
@@ -2243,6 +2300,10 @@
       // email, complete that sign-in before the normal auth state flow runs.
       completeVisitorMagicLinkIfPresent();
 
+      // Approved business events are public — start listening regardless of
+      // auth state, same as shops.
+      initBusinessEventsListeners();
+
       // Auth state observer
       auth.onAuthStateChanged(async (user) => {
         console.log('🔐 Auth state changed:', user ? user.email : 'No user');
@@ -2251,7 +2312,9 @@
         if (user) {
           // User is signed in - check if admin
           await checkAdminStatus(user);
-          if (!isAdmin) {
+          if (isAdmin) {
+            subscribeAllBusinessEventsForAdmin();
+          } else {
             if (suppressAutoProfileLoad) {
               // Registration flow (visitor or business) is creating the
               // profile itself right now — don't race it.
@@ -2260,6 +2323,7 @@
               if (bizSnap.exists) {
                 currentBusiness = { uid: user.uid, ...bizSnap.data() };
                 currentVisitor = null;
+                subscribeMyBusinessEvents(user.uid);
               } else {
                 currentVisitor = await loadOrCreateVisitorProfile(user);
                 currentBusiness = null;
@@ -2272,6 +2336,8 @@
           isAdmin = false;
           currentVisitor = null;
           currentBusiness = null;
+          unsubscribeMyBusinessEvents();
+          unsubscribeAllBusinessEventsForAdmin();
           removeMapLongPress();
           updateMenuVisibility();
 
@@ -2712,6 +2778,18 @@
           existingIds.add(markerId);
           if (!markerCache.has(markerId)) {
             createEventMarker(event, markerId);
+          }
+        }
+      });
+
+      // Update or create business event markers (approved only — public feed)
+      approvedBusinessEvents.forEach(event => {
+        const eventEndDate = new Date(event.endDate + 'T' + (event.endTime || '23:59'));
+        if (eventEndDate >= now) {
+          const markerId = `bizevent-${event.id}`;
+          existingIds.add(markerId);
+          if (!markerCache.has(markerId)) {
+            createBusinessEventMarker(event, markerId);
           }
         }
       });
@@ -3554,6 +3632,7 @@
         await firestore.collection('businesses').doc(cred.user.uid).set(profile);
         currentBusiness = { uid: cred.user.uid, ...profile };
         currentVisitor = null;
+        subscribeMyBusinessEvents(cred.user.uid);
         hideBusinessAuthModal();
         updateMenuVisibility();
         showToast(`Account aangemaakt — welkom, ${businessName}!`, 'success');
@@ -3597,12 +3676,15 @@
 
     async function deleteBusinessAccountReal() {
       if (!currentBusiness || !currentUser) return;
-      if (!confirm('Weet je zeker dat je je bedrijfsaccount wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')) return;
+      if (!confirm('Weet je zeker dat je je bedrijfsaccount wilt verwijderen? Al je evenementen worden ook verwijderd. Dit kan niet ongedaan worden gemaakt.')) return;
       try {
-        await firestore.collection('businesses').doc(currentBusiness.uid).delete();
+        const batch = firestore.batch();
+        myBusinessEvents.forEach(ev => batch.delete(firestore.collection('businessEvents').doc(ev.id)));
+        batch.delete(firestore.collection('businesses').doc(currentBusiness.uid));
+        await batch.commit();
         await currentUser.delete();
         hideBusinessDashboard();
-        showToast('Je bedrijfsaccount is verwijderd.', 'success');
+        showToast('Je bedrijfsaccount en evenementen zijn verwijderd.', 'success');
       } catch (error) {
         console.error('Delete business account error:', error);
         if (error.code === 'auth/requires-recent-login') {
@@ -3611,6 +3693,268 @@
           showToast('Verwijderen mislukt: ' + error.message, 'error');
         }
       }
+    }
+
+    // ============================================================================
+    // BUSINESS EVENTS (Firestore, server-authoritative status/paid via Cloud
+    // Functions in functions/index.js)
+    // ============================================================================
+    // v1, reduced fidelity by design: single date range only — no multi-day
+    // per-day times, no "umbrella events", no tiered pricing (see
+    // GO-LIVE-CHECKLIST.md for what's deferred). Distinct Firestore
+    // collection (businessEvents) and distinct client array from the legacy
+    // RTDB `events` node (admin-only, no approval workflow), which is
+    // untouched by any of this.
+
+    const EVENT_CATEGORIES = {
+      eten:   { label: 'Eten & Drinken', emoji: '🍔' },
+      muziek: { label: 'Muziek',         emoji: '🎵' },
+      sport:  { label: 'Sport',          emoji: '⚽' },
+      markt:  { label: 'Markt',          emoji: '🛍️' },
+      anders: { label: 'Anders',         emoji: '📍' },
+    };
+
+    let functionsInstance = null;
+    let approvedBusinessEvents = [];
+    let myBusinessEvents = [];
+    let myBusinessEventsUnsub = null;
+    let allBusinessEventsForAdmin = [];
+    let allBusinessEventsUnsub = null;
+    let editingBusinessEventId = null;
+
+    function initBusinessEventsListeners() {
+      functionsInstance = firebase.app().functions('europe-west1');
+      firestore.collection('businessEvents').where('status', '==', 'approved')
+        .onSnapshot(snap => {
+          approvedBusinessEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          renderMarkers();
+        }, error => console.error('approved businessEvents listener error:', error));
+    }
+
+    function subscribeMyBusinessEvents(uid) {
+      if (myBusinessEventsUnsub) myBusinessEventsUnsub();
+      myBusinessEventsUnsub = firestore.collection('businessEvents').where('ownerId', '==', uid)
+        .onSnapshot(snap => {
+          myBusinessEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          if (document.getElementById('businessDashboardModal').classList.contains('active')) {
+            renderBusinessDashboardEvents();
+          }
+        }, error => console.error('myBusinessEvents listener error:', error));
+    }
+
+    function unsubscribeMyBusinessEvents() {
+      if (myBusinessEventsUnsub) { myBusinessEventsUnsub(); myBusinessEventsUnsub = null; }
+      myBusinessEvents = [];
+    }
+
+    function subscribeAllBusinessEventsForAdmin() {
+      if (allBusinessEventsUnsub) allBusinessEventsUnsub();
+      allBusinessEventsUnsub = firestore.collection('businessEvents')
+        .onSnapshot(snap => {
+          allBusinessEventsForAdmin = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          if (document.getElementById('adminPanelModal').classList.contains('active')) {
+            renderAdminPanel();
+          }
+        }, error => console.error('admin businessEvents listener error:', error));
+    }
+
+    function unsubscribeAllBusinessEventsForAdmin() {
+      if (allBusinessEventsUnsub) { allBusinessEventsUnsub(); allBusinessEventsUnsub = null; }
+      allBusinessEventsForAdmin = [];
+    }
+
+    function businessEventStatusBadge(status) {
+      if (status === 'approved') return '<span class="badge" style="background:#16a34a;color:white;">Goedgekeurd</span>';
+      if (status === 'rejected') return '<span class="badge" style="background:#dc2626;color:white;">Afgewezen</span>';
+      return '<span class="badge" style="background:#d97706;color:white;">In afwachting</span>';
+    }
+
+    function showBusinessEventFormModal(eventId) {
+      editingBusinessEventId = eventId || null;
+      const ev = eventId ? myBusinessEvents.find(e => e.id === eventId) : null;
+      document.getElementById('beTitle').value = ev ? ev.title : '';
+      document.getElementById('beCategory').value = ev ? ev.category : 'eten';
+      document.getElementById('beDescription').value = ev ? ev.description : '';
+      document.getElementById('beStartDate').value = ev ? ev.startDate : '';
+      document.getElementById('beEndDate').value = ev ? ev.endDate : '';
+      document.getElementById('beStartTime').value = ev ? ev.startTime : '';
+      document.getElementById('beEndTime').value = ev ? ev.endTime : '';
+      document.getElementById('beAddress').value = ev ? ev.address : '';
+      document.getElementById('beLat').value = ev ? ev.lat : '';
+      document.getElementById('beLng').value = ev ? ev.lng : '';
+      document.getElementById('businessEventFormModalTitle').textContent = ev ? 'Evenement bewerken' : 'Nieuw evenement';
+      hideBusinessDashboard();
+      document.getElementById('businessEventFormModal').classList.add('active');
+    }
+
+    function hideBusinessEventFormModal() {
+      document.getElementById('businessEventFormModal').classList.remove('active');
+      editingBusinessEventId = null;
+      showBusinessDashboard();
+    }
+
+    async function saveBusinessEventForm() {
+      if (!currentBusiness) return;
+      const title = document.getElementById('beTitle').value.trim();
+      const category = document.getElementById('beCategory').value;
+      const description = document.getElementById('beDescription').value.trim();
+      const startDate = document.getElementById('beStartDate').value;
+      const endDate = document.getElementById('beEndDate').value || startDate;
+      const startTime = document.getElementById('beStartTime').value;
+      const endTime = document.getElementById('beEndTime').value;
+      const address = document.getElementById('beAddress').value.trim();
+      const lat = parseFloat(document.getElementById('beLat').value);
+      const lng = parseFloat(document.getElementById('beLng').value);
+
+      if (!title || !description || !startDate || !startTime || !endTime || !address || isNaN(lat) || isNaN(lng)) {
+        showToast('Vul alle verplichte velden in (incl. locatie via Google Maps URL)', 'info');
+        return;
+      }
+
+      try {
+        if (editingBusinessEventId) {
+          const existing = myBusinessEvents.find(e => e.id === editingBusinessEventId);
+          const significantChange = existing && (existing.title !== title || existing.startDate !== startDate
+            || existing.endDate !== endDate || existing.lat !== lat || existing.lng !== lng);
+          const update = { title, category, description, startDate, endDate, startTime, endTime, address, lat, lng };
+          if (significantChange && existing.status === 'approved') {
+            update.status = 'pending'; // the only client-driven status transition the rules allow
+            showToast('Titel/datum/locatie gewijzigd — evenement moet opnieuw goedgekeurd worden', 'info');
+          }
+          await firestore.collection('businessEvents').doc(editingBusinessEventId).update(update);
+        } else {
+          await firestore.collection('businessEvents').add({
+            title, category, description, startDate, endDate, startTime, endTime, address, lat, lng,
+            ownerId: currentBusiness.uid,
+            status: 'pending',
+            paid: false,
+            createdAt: Date.now(),
+          });
+          showToast('Evenement ingediend — wacht op goedkeuring door admin', 'success');
+        }
+        hideBusinessEventFormModal();
+      } catch (error) {
+        console.error('Save business event error:', error);
+        showToast('Opslaan mislukt: ' + error.message, 'error');
+      }
+    }
+
+    function duplicateBusinessEvent(eventId) {
+      const ev = myBusinessEvents.find(e => e.id === eventId);
+      if (!ev) return;
+      showBusinessEventFormModal(null);
+      document.getElementById('beTitle').value = ev.title + ' (kopie)';
+      document.getElementById('beCategory').value = ev.category;
+      document.getElementById('beDescription').value = ev.description;
+      document.getElementById('beStartDate').value = ev.startDate;
+      document.getElementById('beEndDate').value = ev.endDate;
+      document.getElementById('beStartTime').value = ev.startTime;
+      document.getElementById('beEndTime').value = ev.endTime;
+      document.getElementById('beAddress').value = ev.address;
+      document.getElementById('beLat').value = ev.lat;
+      document.getElementById('beLng').value = ev.lng;
+    }
+
+    async function deleteBusinessEvent(eventId) {
+      if (!confirm('Dit evenement verwijderen? Dit kan niet ongedaan worden gemaakt.')) return;
+      try {
+        await firestore.collection('businessEvents').doc(eventId).delete();
+        showToast('Evenement verwijderd', 'info');
+      } catch (error) {
+        showToast('Verwijderen mislukt: ' + error.message, 'error');
+      }
+    }
+
+    async function payForBusinessEventMock(eventId) {
+      try {
+        await functionsInstance.httpsCallable('confirmEventPaymentStub')({ eventId });
+        showToast('Betaling gelukt (mock) — je evenement staat nu live!', 'success');
+      } catch (error) {
+        console.error('Mock payment error:', error);
+        showToast('Betalen mislukt: ' + error.message, 'error');
+      }
+    }
+
+    async function adminApproveBusinessEvent(eventId) {
+      try {
+        await functionsInstance.httpsCallable('approveEvent')({ eventId });
+        showToast('Evenement goedgekeurd', 'success');
+      } catch (error) {
+        console.error('Approve error:', error);
+        showToast('Goedkeuren mislukt: ' + error.message, 'error');
+      }
+    }
+
+    async function adminRejectBusinessEvent(eventId) {
+      try {
+        await functionsInstance.httpsCallable('rejectEvent')({ eventId });
+        showToast('Evenement afgewezen', 'info');
+      } catch (error) {
+        console.error('Reject error:', error);
+        showToast('Afwijzen mislukt: ' + error.message, 'error');
+      }
+    }
+
+    function renderBusinessDashboardEvents() {
+      const container = document.getElementById('businessDashboardEvents');
+      if (!container) return;
+      if (myBusinessEvents.length === 0) {
+        container.innerHTML = '<p style="color:#78716c; font-size:0.85rem;">Nog geen evenementen. Klik op "Nieuw evenement" om te beginnen.</p>';
+        return;
+      }
+      container.innerHTML = myBusinessEvents.map(ev => `
+        <div class="menu-review-item" style="flex-direction:column; align-items:flex-start; gap:0.4rem;">
+          <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+            <div class="menu-review-name">${(EVENT_CATEGORIES[ev.category] || EVENT_CATEGORIES.anders).emoji} ${escapeHtmlSafe(ev.title)}</div>
+            ${businessEventStatusBadge(ev.status)}
+          </div>
+          <div class="menu-review-address">${escapeHtmlSafe(ev.startDate)} ${escapeHtmlSafe(ev.startTime)}–${escapeHtmlSafe(ev.endTime)} · ${escapeHtmlSafe(ev.address)}</div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button class="btn-cancel" style="padding:0.4rem 0.75rem; font-size:0.8rem;" onclick="showBusinessEventFormModal('${ev.id}')">Bewerken</button>
+            <button class="btn-cancel" style="padding:0.4rem 0.75rem; font-size:0.8rem;" onclick="duplicateBusinessEvent('${ev.id}')">Dupliceren</button>
+            <button class="btn-cancel" style="padding:0.4rem 0.75rem; font-size:0.8rem; background:#fee; color:#dc2626;" onclick="deleteBusinessEvent('${ev.id}')">Verwijderen</button>
+            ${ev.status === 'approved' && !ev.paid ? `<button class="btn-save" style="padding:0.4rem 0.75rem; font-size:0.8rem;" onclick="payForBusinessEventMock('${ev.id}')">Nu betalen (mock)</button>` : ''}
+            ${ev.paid ? '<span style="font-size:0.8rem; color:#16a34a;">✅ Betaald, live op de kaart</span>' : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function createBusinessEventMarker(event, markerId) {
+      const eventIcon = {
+        path: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+        fillColor: '#ec4899',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
+        scale: 1.8,
+        anchor: new google.maps.Point(12, 12)
+      };
+      const marker = new google.maps.Marker({
+        position: { lat: event.lat, lng: event.lng },
+        map: map,
+        icon: eventIcon,
+        title: event.title
+      });
+      marker.addListener('click', () => showBusinessEventDetail(event.id));
+      markerCache.set(markerId, { marker });
+    }
+
+    function showBusinessEventDetail(eventId) {
+      const ev = approvedBusinessEvents.find(e => e.id === eventId) || myBusinessEvents.find(e => e.id === eventId);
+      if (!ev) return;
+      const cat = EVENT_CATEGORIES[ev.category] || EVENT_CATEGORIES.anders;
+      document.getElementById('businessEventDetailContent').innerHTML = `
+        <h2>${cat.emoji} ${escapeHtmlSafe(ev.title)}</h2>
+        <p style="color:#78716c; margin-bottom:0.75rem;">📍 ${escapeHtmlSafe(ev.address)}</p>
+        <p style="margin-bottom:0.75rem;">🗓️ ${escapeHtmlSafe(ev.startDate)}${ev.endDate !== ev.startDate ? ' t/m ' + escapeHtmlSafe(ev.endDate) : ''} · ${escapeHtmlSafe(ev.startTime)}–${escapeHtmlSafe(ev.endTime)}</p>
+        <p>${escapeHtmlSafe(ev.description)}</p>
+      `;
+      document.getElementById('businessEventDetailModal').classList.add('active');
+    }
+
+    function hideBusinessEventDetail() {
+      document.getElementById('businessEventDetailModal').classList.remove('active');
     }
 
     // Menu
@@ -4017,6 +4361,9 @@
           <button class="${currentAdminView === 'events' ? 'active' : ''}" onclick="switchAdminView('events')">
             Evenementen (${events.filter(e => new Date(e.dateTime) >= new Date()).length})
           </button>
+          <button class="${currentAdminView === 'businessEvents' ? 'active' : ''}" onclick="switchAdminView('businessEvents')">
+            🎉 Bedrijfsevents (${allBusinessEventsForAdmin.filter(e => e.status === 'pending').length})
+          </button>
         </div>
       `;
 
@@ -4169,6 +4516,38 @@
             </div>
           `;
         });
+        html += `</div>`;
+      } else if (currentAdminView === 'businessEvents') {
+        html += `
+          <div class="admin-table">
+            <div class="admin-table-header" style="grid-template-columns: 2fr 1.5fr 1fr 1.5fr;">
+              <div>Naam</div>
+              <div>Datum</div>
+              <div>Status</div>
+              <div>Actions</div>
+            </div>
+        `;
+        if (allBusinessEventsForAdmin.length === 0) {
+          html += `<div style="padding: 2rem; text-align: center; color: #78716c;">Nog geen bedrijfsevenementen ingediend</div>`;
+        } else {
+          const sorted = [...allBusinessEventsForAdmin].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+          sorted.forEach(ev => {
+            const cat = EVENT_CATEGORIES[ev.category] || EVENT_CATEGORIES.anders;
+            html += `
+              <div class="admin-table-row" style="grid-template-columns: 2fr 1.5fr 1fr 1.5fr;">
+                <div><strong>${cat.emoji} ${escapeHtmlSafe(ev.title)}</strong><br><small style="color: #78716c;">${escapeHtmlSafe(ev.address)}</small></div>
+                <div>${escapeHtmlSafe(ev.startDate)} ${escapeHtmlSafe(ev.startTime)}</div>
+                <div>${businessEventStatusBadge(ev.status)}</div>
+                <div>
+                  ${ev.status === 'pending' ? `
+                    <button class="btn-small btn-edit" onclick="adminApproveBusinessEvent('${ev.id}')" style="background: white; color: #16a34a; border-color: #16a34a;">Goedkeuren</button>
+                    <button class="btn-small btn-delete" onclick="adminRejectBusinessEvent('${ev.id}')" style="background: white; color: #dc2626; border-color: #dc2626;">Afwijzen</button>
+                  ` : `<span style="color:#78716c; font-size:0.8rem;">${ev.paid ? '💳 Betaald' : ''}</span>`}
+                </div>
+              </div>
+            `;
+          });
+        }
         html += `</div>`;
       }
 
