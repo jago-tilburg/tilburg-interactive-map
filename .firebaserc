@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "tilburg-interactive-map"
+    "default": "tilburg-interactive-map",
+    "staging": "tilburg-interactive-map-5710f"
   }
 }
