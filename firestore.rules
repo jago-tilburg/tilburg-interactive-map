@@ -15,6 +15,23 @@ service cloud.firestore {
         && request.resource.data.displayName is string;
     }
 
+    // Business account profiles. Same owner-only shape as visitors/{uid}.
+    match /businesses/{uid} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['businessName', 'email', 'createdAt'])
+        && request.resource.data.businessName is string
+        && request.resource.data.email is string;
+    }
+
+    // Admin membership list. Never client-readable or client-writable — only
+    // used internally by other rules' exists()/get() checks (see the events
+    // module) and seeded/managed via IAM/Admin SDK, not through the app.
+    match /admins/{uid} {
+      allow read, write: if false;
+    }
+
     // Everything else is closed by default until its module is built.
     match /{document=**} {
       allow read, write: if false;

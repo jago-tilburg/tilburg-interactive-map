@@ -1660,7 +1660,7 @@
           <!-- Reviews worden hier dynamisch geladen -->
         </div>
 
-        <div class="menu-login-link" id="menuVisitorLink" onclick="openVisitorEntry(); toggleMenu();" style="border-top: 1px solid #e8e2db;">
+        <div class="menu-login-link" id="menuVisitorLink" onclick="openAccountEntry(); toggleMenu();" style="border-top: 1px solid #e8e2db;">
           👤 Account
         </div>
 
@@ -1822,6 +1822,82 @@
         <div class="form-actions">
           <button class="btn-save" onclick="adminInloggen()">Inloggen</button>
           <button class="btn-cancel" onclick="hideAdminInloggen()">Annuleren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Account Chooser Modal -->
+    <div class="modal-overlay" id="accountChooserModal">
+      <div class="modal" onclick="event.stopPropagation()" style="text-align:center;">
+        <h3>Wie ben je?</h3>
+        <p style="margin-bottom: 1.5rem; color: #78716c; font-size: 0.875rem;">
+          Kies hoe je wilt inloggen of een account aanmaken.
+        </p>
+        <div class="form-actions" style="flex-direction: column;">
+          <button class="btn-save" onclick="hideAccountChooserModal(); showVisitorAuthModal();">👤 Ik ben bezoeker</button>
+          <button class="btn-save" style="background:#9333ea;" onclick="hideAccountChooserModal(); showBusinessAuthModal();">🎉 Ik ben Event Owner</button>
+          <button class="btn-cancel" onclick="hideAccountChooserModal()">Annuleren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Business Account Modal (email/password sign in / sign up) -->
+    <div class="modal-overlay" id="businessAuthModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3>🎉 Event Owner</h3>
+        <div id="baStepLogin">
+          <div style="margin-bottom: 1rem;">
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Email</label>
+            <input type="email" id="baLoginEmail" placeholder="jouw@bedrijf.nl" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+          </div>
+          <div style="margin-bottom: 1rem;">
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Wachtwoord</label>
+            <input type="password" id="baLoginPassword" placeholder="••••••••" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+          </div>
+          <div class="form-actions">
+            <button class="btn-save" onclick="attemptBusinessLogin()">Inloggen</button>
+            <button class="btn-cancel" onclick="hideBusinessAuthModal()">Annuleren</button>
+          </div>
+          <p style="margin-top: 1rem; font-size: 0.85rem; text-align:center;">
+            Nog geen account? <a href="#" onclick="baShowStep('register'); return false;">Registreren</a>
+          </p>
+        </div>
+        <div id="baStepRegister" style="display:none;">
+          <div style="margin-bottom: 1rem;">
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Bedrijfsnaam</label>
+            <input type="text" id="baRegisterBusinessName" placeholder="Jouw bedrijf" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+          </div>
+          <div style="margin-bottom: 1rem;">
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Email</label>
+            <input type="email" id="baRegisterEmail" placeholder="jouw@bedrijf.nl" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+          </div>
+          <div style="margin-bottom: 1rem;">
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Wachtwoord</label>
+            <input type="password" id="baRegisterPassword" placeholder="Minstens 6 tekens" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+          </div>
+          <div class="form-actions">
+            <button class="btn-save" onclick="registerBusinessAccount()">Account aanmaken</button>
+            <button class="btn-cancel" onclick="hideBusinessAuthModal()">Annuleren</button>
+          </div>
+          <p style="margin-top: 1rem; font-size: 0.85rem; text-align:center;">
+            Al een account? <a href="#" onclick="baShowStep('login'); return false;">Inloggen</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Business Dashboard Modal -->
+    <div class="modal-overlay" id="businessDashboardModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3>🎉 <span id="businessDashboardName"></span></h3>
+        <p id="businessDashboardEmail" style="margin-bottom: 1rem; color: #78716c; font-size: 0.875rem;"></p>
+        <p style="margin-bottom: 1.5rem; color: #78716c; font-size: 0.85rem;">
+          Evenementen beheren komt hier binnenkort — dit onderdeel wordt als volgende module gebouwd.
+        </p>
+        <div class="form-actions">
+          <button class="btn-cancel" onclick="logoutBusiness()">🚪 Uitloggen</button>
+          <button class="btn-cancel" style="background:#fee; color:#dc2626;" onclick="deleteBusinessAccountReal()">Account verwijderen</button>
+          <button class="btn-cancel" onclick="hideBusinessDashboard()">Sluiten</button>
         </div>
       </div>
     </div>
@@ -2149,7 +2225,9 @@
     let auth = null;
     let firestore = null;
     let currentUser = null;
-    let currentVisitor = null; // Firestore profile doc for the signed-in non-admin user, or null
+    let currentVisitor = null; // Firestore profile doc for the signed-in non-admin, non-business user, or null
+    let currentBusiness = null; // Firestore profile doc for the signed-in business user, or null
+    let suppressAutoProfileLoad = false; // true while a register flow is creating its own profile doc
 
     try {
       firebase.initializeApp(firebaseConfig);
@@ -2174,13 +2252,26 @@
           // User is signed in - check if admin
           await checkAdminStatus(user);
           if (!isAdmin) {
-            currentVisitor = await loadOrCreateVisitorProfile(user);
+            if (suppressAutoProfileLoad) {
+              // Registration flow (visitor or business) is creating the
+              // profile itself right now — don't race it.
+            } else {
+              const bizSnap = await firestore.collection('businesses').doc(user.uid).get();
+              if (bizSnap.exists) {
+                currentBusiness = { uid: user.uid, ...bizSnap.data() };
+                currentVisitor = null;
+              } else {
+                currentVisitor = await loadOrCreateVisitorProfile(user);
+                currentBusiness = null;
+              }
+            }
             updateMenuVisibility();
           }
         } else {
           // User is signed out
           isAdmin = false;
           currentVisitor = null;
+          currentBusiness = null;
           removeMapLongPress();
           updateMenuVisibility();
 
@@ -3404,6 +3495,124 @@
       return div.innerHTML;
     }
 
+    // ============================================================================
+    // BUSINESS ACCOUNTS (Firebase Auth email/password + Firestore profile)
+    // ============================================================================
+    // Unlike visitors (magic-link — casual, occasional use), businesses get
+    // durable password login since the dashboard is used repeatedly.
+    // NOTE: the event list in the dashboard is a placeholder until the events
+    // module ships (staging build order step 4) — deletion doesn't cascade
+    // events yet because there are none to cascade.
+
+    function showBusinessAuthModal() {
+      document.getElementById('baLoginEmail').value = '';
+      document.getElementById('baLoginPassword').value = '';
+      document.getElementById('baRegisterBusinessName').value = '';
+      document.getElementById('baRegisterEmail').value = '';
+      document.getElementById('baRegisterPassword').value = '';
+      baShowStep('login');
+      document.getElementById('businessAuthModal').classList.add('active');
+    }
+
+    function hideBusinessAuthModal() {
+      document.getElementById('businessAuthModal').classList.remove('active');
+    }
+
+    function baShowStep(step) {
+      document.getElementById('baStepLogin').style.display = step === 'login' ? 'block' : 'none';
+      document.getElementById('baStepRegister').style.display = step === 'register' ? 'block' : 'none';
+    }
+
+    async function attemptBusinessLogin() {
+      const email = document.getElementById('baLoginEmail').value.trim();
+      const password = document.getElementById('baLoginPassword').value;
+      if (!email || !password) { showToast('Vul email en wachtwoord in', 'info'); return; }
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        hideBusinessAuthModal();
+        // onAuthStateChanged loads the businesses/{uid} profile and opens nothing
+        // automatically — the dashboard is one more click via the account menu,
+        // matching how a returning visitor isn't force-navigated either.
+        showToast('Ingelogd!', 'success');
+      } catch (error) {
+        console.error('Business login error:', error);
+        showToast(businessAuthErrorMessage(error), 'error');
+      }
+    }
+
+    async function registerBusinessAccount() {
+      const businessName = document.getElementById('baRegisterBusinessName').value.trim();
+      const email = document.getElementById('baRegisterEmail').value.trim();
+      const password = document.getElementById('baRegisterPassword').value;
+      if (!businessName || !email || !password) { showToast('Vul alle velden in', 'info'); return; }
+      if (password.length < 6) { showToast('Wachtwoord moet minstens 6 tekens zijn', 'info'); return; }
+
+      suppressAutoProfileLoad = true;
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        const profile = { businessName, email, createdAt: Date.now() };
+        await firestore.collection('businesses').doc(cred.user.uid).set(profile);
+        currentBusiness = { uid: cred.user.uid, ...profile };
+        currentVisitor = null;
+        hideBusinessAuthModal();
+        updateMenuVisibility();
+        showToast(`Account aangemaakt — welkom, ${businessName}!`, 'success');
+        showBusinessDashboard();
+      } catch (error) {
+        console.error('Business registration error:', error);
+        showToast(businessAuthErrorMessage(error), 'error');
+      } finally {
+        suppressAutoProfileLoad = false;
+      }
+    }
+
+    function businessAuthErrorMessage(error) {
+      switch (error.code) {
+        case 'auth/email-already-in-use': return 'Er bestaat al een account met dit e-mailadres';
+        case 'auth/invalid-email': return 'Ongeldig e-mailadres';
+        case 'auth/weak-password': return 'Wachtwoord is te zwak (minstens 6 tekens)';
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential': return 'Onjuiste inloggegevens';
+        case 'auth/user-not-found': return 'Geen account gevonden met dit e-mailadres';
+        case 'auth/too-many-requests': return 'Te veel mislukte pogingen. Probeer later opnieuw.';
+        default: return 'Inloggen mislukt: ' + error.message;
+      }
+    }
+
+    function showBusinessDashboard() {
+      if (!currentBusiness) { showBusinessAuthModal(); return; }
+      document.getElementById('businessDashboardName').textContent = currentBusiness.businessName;
+      document.getElementById('businessDashboardEmail').textContent = currentBusiness.email;
+      document.getElementById('businessDashboardModal').classList.add('active');
+    }
+
+    function hideBusinessDashboard() {
+      document.getElementById('businessDashboardModal').classList.remove('active');
+    }
+
+    function logoutBusiness() {
+      hideBusinessDashboard();
+      logout();
+    }
+
+    async function deleteBusinessAccountReal() {
+      if (!currentBusiness || !currentUser) return;
+      if (!confirm('Weet je zeker dat je je bedrijfsaccount wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')) return;
+      try {
+        await firestore.collection('businesses').doc(currentBusiness.uid).delete();
+        await currentUser.delete();
+        hideBusinessDashboard();
+        showToast('Je bedrijfsaccount is verwijderd.', 'success');
+      } catch (error) {
+        console.error('Delete business account error:', error);
+        if (error.code === 'auth/requires-recent-login') {
+          showToast('Log opnieuw in en probeer het daarna nog een keer (beveiligingsvereiste van Firebase).', 'error');
+        } else {
+          showToast('Verwijderen mislukt: ' + error.message, 'error');
+        }
+      }
+    }
+
     // Menu
     let menuReturnToList = false; // Track if we should return to menu after closing detail
     let activeMenuFilter = 'all';
@@ -3721,9 +3930,20 @@
         });
     }
     
-    function openVisitorEntry() {
-      if (currentVisitor) showVisitorDashboard();
-      else showVisitorAuthModal();
+    // Single entry point for both visitor and business accounts — routes to
+    // whichever dashboard is active, or a chooser if neither is signed in.
+    function openAccountEntry() {
+      if (currentBusiness) { showBusinessDashboard(); return; }
+      if (currentVisitor) { showVisitorDashboard(); return; }
+      showAccountChooserModal();
+    }
+
+    function showAccountChooserModal() {
+      document.getElementById('accountChooserModal').classList.add('active');
+    }
+
+    function hideAccountChooserModal() {
+      document.getElementById('accountChooserModal').classList.remove('active');
     }
 
     function updateMenuVisibility() {
@@ -3731,6 +3951,11 @@
       const loginLink = document.getElementById('menuLoginLink');
       const logoutLink = document.getElementById('menuLogoutLink');
       const visitorLink = document.getElementById('menuVisitorLink');
+      const accountLabel = currentBusiness
+        ? `🎉 ${currentBusiness.businessName}`
+        : currentVisitor
+        ? `👤 ${currentVisitor.displayName}`
+        : '👤 Account';
 
       if (isAdmin && currentUser) {
         // Admin ingelogd
@@ -3739,13 +3964,13 @@
         if (logoutLink) logoutLink.classList.remove('hidden');
         if (visitorLink) visitorLink.style.display = 'none';
       } else if (currentUser) {
-        // Niet-admin ingelogd
+        // Niet-admin ingelogd (bezoeker of Event Owner)
         if (adminPanelBtn) adminPanelBtn.classList.add('hidden');
         if (loginLink) loginLink.style.display = 'none';
         if (logoutLink) logoutLink.classList.remove('hidden');
         if (visitorLink) {
           visitorLink.style.display = 'block';
-          visitorLink.textContent = `👤 ${currentVisitor ? currentVisitor.displayName : 'Account'}`;
+          visitorLink.textContent = accountLabel;
         }
       } else {
         // Niet ingelogd
@@ -3754,7 +3979,7 @@
         if (logoutLink) logoutLink.classList.add('hidden');
         if (visitorLink) {
           visitorLink.style.display = 'block';
-          visitorLink.textContent = '👤 Account';
+          visitorLink.textContent = accountLabel;
         }
       }
     }
