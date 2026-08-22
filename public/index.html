@@ -26,6 +26,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   
   <!-- Instagram Embed Script -->
   <script async src="//www.instagram.com/embed.js"></script>
@@ -1659,6 +1660,10 @@
           <!-- Reviews worden hier dynamisch geladen -->
         </div>
 
+        <div class="menu-login-link" id="menuVisitorLink" onclick="openVisitorEntry(); toggleMenu();" style="border-top: 1px solid #e8e2db;">
+          👤 Account
+        </div>
+
         <div class="menu-login-link" id="menuLoginLink" onclick="showAdminInloggen(); toggleMenu();">
           🔐
         </div>
@@ -1817,6 +1822,47 @@
         <div class="form-actions">
           <button class="btn-save" onclick="adminInloggen()">Inloggen</button>
           <button class="btn-cancel" onclick="hideAdminInloggen()">Annuleren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visitor Account Modal (email-link sign in / sign up) -->
+    <div class="modal-overlay" id="visitorAuthModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3>👤 Account</h3>
+        <div id="visitorAuthStepRequest">
+          <p style="margin-bottom: 1rem; color: #78716c; font-size: 0.875rem;">
+            Log in of maak een account om je likes en beoordelingen te bewaren. We sturen je een inloglink per e-mail — geen wachtwoord nodig.
+          </p>
+          <div style="margin-bottom: 1rem;">
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Email</label>
+            <input type="email" id="visitorAuthEmail" placeholder="jij@voorbeeld.nl" style="width: 100%; padding: 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font-family: inherit;">
+          </div>
+          <div class="form-actions">
+            <button class="btn-save" onclick="sendVisitorMagicLink()">Verstuur inloglink</button>
+            <button class="btn-cancel" onclick="hideVisitorAuthModal()">Annuleren</button>
+          </div>
+        </div>
+        <div id="visitorAuthStepSent" style="display:none; text-align:center;">
+          <p id="visitorAuthSentHint" style="margin-bottom: 1rem; color: #78716c; font-size: 0.9rem;"></p>
+          <div class="form-actions">
+            <button class="btn-cancel" onclick="hideVisitorAuthModal()">Sluiten</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visitor Dashboard Modal -->
+    <div class="modal-overlay" id="visitorDashboardModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3>👤 Mijn account</h3>
+        <p id="visitorDashboardEmail" style="margin-bottom: 1rem; color: #78716c; font-size: 0.875rem;"></p>
+        <h4 style="margin-bottom: 0.5rem;">Geliked</h4>
+        <div id="visitorLikedShopsList" style="margin-bottom: 1.5rem; max-height: 240px; overflow-y: auto;"></div>
+        <div class="form-actions">
+          <button class="btn-cancel" onclick="logoutVisitor()">🚪 Uitloggen</button>
+          <button class="btn-cancel" style="background:#fee; color:#dc2626;" onclick="deleteVisitorAccountReal()">Account verwijderen</button>
+          <button class="btn-cancel" onclick="hideVisitorDashboard()">Sluiten</button>
         </div>
       </div>
     </div>
@@ -2086,44 +2132,57 @@
     };
 
     // Firebase Configuration
+    // STAGING — points at tilburg-interactive-map-5710f, not prod. See
+    // .firebaserc / GO-LIVE-CHECKLIST.md §5 for the staging/prod split.
     const firebaseConfig = {
-      apiKey: "AIzaSyD3s7cVwwsqqO5QQlQ5rP42glC7TLjovz8",
-      authDomain: "tilburg-interactive-map.firebaseapp.com",
-      databaseURL: "https://tilburg-interactive-map-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "tilburg-interactive-map",
-      storageBucket: "tilburg-interactive-map.firebasestorage.app",
-      messagingVersturenerId: "12277098920",
-      appId: "1:12277098920:web:7fcdc9de6329e78208d59d"
+      apiKey: "AIzaSyBliPCItkIaNXy-072kIN7LLjb4amdb2is",
+      authDomain: "tilburg-interactive-map-5710f.firebaseapp.com",
+      projectId: "tilburg-interactive-map-5710f",
+      storageBucket: "tilburg-interactive-map-5710f.firebasestorage.app",
+      messagingSenderId: "451533571295",
+      appId: "1:451533571295:web:e3efd663e42e8df0e7d56a"
     };
 
     // Initialize Firebase
     let database = null;
     let auth = null;
+    let firestore = null;
     let currentUser = null;
-    
+    let currentVisitor = null; // Firestore profile doc for the signed-in non-admin user, or null
+
     try {
       firebase.initializeApp(firebaseConfig);
       database = firebase.database();
       auth = firebase.auth();
+      firestore = firebase.firestore();
       console.log('🔥 Firebase connected!');
-      
+
       // Load admin UIDs from Firebase
       loadAdminUids();
-      
+
+      // If this page load is the visitor clicking the magic link in their
+      // email, complete that sign-in before the normal auth state flow runs.
+      completeVisitorMagicLinkIfPresent();
+
       // Auth state observer
-      auth.onAuthStateChanged((user) => {
+      auth.onAuthStateChanged(async (user) => {
         console.log('🔐 Auth state changed:', user ? user.email : 'No user');
         currentUser = user;
-        
+
         if (user) {
           // User is signed in - check if admin
-          checkAdminStatus(user);
+          await checkAdminStatus(user);
+          if (!isAdmin) {
+            currentVisitor = await loadOrCreateVisitorProfile(user);
+            updateMenuVisibility();
+          }
         } else {
           // User is signed out
           isAdmin = false;
+          currentVisitor = null;
           removeMapLongPress();
           updateMenuVisibility();
-          
+
           // Close admin panel if open
           const adminPanel = document.getElementById('adminPanel');
           if (adminPanel && adminPanel.classList.contains('active')) {
@@ -2131,7 +2190,7 @@
           }
         }
       });
-      
+
       database.ref('shops').on('value', (snapshot) => {
         shopsLoaded = true;
         if (snapshot.exists()) {
@@ -3147,7 +3206,10 @@
       }
     }
 
-    function getUserId() {
+    // The anonymous, device-local identity — always exists, independent of
+    // whether a visitor account is signed in. Used as the migration source
+    // when a visitor logs in for the first time.
+    function getAnonUserId() {
       let userId = localStorage.getItem('tilburg-user-id');
       if (!userId) {
         userId = 'user-' + Math.random().toString(36).substr(2, 9);
@@ -3156,8 +3218,189 @@
       return userId;
     }
 
+    // The identity likes/ratings/comments should be attributed to right now:
+    // the real visitor uid if signed in, otherwise the anonymous local id.
+    function getUserId() {
+      if (currentVisitor) return currentVisitor.uid;
+      return getAnonUserId();
+    }
+
     function getUserName() {
+      if (currentVisitor) return currentVisitor.displayName || '';
       return localStorage.getItem('tilburg-user-name') || '';
+    }
+
+    // ============================================================================
+    // VISITOR ACCOUNTS (Firebase Auth email-link + Firestore profile)
+    // ============================================================================
+
+    const VISITOR_AUTH_EMAIL_KEY = 'tilburg-visitor-pending-email';
+
+    function visitorActionCodeSettings() {
+      return {
+        url: window.location.origin + window.location.pathname,
+        handleCodeInApp: true,
+      };
+    }
+
+    function showVisitorAuthModal() {
+      document.getElementById('visitorAuthEmail').value = '';
+      document.getElementById('visitorAuthStepRequest').style.display = 'block';
+      document.getElementById('visitorAuthStepSent').style.display = 'none';
+      document.getElementById('visitorAuthModal').classList.add('active');
+    }
+
+    function hideVisitorAuthModal() {
+      document.getElementById('visitorAuthModal').classList.remove('active');
+    }
+
+    async function sendVisitorMagicLink() {
+      const email = document.getElementById('visitorAuthEmail').value.trim();
+      if (!email) { showToast('Vul een e-mailadres in', 'info'); return; }
+      try {
+        await auth.sendSignInLinkToEmail(email, visitorActionCodeSettings());
+        window.localStorage.setItem(VISITOR_AUTH_EMAIL_KEY, email);
+        document.getElementById('visitorAuthStepRequest').style.display = 'none';
+        document.getElementById('visitorAuthStepSent').style.display = 'block';
+        document.getElementById('visitorAuthSentHint').textContent =
+          `We hebben een inloglink gestuurd naar ${email}. Open die link op dit toestel om in te loggen.`;
+      } catch (error) {
+        console.error('Magic link error:', error);
+        showToast('Versturen mislukt: ' + error.message, 'error');
+      }
+    }
+
+    // Runs once on every page load. If the URL is a Firebase email-sign-in
+    // link, completes the sign-in and strips the auth params from the URL.
+    async function completeVisitorMagicLinkIfPresent() {
+      if (!auth.isSignInWithEmailLink(window.location.href)) return;
+      let email = window.localStorage.getItem(VISITOR_AUTH_EMAIL_KEY);
+      if (!email) {
+        // Link opened on a different device/browser than it was requested on.
+        email = window.prompt('Bevestig je e-mailadres om in te loggen:');
+      }
+      if (!email) return;
+      try {
+        await auth.signInWithEmailLink(email, window.location.href);
+        window.localStorage.removeItem(VISITOR_AUTH_EMAIL_KEY);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        showToast('Ingelogd!', 'success');
+      } catch (error) {
+        console.error('Sign-in link error:', error);
+        showToast('Inloggen mislukt: ' + error.message, 'error');
+      }
+    }
+
+    // Loads the visitor's Firestore profile, creating it on first sign-in
+    // and migrating their anonymous likes/ratings/comments/reviews to the
+    // real uid. Returns null if this user is an admin (admins aren't visitors).
+    async function loadOrCreateVisitorProfile(user) {
+      const ref = firestore.collection('visitors').doc(user.uid);
+      const snap = await ref.get();
+      if (snap.exists) {
+        return { uid: user.uid, ...snap.data() };
+      }
+      const profile = {
+        email: user.email || '',
+        displayName: (user.email || 'Bezoeker').split('@')[0],
+        createdAt: Date.now(),
+      };
+      await ref.set(profile);
+      await migrateAnonymousDataToVisitor(user.uid);
+      return { uid: user.uid, ...profile };
+    }
+
+    // Reassigns likes/ratings/comments/reviews from the anonymous local id
+    // to the newly-authenticated visitor uid, so a first-time login doesn't
+    // orphan the interactions made before signing in. Mirrors the mock
+    // migrateAnonymousVisitorData() from the events-map-prototype rebuild.
+    async function migrateAnonymousDataToVisitor(newUid) {
+      const oldId = getAnonUserId();
+      if (!oldId || oldId === newUid) return;
+      let migrated = 0;
+      shops.forEach(shop => {
+        if (Array.isArray(shop.likes) && shop.likes.includes(oldId)) {
+          shop.likes = shop.likes.filter(id => id !== oldId);
+          if (!shop.likes.includes(newUid)) { shop.likes.push(newUid); migrated++; }
+        }
+        if (Array.isArray(shop.userRatings)) {
+          const oldRating = shop.userRatings.find(r => r.userId === oldId);
+          if (oldRating) {
+            shop.userRatings = shop.userRatings.filter(r => r.userId !== oldId && r.userId !== newUid);
+            oldRating.userId = newUid;
+            shop.userRatings.push(oldRating);
+            migrated++;
+          }
+        }
+        if (Array.isArray(shop.comments)) {
+          shop.comments.forEach(c => { if (c.userId === oldId) { c.userId = newUid; migrated++; } });
+        }
+        if (Array.isArray(shop.userReviews)) {
+          shop.userReviews.forEach(r => { if (r.userId === oldId) { r.userId = newUid; migrated++; } });
+        }
+      });
+      if (migrated > 0) {
+        await saveShops();
+        showToast(`${migrated} eerdere like(s)/beoordeling(en) gekoppeld aan je account.`, 'info');
+      }
+    }
+
+    function showVisitorDashboard() {
+      if (!currentVisitor) { showVisitorAuthModal(); return; }
+      document.getElementById('visitorDashboardEmail').textContent = currentVisitor.email;
+      const likedShops = shops.filter(s => (s.likes || []).includes(currentVisitor.uid));
+      const list = document.getElementById('visitorLikedShopsList');
+      list.innerHTML = likedShops.length
+        ? likedShops.map(s => `<div class="menu-review-item">
+            <div class="menu-review-info">
+              <div class="menu-review-name">${escapeHtmlSafe(s.name || 'Onbekend')}</div>
+              <div class="menu-review-address">${escapeHtmlSafe(s.address || '')}</div>
+            </div>
+          </div>`).join('')
+        : '<p style="color:#78716c; font-size:0.85rem;">Nog geen broodjeszaken geliked.</p>';
+      document.getElementById('visitorDashboardModal').classList.add('active');
+    }
+
+    function hideVisitorDashboard() {
+      document.getElementById('visitorDashboardModal').classList.remove('active');
+    }
+
+    function logoutVisitor() {
+      hideVisitorDashboard();
+      logout();
+    }
+
+    async function deleteVisitorAccountReal() {
+      if (!currentVisitor || !currentUser) return;
+      if (!confirm('Weet je zeker dat je je account wilt verwijderen? Al je likes, beoordelingen, reacties en reviews worden permanent verwijderd. Dit kan niet ongedaan worden gemaakt.')) return;
+
+      const uid = currentVisitor.uid;
+      try {
+        shops.forEach(shop => {
+          if (Array.isArray(shop.likes)) shop.likes = shop.likes.filter(id => id !== uid);
+          if (Array.isArray(shop.userRatings)) shop.userRatings = shop.userRatings.filter(r => r.userId !== uid);
+          if (Array.isArray(shop.comments)) shop.comments = shop.comments.filter(c => c.userId !== uid);
+          if (Array.isArray(shop.userReviews)) shop.userReviews = shop.userReviews.filter(r => r.userId !== uid);
+        });
+        await saveShops();
+        await firestore.collection('visitors').doc(uid).delete();
+        await currentUser.delete();
+        hideVisitorDashboard();
+        showToast('Je account en alle bijbehorende gegevens zijn verwijderd.', 'success');
+      } catch (error) {
+        console.error('Delete account error:', error);
+        if (error.code === 'auth/requires-recent-login') {
+          showToast('Log opnieuw in en probeer het daarna nog een keer (beveiligingsvereiste van Firebase).', 'error');
+        } else {
+          showToast('Verwijderen mislukt: ' + error.message, 'error');
+        }
+      }
+    }
+
+    function escapeHtmlSafe(str) {
+      const div = document.createElement('div');
+      div.textContent = str || '';
+      return div.innerHTML;
     }
 
     // Menu
@@ -3477,26 +3720,41 @@
         });
     }
     
+    function openVisitorEntry() {
+      if (currentVisitor) showVisitorDashboard();
+      else showVisitorAuthModal();
+    }
+
     function updateMenuVisibility() {
       const adminPanelBtn = document.getElementById('menuAdminPanel');
       const loginLink = document.getElementById('menuLoginLink');
       const logoutLink = document.getElementById('menuLogoutLink');
-      
+      const visitorLink = document.getElementById('menuVisitorLink');
+
       if (isAdmin && currentUser) {
         // Admin ingelogd
         if (adminPanelBtn) adminPanelBtn.classList.remove('hidden');
         if (loginLink) loginLink.style.display = 'none';
         if (logoutLink) logoutLink.classList.remove('hidden');
+        if (visitorLink) visitorLink.style.display = 'none';
       } else if (currentUser) {
         // Niet-admin ingelogd
         if (adminPanelBtn) adminPanelBtn.classList.add('hidden');
         if (loginLink) loginLink.style.display = 'none';
         if (logoutLink) logoutLink.classList.remove('hidden');
+        if (visitorLink) {
+          visitorLink.style.display = 'block';
+          visitorLink.textContent = `👤 ${currentVisitor ? currentVisitor.displayName : 'Account'}`;
+        }
       } else {
         // Niet ingelogd
         if (adminPanelBtn) adminPanelBtn.classList.add('hidden');
         if (loginLink) loginLink.style.display = 'block';
         if (logoutLink) logoutLink.classList.add('hidden');
+        if (visitorLink) {
+          visitorLink.style.display = 'block';
+          visitorLink.textContent = '👤 Account';
+        }
       }
     }
 

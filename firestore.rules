@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Visitor account profiles. A visitor can only read/write their own
+    // document — server (Cloud Functions with admin creds) bypasses these
+    // rules entirely, so this is purely about client access.
+    match /visitors/{uid} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['email', 'displayName', 'createdAt'])
+        && request.resource.data.email is string
+        && request.resource.data.displayName is string;
+    }
+
+    // Everything else is closed by default until its module is built.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
