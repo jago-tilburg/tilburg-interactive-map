@@ -43,14 +43,40 @@ describe("shopsSnapshotToArray", () => {
   });
 
   it("filters falsy entries out of an array snapshot", () => {
-    const a = { id: 1 };
+    const a = { id: 1, likes: [], comments: [], userReviews: [], userRatings: [] };
     expect(shopsSnapshotToArray([a, null, undefined])).toEqual([a]);
   });
 
   it("converts an id-keyed object snapshot to an array", () => {
-    const a = { id: 1 };
-    const b = { id: 2 };
+    const a = { id: 1, likes: [], comments: [], userReviews: [], userRatings: [] };
+    const b = { id: 2, likes: [], comments: [], userReviews: [], userRatings: [] };
     expect(shopsSnapshotToArray({ "1": a, "2": b })).toEqual([a, b]);
+  });
+
+  it("defaults likes/comments/userReviews/userRatings to [] when RTDB dropped them (empty-array fields aren't stored)", () => {
+    // A freshly-created shop with zero interactions so far — this is
+    // exactly what a real RTDB snapshot looks like, confirmed against
+    // staging: writing `likes: []` on create never actually lands a
+    // `likes` key at all.
+    const bare = { id: 9001, name: "Test Shop" };
+    const [shop] = shopsSnapshotToArray({ "9001": bare });
+    expect(shop.likes).toEqual([]);
+    expect(shop.comments).toEqual([]);
+    expect(shop.userReviews).toEqual([]);
+    expect(shop.userRatings).toEqual([]);
+  });
+
+  it("leaves already-present interaction arrays untouched", () => {
+    const shopWithData = {
+      id: 9002,
+      likes: ["u1"],
+      comments: [{ id: 1, userId: "u1", userName: "A", text: "x", createdAt: "t" }],
+      userReviews: [],
+      userRatings: [],
+    };
+    const [shop] = shopsSnapshotToArray([shopWithData]);
+    expect(shop.likes).toEqual(["u1"]);
+    expect(shop.comments).toEqual(shopWithData.comments);
   });
 });
 

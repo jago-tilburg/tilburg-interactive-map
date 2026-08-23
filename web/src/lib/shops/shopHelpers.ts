@@ -6,8 +6,26 @@ import type { Shop, ShopComment, ShopUserRating, ShopUserReview, ShopMigrationPa
 // hit that threshold in practice). Normalize either shape to a plain list.
 export function shopsSnapshotToArray(val: unknown): Shop[] {
   if (!val) return [];
-  if (Array.isArray(val)) return val.filter(Boolean);
-  return Object.values(val as Record<string, Shop>).filter(Boolean);
+  const raw = Array.isArray(val) ? val.filter(Boolean) : Object.values(val as Record<string, Shop>).filter(Boolean);
+  return raw.map(normalizeShopArrays);
+}
+
+// RTDB never stores an empty array/object at a path — writing `likes: []`
+// on create is equivalent to writing nothing there at all. So a shop with
+// zero interactions so far comes back from a real snapshot missing
+// `likes`/`comments`/`userReviews`/`userRatings` entirely, even though the
+// Shop type promises they're always arrays. Normalizing here, once, is what
+// makes that promise actually true for every consumer — confirmed the hard
+// way: ShopDetailModal trusted the type and crashed the whole page
+// (`shop.likes.includes` on undefined) opening any shop with no likes yet.
+function normalizeShopArrays(shop: Shop): Shop {
+  return {
+    ...shop,
+    likes: shop.likes ?? [],
+    comments: shop.comments ?? [],
+    userReviews: shop.userReviews ?? [],
+    userRatings: shop.userRatings ?? [],
+  };
 }
 
 export function toggleLike(likes: string[] | undefined, userId: string): string[] {

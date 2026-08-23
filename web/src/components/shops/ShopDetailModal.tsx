@@ -94,13 +94,25 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
 
   if (!shop) return null;
 
+  // RTDB never stores an empty array — writing `likes: []` on create is
+  // equivalent to writing nothing at all — so a shop with zero interactions
+  // so far can come back from a real snapshot missing these fields
+  // entirely, even though the Shop type promises they're always arrays.
+  // Normalized once at the read boundary (shopsSnapshotToArray) for every
+  // real caller, but defended here too — this crashed the whole page
+  // (`shop.likes.includes` on undefined) opening any shop with no likes yet.
+  const likes = shop.likes ?? [];
+  const comments = shop.comments ?? [];
+  const userReviews = shop.userReviews ?? [];
+  const userRatings = shop.userRatings ?? [];
+
   /* v8 ignore next -- userId's falsy branch is the pre-hydration SSR state; useSyncExternalStore
      resolves it synchronously on the client's first render under RTL (no real hydration pass),
      so this branch is only reachable during an actual server render, never in this test suite. */
-  const hasLiked = userId ? shop.likes.includes(userId) : false;
-  const avg = averageRating(shop.userRatings);
+  const hasLiked = userId ? likes.includes(userId) : false;
+  const avg = averageRating(userRatings);
   /* v8 ignore next -- see hasLiked above. */
-  const userRating = userId ? shop.userRatings.find((r) => r.userId === userId)?.rating : undefined;
+  const userRating = userId ? userRatings.find((r) => r.userId === userId)?.rating : undefined;
 
   async function handleRate(rating: number) {
     /* v8 ignore next -- see hasLiked above. */
@@ -208,7 +220,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
           <span className={styles.priceBadge}>{shop.price}</span>
           {avg !== null && (
             <span className={styles.avgBadge}>
-              👥 {avg} ⭐ ({shop.userRatings.length})
+              👥 {avg} ⭐ ({userRatings.length})
             </span>
           )}
           <DietaryBadges options={shop.dietaryOptions} />
@@ -233,7 +245,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
 
         <div className={styles.interactionBar}>
           <button type="button" className={hasLiked ? styles.likedButton : styles.likeButton} onClick={handleToggleLike}>
-            👍 {shop.likes.length}
+            👍 {likes.length}
           </button>
           {viewCount !== null && <span className={styles.viewCount}>👁️ {viewCount}</span>}
         </div>
@@ -251,11 +263,11 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
 
         <div className={styles.reviewSection}>
           <div className={styles.reviewLabel}>Reacties</div>
-          {shop.comments.length === 0 ? (
+          {comments.length === 0 ? (
             <p className={styles.empty}>Nog geen reacties.</p>
           ) : (
             <ul className={styles.commentList}>
-              {shop.comments.map((c) => (
+              {comments.map((c) => (
                 <li key={c.id} className={styles.commentItem}>
                   <div className={styles.commentHeader}>
                     <span className={styles.commentAuthor}>{c.userName}</span>
@@ -283,11 +295,11 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
 
         <div className={styles.reviewSection}>
           <div className={styles.reviewLabel}>Reviews van Bezoekers</div>
-          {shop.userReviews.length === 0 ? (
+          {userReviews.length === 0 ? (
             <p className={styles.empty}>Nog geen reviews.</p>
           ) : (
             <ul className={styles.commentList}>
-              {shop.userReviews.map((r) => (
+              {userReviews.map((r) => (
                 <li key={r.id} className={styles.userReview}>
                   <div className={styles.userReviewHeader}>
                     <span className={styles.userReviewAuthor}>{r.userName}</span>

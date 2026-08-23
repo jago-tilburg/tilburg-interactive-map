@@ -87,6 +87,40 @@ describe("ShopDetailModal", () => {
     expect(await screen.findByText("👁️ 5")).toBeInTheDocument();
   });
 
+  // Regression test for a real crash: RTDB drops empty-array fields on
+  // write entirely (writing `likes: []` on create never actually lands a
+  // `likes` key), so a shop with zero interactions comes back from a real
+  // snapshot missing likes/comments/userReviews/userRatings altogether —
+  // even though the Shop type promises they're always arrays. That crashed
+  // the whole page (`shop.likes.includes` on undefined) opening any shop
+  // detail with no likes yet. Now fixed at the read boundary
+  // (shopsSnapshotToArray, see shopHelpers.test.ts) — this proves the
+  // modal itself renders safely if that contract is ever violated anyway.
+  it("does not crash when likes/comments/userReviews/userRatings are missing from the shop object", () => {
+    const bareShop = {
+      id: 9001,
+      name: "Bare Shop",
+      address: "Heuvelplein 1",
+      lat: 51.5,
+      lng: 5.09,
+      rating: 8,
+      price: "€€",
+      photoUrl: "",
+      review: "",
+      tiktokUrl: "",
+      instagramUrl: "",
+      dietaryOptions: { glutenvrij: false, halal: false, vega: false },
+      createdAt: "2026-01-01",
+    } as Shop;
+
+    render(<ShopDetailModal open onClose={vi.fn()} shop={bareShop} />);
+
+    expect(screen.getByRole("dialog", { name: "Bare Shop" })).toBeInTheDocument();
+    expect(screen.getByText("👍 0")).toBeInTheDocument();
+    expect(screen.getByText("Nog geen reacties.")).toBeInTheDocument();
+    expect(screen.getByText("Nog geen reviews.")).toBeInTheDocument();
+  });
+
   it("navigates when the address is clicked", async () => {
     const user = userEvent.setup();
     render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop()} />);

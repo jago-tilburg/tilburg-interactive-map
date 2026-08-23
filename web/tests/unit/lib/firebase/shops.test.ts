@@ -68,7 +68,9 @@ describe("subscribeShops", () => {
 
     subscribeShops(onChange);
 
-    expect(onChange).toHaveBeenCalledWith([{ id: 9001, name: "A" }]);
+    expect(onChange).toHaveBeenCalledWith([
+      { id: 9001, name: "A", likes: [], comments: [], userReviews: [], userRatings: [] },
+    ]);
   });
 
   it("forwards errors to onError", () => {
@@ -133,7 +135,7 @@ describe("getShopsOnce", () => {
     vi.mocked(get).mockResolvedValue({ val: () => ({ "9001": { id: 9001, name: "A" } }) } as never);
     const result = await getShopsOnce();
     expect(get).toHaveBeenCalledWith(refFor("shops"));
-    expect(result).toEqual([{ id: 9001, name: "A" }]);
+    expect(result).toEqual([{ id: 9001, name: "A", likes: [], comments: [], userReviews: [], userRatings: [] }]);
   });
 });
 
