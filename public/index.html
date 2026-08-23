@@ -3811,13 +3811,18 @@
     }
 
     // Inclusive list of 'YYYY-MM-DD' strings between startDate and endDate.
+    // Stays in UTC throughout construction, increment, and readback — mixing
+    // local-time construction (implicit when no 'Z'/offset is given) with
+    // toISOString()'s UTC output shifts the date by a day in any timezone
+    // ahead of UTC (caught live: Tilburg's UTC+2 turned a Sep 2 start into
+    // Sep 1 in the generated list).
     function dateRangeArray(startDate, endDate) {
       const dates = [];
-      let cur = new Date(startDate + 'T00:00:00');
-      const end = new Date(endDate + 'T00:00:00');
+      let cur = new Date(startDate + 'T00:00:00Z');
+      const end = new Date(endDate + 'T00:00:00Z');
       while (cur <= end) {
         dates.push(cur.toISOString().slice(0, 10));
-        cur.setDate(cur.getDate() + 1);
+        cur.setUTCDate(cur.getUTCDate() + 1);
       }
       return dates;
     }
