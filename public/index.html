@@ -4158,12 +4158,17 @@
       document.getElementById('umbrellaEndDate').value = u ? u.endDate : '';
       document.getElementById('umbrellaColor').value = u ? (u.color || '#b45309') : '#b45309';
       document.getElementById('umbrellaFormModalTitle').textContent = u ? 'Groot Tilburgs event bewerken' : 'Groot Tilburgs event toevoegen';
+      hideAdminPanel();
       document.getElementById('umbrellaFormModal').classList.add('active');
     }
 
     function hideUmbrellaFormModal() {
       document.getElementById('umbrellaFormModal').classList.remove('active');
       editingUmbrellaId = null;
+      // Reopen the admin panel without resetting its tab back to 'reviews'
+      // the way showAdminPanel() would — stay on 'umbrellaEvents'.
+      renderAdminPanel();
+      document.getElementById('adminPanelModal').classList.add('active');
     }
 
     async function saveUmbrellaEvent() {
