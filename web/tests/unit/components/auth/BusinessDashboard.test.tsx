@@ -251,4 +251,38 @@ describe("BusinessDashboard", () => {
 
     expect(screen.getByText("listener failed")).toBeInTheDocument();
   });
+
+  it("shows KPI totals across events and per-event view/click/interest stats", () => {
+    const eventsToEmit = [
+      makeEvent({ id: "evt1", status: "approved", views: 10, clicks: 3, interest: 2 }),
+      makeEvent({ id: "evt2", status: "pending", views: 5, clicks: 1, interest: 0 }),
+    ];
+    subscribeMyBusinessEvents.mockImplementation(
+      (_uid: string, onChange: (events: BusinessEvent[]) => void) => {
+        onChange(eventsToEmit);
+        return vi.fn();
+      },
+    );
+    mockUseAuth.mockReturnValue({ currentBusiness: business });
+    render(<BusinessDashboard open onClose={vi.fn()} />);
+
+    expect(screen.getByText("1")).toBeInTheDocument(); // Live events
+    expect(screen.getByText("15")).toBeInTheDocument(); // Views totaal
+    expect(screen.getByText("4")).toBeInTheDocument(); // Klikken totaal
+    expect(screen.getByText("👁️ 10 · 🔗 3 · ❤️ 2")).toBeInTheDocument();
+    expect(screen.getByText("👁️ 5 · 🔗 1 · ❤️ 0")).toBeInTheDocument();
+  });
+
+  it("shows zeroed KPIs and stats when an event has no counters yet", () => {
+    subscribeMyBusinessEvents.mockImplementation(
+      (_uid: string, onChange: (events: BusinessEvent[]) => void) => {
+        onChange([makeEvent({ id: "evt1", status: "pending" })]);
+        return vi.fn();
+      },
+    );
+    mockUseAuth.mockReturnValue({ currentBusiness: business });
+    render(<BusinessDashboard open onClose={vi.fn()} />);
+
+    expect(screen.getByText("👁️ 0 · 🔗 0 · ❤️ 0")).toBeInTheDocument();
+  });
 });

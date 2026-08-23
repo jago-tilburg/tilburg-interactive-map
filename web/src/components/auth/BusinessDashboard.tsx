@@ -83,10 +83,30 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
 
   if (!currentBusiness) return null;
 
+  const liveEventsCount = events.filter((e) => e.status === "approved").length;
+  const totalViews = events.reduce((sum, e) => sum + (e.views ?? 0), 0);
+  const totalClicks = events.reduce((sum, e) => sum + (e.clicks ?? 0), 0);
+
   return (
     <>
       <Modal open={open && !formOpen && !detailEvent} onClose={onClose} title={currentBusiness.businessName}>
         <p className={styles.email}>{currentBusiness.email}</p>
+
+        <div className={styles.kpiStrip}>
+          <div className={styles.kpi}>
+            <span className={styles.kpiValue}>{liveEventsCount}</span>
+            <span className={styles.kpiLabel}>Live events</span>
+          </div>
+          <div className={styles.kpi}>
+            <span className={styles.kpiValue}>{totalViews}</span>
+            <span className={styles.kpiLabel}>Views totaal</span>
+          </div>
+          <div className={styles.kpi}>
+            <span className={styles.kpiValue}>{totalClicks}</span>
+            <span className={styles.kpiLabel}>Klikken totaal</span>
+          </div>
+        </div>
+
         <button type="button" className={styles.newEventButton} onClick={openCreateForm}>
           + Nieuw evenement
         </button>
@@ -109,6 +129,9 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
                   </div>
                   <div className={styles.eventMeta}>
                     {formatBusinessEventSchedule(ev)} · {ev.address}
+                  </div>
+                  <div className={styles.eventStats}>
+                    👁️ {ev.views ?? 0} · 🔗 {ev.clicks ?? 0} · ❤️ {ev.interest ?? 0}
                   </div>
                   <div className={styles.eventActions}>
                     <button type="button" onClick={() => openEditForm(ev)}>
