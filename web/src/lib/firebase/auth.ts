@@ -7,6 +7,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  deleteUser,
   type User,
   type Auth,
 } from "firebase/auth";
@@ -58,4 +59,13 @@ export async function loginAdmin(email: string, password: string) {
 
 export async function signOutCurrentUser() {
   return signOut(getFirebaseAuth());
+}
+
+// Deletes the Auth user itself — callers delete the Firestore profile
+// (deleteVisitorProfile / deleteBusinessAccountCascade) first, since that
+// still has an authenticated uid to work with, then call this last. Can
+// throw `auth/requires-recent-login` if the session is stale; callers
+// should surface that to the user rather than swallow it.
+export async function deleteCurrentUser(user: User) {
+  return deleteUser(user);
 }

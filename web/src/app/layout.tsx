@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Paytone_One, DM_Sans } from "next/font/google";
 import Script from "next/script";
 import { AuthProvider } from "@/hooks/useAuth";
+import { CookieBanner } from "@/components/common/CookieBanner";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </>
         )}
         <AuthProvider>{children}</AuthProvider>
+        <CookieBanner />
       </body>
     </html>
   );

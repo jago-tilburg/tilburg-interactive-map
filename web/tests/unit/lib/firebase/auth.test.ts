@@ -11,6 +11,7 @@ vi.mock("firebase/auth", () => ({
   signInWithEmailAndPassword: vi.fn(),
   createUserWithEmailAndPassword: vi.fn(),
   signOut: vi.fn(),
+  deleteUser: vi.fn(),
 }));
 
 vi.mock("@/lib/firebase/app", () => ({
@@ -28,6 +29,7 @@ import {
   registerBusiness,
   loginAdmin,
   signOutCurrentUser,
+  deleteCurrentUser,
 } from "@/lib/firebase/auth";
 import {
   onAuthStateChanged,
@@ -37,6 +39,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  deleteUser,
 } from "firebase/auth";
 
 beforeEach(() => {
@@ -118,5 +121,13 @@ describe("signOutCurrentUser", () => {
   it("delegates to signOut", async () => {
     await signOutCurrentUser();
     expect(signOut).toHaveBeenCalledWith(mockAuthInstance);
+  });
+});
+
+describe("deleteCurrentUser", () => {
+  it("delegates to deleteUser with the given user", async () => {
+    const user = { uid: "u1" };
+    await deleteCurrentUser(user as never);
+    expect(deleteUser).toHaveBeenCalledWith(user);
   });
 });

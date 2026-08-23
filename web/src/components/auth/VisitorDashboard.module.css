@@ -24,3 +24,18 @@
   color: #888;
   font-size: 0.9rem;
 }
+
+.error {
+  color: #c0392b;
+  font-size: 0.9rem;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 0.5rem;
+}
+
+.deleteButton {
+  color: #dc2626;
+}

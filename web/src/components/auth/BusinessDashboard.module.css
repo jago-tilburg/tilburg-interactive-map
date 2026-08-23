@@ -123,6 +123,12 @@
   color: #dc2626;
 }
 
+.footerActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 0.5rem;
+}
+
 .paidLabel {
   font-size: 0.8rem;
   color: #16a34a;

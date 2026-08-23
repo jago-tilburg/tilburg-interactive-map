@@ -3,8 +3,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { BusinessEvent } from "@/types/events";
 
+const deleteCurrentUser = vi.fn();
 vi.mock("@/lib/firebase/auth", () => ({
   signOutCurrentUser: vi.fn(),
+  deleteCurrentUser: (...a: unknown[]) => deleteCurrentUser(...a),
 }));
 
 const mockUseAuth = vi.fn();
@@ -30,8 +32,10 @@ vi.mock("@/lib/firebase/businessEvents", () => ({
   incrementEventClicks: vi.fn().mockResolvedValue(undefined),
 }));
 
+const deleteBusinessAccountCascade = vi.fn();
 vi.mock("@/lib/firebase/firestore", () => ({
   setEventSaved: vi.fn().mockResolvedValue(undefined),
+  deleteBusinessAccountCascade: (...a: unknown[]) => deleteBusinessAccountCascade(...a),
 }));
 
 vi.mock("@/lib/firebase/umbrellaEvents", () => ({
@@ -76,6 +80,8 @@ beforeEach(() => {
   emittedEvents = [];
   confirmEventPaymentStub.mockResolvedValue(undefined);
   deleteBusinessEvent.mockResolvedValue(undefined);
+  deleteBusinessAccountCascade.mockResolvedValue(undefined);
+  deleteCurrentUser.mockResolvedValue(undefined);
 });
 
 describe("BusinessDashboard", () => {
@@ -284,5 +290,50 @@ describe("BusinessDashboard", () => {
     render(<BusinessDashboard open onClose={vi.fn()} />);
 
     expect(screen.getByText("👁️ 0 · 🔗 0 · ❤️ 0")).toBeInTheDocument();
+  });
+
+  it("no-ops when there is no current auth user", async () => {
+    mockUseAuth.mockReturnValue({ currentUser: null, currentBusiness: business });
+    const user = userEvent.setup();
+    render(<BusinessDashboard open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("Account verwijderen"));
+
+    expect(deleteBusinessAccountCascade).not.toHaveBeenCalled();
+  });
+
+  it("deletes the business account cascade and the auth user, then closes", async () => {
+    mockUseAuth.mockReturnValue({ currentUser: { uid: "u1" }, currentBusiness: business });
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<BusinessDashboard open onClose={onClose} />);
+
+    await user.click(screen.getByText("Account verwijderen"));
+
+    expect(deleteBusinessAccountCascade).toHaveBeenCalledWith("u1");
+    expect(deleteCurrentUser).toHaveBeenCalledWith({ uid: "u1" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("shows an error when deleting the business account fails", async () => {
+    mockUseAuth.mockReturnValue({ currentUser: { uid: "u1" }, currentBusiness: business });
+    deleteBusinessAccountCascade.mockRejectedValue(new Error("requires recent login"));
+    const user = userEvent.setup();
+    render(<BusinessDashboard open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("Account verwijderen"));
+
+    expect(await screen.findByText("requires recent login")).toBeInTheDocument();
+  });
+
+  it("shows a generic error when business account deletion fails with a non-Error", async () => {
+    mockUseAuth.mockReturnValue({ currentUser: { uid: "u1" }, currentBusiness: business });
+    deleteBusinessAccountCascade.mockRejectedValue("nope");
+    const user = userEvent.setup();
+    render(<BusinessDashboard open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("Account verwijderen"));
+
+    expect(await screen.findByText("Account verwijderen mislukt.")).toBeInTheDocument();
   });
 });

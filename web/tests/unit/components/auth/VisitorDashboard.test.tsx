@@ -5,8 +5,10 @@ import type { Shop } from "@/types/shops";
 import type { BusinessEvent } from "@/types/events";
 import type { Visitor } from "@/types/account";
 
+const deleteCurrentUser = vi.fn();
 vi.mock("@/lib/firebase/auth", () => ({
   signOutCurrentUser: vi.fn(),
+  deleteCurrentUser: (...a: unknown[]) => deleteCurrentUser(...a),
 }));
 
 const mockUseAuth = vi.fn();
@@ -15,8 +17,10 @@ vi.mock("@/hooks/useAuth", () => ({
 }));
 
 const subscribeVisitorProfile = vi.fn();
+const deleteVisitorProfile = vi.fn();
 vi.mock("@/lib/firebase/firestore", () => ({
   subscribeVisitorProfile: (...a: unknown[]) => subscribeVisitorProfile(...a),
+  deleteVisitorProfile: (...a: unknown[]) => deleteVisitorProfile(...a),
 }));
 
 const subscribeShops = vi.fn();
@@ -82,7 +86,9 @@ const event: BusinessEvent = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockUseAuth.mockReturnValue({ currentVisitor: visitor });
+  mockUseAuth.mockReturnValue({ currentUser: { uid: "u1" }, currentVisitor: visitor });
+  deleteVisitorProfile.mockResolvedValue(undefined);
+  deleteCurrentUser.mockResolvedValue(undefined);
   subscribeVisitorProfile.mockImplementation((_uid: string, onChange: (v: Visitor | null) => void) => {
     onChange(visitor);
     return vi.fn();
@@ -151,5 +157,47 @@ describe("VisitorDashboard", () => {
   it("does not subscribe when closed", () => {
     render(<VisitorDashboard open={false} onClose={vi.fn()} />);
     expect(subscribeShops).not.toHaveBeenCalled();
+  });
+
+  it("no-ops when there is no current auth user", async () => {
+    mockUseAuth.mockReturnValue({ currentUser: null, currentVisitor: visitor });
+    const user = userEvent.setup();
+    render(<VisitorDashboard open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("Account verwijderen"));
+
+    expect(deleteVisitorProfile).not.toHaveBeenCalled();
+  });
+
+  it("deletes the profile and the auth user, then closes", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<VisitorDashboard open onClose={onClose} />);
+
+    await user.click(screen.getByText("Account verwijderen"));
+
+    expect(deleteVisitorProfile).toHaveBeenCalledWith("u1");
+    expect(deleteCurrentUser).toHaveBeenCalledWith({ uid: "u1" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("shows an error when deleting the account fails", async () => {
+    deleteVisitorProfile.mockRejectedValue(new Error("requires recent login"));
+    const user = userEvent.setup();
+    render(<VisitorDashboard open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("Account verwijderen"));
+
+    expect(await screen.findByText("requires recent login")).toBeInTheDocument();
+  });
+
+  it("shows a generic error when deletion fails with a non-Error", async () => {
+    deleteVisitorProfile.mockRejectedValue("nope");
+    const user = userEvent.setup();
+    render(<VisitorDashboard open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("Account verwijderen"));
+
+    expect(await screen.findByText("Account verwijderen mislukt.")).toBeInTheDocument();
   });
 });

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/common/Modal";
 import { useAuth } from "@/hooks/useAuth";
-import { signOutCurrentUser } from "@/lib/firebase/auth";
-import { subscribeVisitorProfile } from "@/lib/firebase/firestore";
+import { signOutCurrentUser, deleteCurrentUser } from "@/lib/firebase/auth";
+import { subscribeVisitorProfile, deleteVisitorProfile } from "@/lib/firebase/firestore";
 import { subscribeShops } from "@/lib/firebase/shops";
 import { subscribeApprovedBusinessEvents } from "@/lib/firebase/businessEvents";
 import { categoryOf, formatBusinessEventSchedule } from "@/lib/events/eventHelpers";
@@ -19,10 +19,11 @@ interface VisitorDashboardProps {
 }
 
 export function VisitorDashboard({ open, onClose }: VisitorDashboardProps) {
-  const { currentVisitor } = useAuth();
+  const { currentUser, currentVisitor } = useAuth();
   const [liveVisitor, setLiveVisitor] = useState<Visitor | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [businessEvents, setBusinessEvents] = useState<BusinessEvent[]>([]);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !currentVisitor) return;
@@ -39,6 +40,18 @@ export function VisitorDashboard({ open, onClose }: VisitorDashboardProps) {
   async function handleLogout() {
     await signOutCurrentUser();
     onClose();
+  }
+
+  async function handleDeleteAccount() {
+    if (!currentUser) return;
+    setDeleteError(null);
+    try {
+      await deleteVisitorProfile(currentUser.uid);
+      await deleteCurrentUser(currentUser);
+      onClose();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Account verwijderen mislukt.");
+    }
   }
 
   if (!currentVisitor) return null;
@@ -98,12 +111,19 @@ export function VisitorDashboard({ open, onClose }: VisitorDashboardProps) {
         )}
       </div>
 
-      <button type="button" onClick={handleLogout}>
-        Uitloggen
-      </button>
-      <button type="button" onClick={onClose}>
-        Sluiten
-      </button>
+      {deleteError && <p className={styles.error}>{deleteError}</p>}
+
+      <div className={styles.actions}>
+        <button type="button" onClick={handleLogout}>
+          Uitloggen
+        </button>
+        <button type="button" onClick={onClose}>
+          Sluiten
+        </button>
+        <button type="button" className={styles.deleteButton} onClick={handleDeleteAccount}>
+          Account verwijderen
+        </button>
+      </div>
     </Modal>
   );
 }

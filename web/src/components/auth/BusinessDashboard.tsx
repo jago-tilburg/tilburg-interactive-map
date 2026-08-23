@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/common/Modal";
 import { useAuth } from "@/hooks/useAuth";
-import { signOutCurrentUser } from "@/lib/firebase/auth";
+import { signOutCurrentUser, deleteCurrentUser } from "@/lib/firebase/auth";
+import { deleteBusinessAccountCascade } from "@/lib/firebase/firestore";
 import { subscribeMyBusinessEvents, deleteBusinessEvent } from "@/lib/firebase/businessEvents";
 import { subscribeUmbrellaEvents } from "@/lib/firebase/umbrellaEvents";
 import { confirmEventPaymentStub } from "@/lib/firebase/functions";
@@ -19,7 +20,7 @@ interface BusinessDashboardProps {
 }
 
 export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
-  const { currentBusiness } = useAuth();
+  const { currentUser, currentBusiness } = useAuth();
   const [events, setEvents] = useState<BusinessEvent[]>([]);
   const [umbrellas, setUmbrellas] = useState<UmbrellaEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +44,18 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
   async function handleLogout() {
     await signOutCurrentUser();
     onClose();
+  }
+
+  async function handleDeleteAccount() {
+    if (!currentUser) return;
+    setError(null);
+    try {
+      await deleteBusinessAccountCascade(currentUser.uid);
+      await deleteCurrentUser(currentUser);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Account verwijderen mislukt.");
+    }
   }
 
   function openCreateForm() {
@@ -156,12 +169,17 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
           )}
         </div>
 
-        <button type="button" onClick={handleLogout}>
-          Uitloggen
-        </button>
-        <button type="button" onClick={onClose}>
-          Sluiten
-        </button>
+        <div className={styles.footerActions}>
+          <button type="button" onClick={handleLogout}>
+            Uitloggen
+          </button>
+          <button type="button" onClick={onClose}>
+            Sluiten
+          </button>
+          <button type="button" className={styles.deleteButton} onClick={handleDeleteAccount}>
+            Account verwijderen
+          </button>
+        </div>
       </Modal>
 
       <BusinessEventFormModal

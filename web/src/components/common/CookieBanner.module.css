@@ -1,0 +1,42 @@
+.banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--color-text, #1c1917);
+  color: white;
+  padding: 12px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.85rem;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.infoButton,
+.acceptButton {
+  border: none;
+  border-radius: var(--radius-pill, 999px);
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.infoButton {
+  background: transparent;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.acceptButton {
+  background: var(--header-gradient, linear-gradient(135deg, #22c55e 0%, #ff6b35 100%));
+  color: white;
+}
