@@ -25,6 +25,7 @@ import {
 import { navigateToLocation } from "@/lib/shops/navigateToLocation";
 import { DietaryBadges } from "./DietaryBadges";
 import { SocialLinks } from "./SocialLinks";
+import { InstagramEmbed } from "./InstagramEmbed";
 import { StarRating } from "./StarRating";
 import { CommentNameModal } from "./CommentNameModal";
 import { UserReviewModal } from "./UserReviewModal";
@@ -217,6 +218,8 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
         {error && <p className={styles.error}>{error}</p>}
 
         {shop.photoUrl && <img src={shop.photoUrl} alt={shop.name} className={styles.photo} />}
+
+        <InstagramEmbed instagramUrl={shop.instagramUrl} />
 
         <div className={styles.reviewSection}>
           <div className={styles.reviewLabel}>Review van Bastiaan</div>
