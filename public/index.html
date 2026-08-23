@@ -1919,22 +1919,32 @@
         <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
           <div style="flex:1;">
             <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;">Startdatum</label>
-            <input type="date" id="beStartDate" style="width:100%;">
+            <input type="date" id="beStartDate" onchange="onBeDateRangeChange()" style="width:100%;">
           </div>
           <div style="flex:1;">
             <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;">Einddatum</label>
-            <input type="date" id="beEndDate" style="width:100%;">
+            <input type="date" id="beEndDate" onchange="onBeDateRangeChange()" style="width:100%;">
           </div>
         </div>
-        <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
+        <label id="beMultiDayRow" style="display:none; align-items:center; gap:0.5rem; margin-bottom:0.75rem; font-size:0.875rem;">
+          <input type="checkbox" id="beDifferentTimesPerDay" onchange="renderBeDailyTimesEditor()"> Verschillende tijden per dag
+        </label>
+        <div id="beDailyTimesContainer" style="display:none; margin-bottom:0.75rem;"></div>
+        <div id="beSingleTimesRow" style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
           <div style="flex:1;">
-            <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;">Starttijd</label>
+            <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;" id="beStartTimeLabel">Starttijd</label>
             <input type="time" id="beStartTime" style="width:100%;">
           </div>
           <div style="flex:1;">
-            <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;">Eindtijd</label>
+            <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;" id="beEndTimeLabel">Eindtijd</label>
             <input type="time" id="beEndTime" style="width:100%;">
           </div>
+        </div>
+        <div id="beUmbrellaRow" style="display:none; margin-bottom:0.75rem;">
+          <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;">Onderdeel van groot evenement (optioneel)</label>
+          <select id="beUmbrellaEvent" style="width:100%; padding:0.75rem; border:1px solid #d2d2d7; border-radius:8px; font-family:inherit;">
+            <option value="">Geen</option>
+          </select>
         </div>
         <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;">Google Maps URL</label>
         <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
@@ -1956,6 +1966,33 @@
       <div class="modal" onclick="event.stopPropagation()">
         <button onclick="hideBusinessEventDetail()" class="btn-close" style="position:absolute; top:1rem; right:1rem; z-index:10;">×</button>
         <div id="businessEventDetailContent"></div>
+      </div>
+    </div>
+
+    <!-- Umbrella Event Form Modal (admin: create/edit a "groot Tilburgs event") -->
+    <div class="modal-overlay" id="umbrellaFormModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3 id="umbrellaFormModalTitle">Groot Tilburgs event toevoegen</h3>
+        <input type="text" id="umbrellaTitle" placeholder="Naam (bv. Tilburgse Kermis 2026)">
+        <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
+          <input type="date" id="umbrellaStartDate" style="flex:1;">
+          <input type="date" id="umbrellaEndDate" style="flex:1;">
+        </div>
+        <textarea id="umbrellaDescription" placeholder="Omschrijving..." style="width:100%; min-height:70px; padding:0.75rem; border:1px solid #d2d2d7; border-radius:8px; font-family:inherit; margin-bottom:0.75rem;"></textarea>
+        <label style="display:block; margin-bottom:0.25rem; font-weight:600; font-size:0.875rem;">Kleur</label>
+        <input type="color" id="umbrellaColor" value="#b45309" style="width:100%; height:2.75rem; padding:0.25rem; margin-bottom:0.75rem; cursor:pointer;">
+        <div class="form-actions">
+          <button class="btn-save" onclick="saveUmbrellaEvent()">Opslaan</button>
+          <button class="btn-cancel" onclick="hideUmbrellaFormModal()">Annuleren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Umbrella Event Detail Modal (public — lists child events) -->
+    <div class="modal-overlay" id="umbrellaEventDetailModal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <button onclick="hideUmbrellaEventDetail()" class="btn-close" style="position:absolute; top:1rem; right:1rem; z-index:10;">×</button>
+        <div id="umbrellaEventDetailContent"></div>
       </div>
     </div>
 
@@ -2291,6 +2328,9 @@
     let myBusinessEventsUnsub = null;
     let allBusinessEventsForAdmin = [];
     let allBusinessEventsUnsub = null;
+    let umbrellaEvents = [];
+    let umbrellaEventsUnsub = null;
+    let editingUmbrellaId = null;
 
     try {
       firebase.initializeApp(firebaseConfig);
@@ -2309,6 +2349,7 @@
       // Approved business events are public — start listening regardless of
       // auth state, same as shops.
       initBusinessEventsListeners();
+      initUmbrellaEventsListener();
 
       // Auth state observer
       auth.onAuthStateChanged(async (user) => {
@@ -3769,6 +3810,87 @@
       return '<span class="badge" style="background:#d97706;color:white;">In afwachting</span>';
     }
 
+    // Inclusive list of 'YYYY-MM-DD' strings between startDate and endDate.
+    function dateRangeArray(startDate, endDate) {
+      const dates = [];
+      let cur = new Date(startDate + 'T00:00:00');
+      const end = new Date(endDate + 'T00:00:00');
+      while (cur <= end) {
+        dates.push(cur.toISOString().slice(0, 10));
+        cur.setDate(cur.getDate() + 1);
+      }
+      return dates;
+    }
+
+    // multiDay is derived from the date range, not a separate manual toggle —
+    // avoids the checkbox and the dates ever disagreeing with each other.
+    function onBeDateRangeChange() {
+      const startDate = document.getElementById('beStartDate').value;
+      const endDate = document.getElementById('beEndDate').value || startDate;
+      const isMultiDay = !!(startDate && endDate && startDate !== endDate);
+      document.getElementById('beMultiDayRow').style.display = isMultiDay ? 'flex' : 'none';
+      if (!isMultiDay) {
+        document.getElementById('beDifferentTimesPerDay').checked = false;
+        renderBeDailyTimesEditor();
+      }
+    }
+
+    function renderBeDailyTimesEditor(prefillTimes) {
+      const usePerDay = document.getElementById('beDifferentTimesPerDay').checked;
+      const container = document.getElementById('beDailyTimesContainer');
+      const singleRow = document.getElementById('beSingleTimesRow');
+      if (!usePerDay) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        singleRow.style.display = 'flex';
+        return;
+      }
+      singleRow.style.display = 'none';
+      const startDate = document.getElementById('beStartDate').value;
+      const endDate = document.getElementById('beEndDate').value;
+      if (!startDate || !endDate) { container.style.display = 'none'; return; }
+      const dates = dateRangeArray(startDate, endDate);
+      const defaultStart = document.getElementById('beStartTime').value || '10:00';
+      const defaultEnd = document.getElementById('beEndTime').value || '18:00';
+      container.style.display = 'block';
+      container.innerHTML = dates.map(date => {
+        const t = (prefillTimes && prefillTimes[date]) || {};
+        return `
+          <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.5rem;">
+            <span style="flex:1; font-size:0.85rem;">${date}</span>
+            <input type="time" class="be-daily-start" data-date="${date}" value="${t.startTime || defaultStart}" style="flex:1;">
+            <input type="time" class="be-daily-end" data-date="${date}" value="${t.endTime || defaultEnd}" style="flex:1;">
+          </div>
+        `;
+      }).join('');
+    }
+
+    function collectBeDailyTimes() {
+      const times = {};
+      document.querySelectorAll('#beDailyTimesContainer .be-daily-start').forEach(input => {
+        const date = input.dataset.date;
+        const endInput = document.querySelector(`#beDailyTimesContainer .be-daily-end[data-date="${date}"]`);
+        times[date] = { startTime: input.value, endTime: endInput.value };
+      });
+      return times;
+    }
+
+    function populateBeUmbrellaSelect(selectedId) {
+      const row = document.getElementById('beUmbrellaRow');
+      const select = document.getElementById('beUmbrellaEvent');
+      const today = new Date().toISOString().slice(0, 10);
+      const active = umbrellaEvents.filter(u => u.endDate >= today);
+      if (active.length === 0) {
+        row.style.display = 'none';
+        select.innerHTML = '<option value="">Geen</option>';
+        return;
+      }
+      row.style.display = 'block';
+      select.innerHTML = '<option value="">Geen</option>' + active.map(u =>
+        `<option value="${u.id}" ${selectedId === u.id ? 'selected' : ''}>${escapeHtmlSafe(u.title)}</option>`
+      ).join('');
+    }
+
     function showBusinessEventFormModal(eventId) {
       editingBusinessEventId = eventId || null;
       const ev = eventId ? myBusinessEvents.find(e => e.id === eventId) : null;
@@ -3782,6 +3904,10 @@
       document.getElementById('beAddress').value = ev ? ev.address : '';
       document.getElementById('beLat').value = ev ? ev.lat : '';
       document.getElementById('beLng').value = ev ? ev.lng : '';
+      document.getElementById('beDifferentTimesPerDay').checked = !!(ev && ev.dailyTimes);
+      onBeDateRangeChange();
+      renderBeDailyTimesEditor(ev ? ev.dailyTimes : null);
+      populateBeUmbrellaSelect(ev ? ev.umbrellaEventId : null);
       document.getElementById('businessEventFormModalTitle').textContent = ev ? 'Evenement bewerken' : 'Nieuw evenement';
       hideBusinessDashboard();
       document.getElementById('businessEventFormModal').classList.add('active');
@@ -3800,13 +3926,30 @@
       const description = document.getElementById('beDescription').value.trim();
       const startDate = document.getElementById('beStartDate').value;
       const endDate = document.getElementById('beEndDate').value || startDate;
-      const startTime = document.getElementById('beStartTime').value;
-      const endTime = document.getElementById('beEndTime').value;
       const address = document.getElementById('beAddress').value.trim();
       const lat = parseFloat(document.getElementById('beLat').value);
       const lng = parseFloat(document.getElementById('beLng').value);
+      const multiDay = startDate !== endDate;
+      const usePerDay = multiDay && document.getElementById('beDifferentTimesPerDay').checked;
+      const dailyTimes = usePerDay ? collectBeDailyTimes() : null;
+      const umbrellaEventId = document.getElementById('beUmbrellaEvent').value || null;
 
-      if (!title || !description || !startDate || !startTime || !endTime || !address || isNaN(lat) || isNaN(lng)) {
+      // startTime/endTime always get populated, even in per-day mode — they're
+      // what map-marker expiry checks use. In per-day mode they're derived
+      // (first day's start, last day's end) rather than read from the now-
+      // hidden single-time inputs, which could otherwise be stale/blank.
+      let startTime, endTime;
+      if (usePerDay) {
+        const sortedDates = Object.keys(dailyTimes).sort();
+        startTime = dailyTimes[sortedDates[0]].startTime;
+        endTime = dailyTimes[sortedDates[sortedDates.length - 1]].endTime;
+      } else {
+        startTime = document.getElementById('beStartTime').value;
+        endTime = document.getElementById('beEndTime').value;
+      }
+
+      if (!title || !description || !startDate || !address || isNaN(lat) || isNaN(lng)
+        || !startTime || !endTime) {
         showToast('Vul alle verplichte velden in (incl. locatie via Google Maps URL)', 'info');
         return;
       }
@@ -3816,7 +3959,10 @@
           const existing = myBusinessEvents.find(e => e.id === editingBusinessEventId);
           const significantChange = existing && (existing.title !== title || existing.startDate !== startDate
             || existing.endDate !== endDate || existing.lat !== lat || existing.lng !== lng);
-          const update = { title, category, description, startDate, endDate, startTime, endTime, address, lat, lng };
+          const update = {
+            title, category, description, startDate, endDate, startTime, endTime, address, lat, lng,
+            multiDay, dailyTimes, umbrellaEventId,
+          };
           if (significantChange && existing.status === 'approved') {
             update.status = 'pending'; // the only client-driven status transition the rules allow
             showToast('Titel/datum/locatie gewijzigd — evenement moet opnieuw goedgekeurd worden', 'info');
@@ -3825,6 +3971,7 @@
         } else {
           await firestore.collection('businessEvents').add({
             title, category, description, startDate, endDate, startTime, endTime, address, lat, lng,
+            multiDay, dailyTimes, umbrellaEventId,
             ownerId: currentBusiness.uid,
             status: 'pending',
             paid: false,
@@ -3853,6 +4000,10 @@
       document.getElementById('beAddress').value = ev.address;
       document.getElementById('beLat').value = ev.lat;
       document.getElementById('beLng').value = ev.lng;
+      document.getElementById('beDifferentTimesPerDay').checked = !!ev.dailyTimes;
+      onBeDateRangeChange();
+      renderBeDailyTimesEditor(ev.dailyTimes);
+      populateBeUmbrellaSelect(ev.umbrellaEventId);
     }
 
     async function deleteBusinessEvent(eventId) {
@@ -3895,6 +4046,30 @@
       }
     }
 
+    // Human-readable schedule line, handling both single-day and multi-day
+    // (with or without per-day time overrides) events.
+    function formatBusinessEventSchedule(ev) {
+      const dateLabel = ev.endDate && ev.endDate !== ev.startDate
+        ? `${escapeHtmlSafe(ev.startDate)} t/m ${escapeHtmlSafe(ev.endDate)}`
+        : escapeHtmlSafe(ev.startDate);
+      if (ev.dailyTimes && Object.keys(ev.dailyTimes).length > 0) {
+        const perDay = Object.entries(ev.dailyTimes)
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([date, t]) => `${escapeHtmlSafe(date)}: ${escapeHtmlSafe(t.startTime)}–${escapeHtmlSafe(t.endTime)}`)
+          .join(', ');
+        return `${dateLabel} · ${perDay}`;
+      }
+      return `${dateLabel} · ${escapeHtmlSafe(ev.startTime)}–${escapeHtmlSafe(ev.endTime)}`;
+    }
+
+    function umbrellaBadgeHtml(ev) {
+      if (!ev.umbrellaEventId) return '';
+      const parent = umbrellaEvents.find(u => u.id === ev.umbrellaEventId);
+      if (!parent) return '';
+      const c = parent.color || '#b45309';
+      return `<a href="#" onclick="showUmbrellaEventDetail('${parent.id}'); return false;" style="display:inline-block; background:${c}22; color:${c}; border:1px solid ${c}55; font-size:0.75rem; font-weight:700; padding:0.25rem 0.6rem; border-radius:999px; text-decoration:none;">🎪 Onderdeel van ${escapeHtmlSafe(parent.title)}</a>`;
+    }
+
     function renderBusinessDashboardEvents() {
       const container = document.getElementById('businessDashboardEvents');
       if (!container) return;
@@ -3908,7 +4083,8 @@
             <div class="menu-review-name">${(EVENT_CATEGORIES[ev.category] || EVENT_CATEGORIES.anders).emoji} ${escapeHtmlSafe(ev.title)}</div>
             ${businessEventStatusBadge(ev.status)}
           </div>
-          <div class="menu-review-address">${escapeHtmlSafe(ev.startDate)} ${escapeHtmlSafe(ev.startTime)}–${escapeHtmlSafe(ev.endTime)} · ${escapeHtmlSafe(ev.address)}</div>
+          <div class="menu-review-address">${formatBusinessEventSchedule(ev)} · ${escapeHtmlSafe(ev.address)}</div>
+          ${ev.umbrellaEventId ? `<div>${umbrellaBadgeHtml(ev)}</div>` : ''}
           <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
             <button class="btn-cancel" style="padding:0.4rem 0.75rem; font-size:0.8rem;" onclick="showBusinessEventFormModal('${ev.id}')">Bewerken</button>
             <button class="btn-cancel" style="padding:0.4rem 0.75rem; font-size:0.8rem;" onclick="duplicateBusinessEvent('${ev.id}')">Dupliceren</button>
@@ -3946,8 +4122,9 @@
       const cat = EVENT_CATEGORIES[ev.category] || EVENT_CATEGORIES.anders;
       document.getElementById('businessEventDetailContent').innerHTML = `
         <h2>${cat.emoji} ${escapeHtmlSafe(ev.title)}</h2>
+        ${ev.umbrellaEventId ? `<div style="margin-bottom:0.75rem;">${umbrellaBadgeHtml(ev)}</div>` : ''}
         <p style="color:#78716c; margin-bottom:0.75rem;">📍 ${escapeHtmlSafe(ev.address)}</p>
-        <p style="margin-bottom:0.75rem;">🗓️ ${escapeHtmlSafe(ev.startDate)}${ev.endDate !== ev.startDate ? ' t/m ' + escapeHtmlSafe(ev.endDate) : ''} · ${escapeHtmlSafe(ev.startTime)}–${escapeHtmlSafe(ev.endTime)}</p>
+        <p style="margin-bottom:0.75rem;">🗓️ ${formatBusinessEventSchedule(ev)}</p>
         <p>${escapeHtmlSafe(ev.description)}</p>
       `;
       document.getElementById('businessEventDetailModal').classList.add('active');
@@ -3955,6 +4132,106 @@
 
     function hideBusinessEventDetail() {
       document.getElementById('businessEventDetailModal').classList.remove('active');
+    }
+
+    // ============================================================================
+    // UMBRELLA EVENTS ("Groot Tilburgs event") — admin-managed grouping
+    // containers. Not money/approval-sensitive, so admin writes go directly
+    // through Firestore rules (exists() check against admins/{uid}) rather
+    // than through a Cloud Function.
+    // ============================================================================
+
+    function initUmbrellaEventsListener() {
+      firestore.collection('umbrellaEvents').onSnapshot(snap => {
+        umbrellaEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (document.getElementById('adminPanelModal').classList.contains('active')) renderAdminPanel();
+        if (document.getElementById('businessDashboardModal').classList.contains('active')) renderBusinessDashboardEvents();
+      }, error => console.error('umbrellaEvents listener error:', error));
+    }
+
+    function showUmbrellaFormModal(umbrellaId) {
+      editingUmbrellaId = umbrellaId || null;
+      const u = umbrellaId ? umbrellaEvents.find(x => x.id === umbrellaId) : null;
+      document.getElementById('umbrellaTitle').value = u ? u.title : '';
+      document.getElementById('umbrellaDescription').value = u ? u.description : '';
+      document.getElementById('umbrellaStartDate').value = u ? u.startDate : new Date().toISOString().slice(0, 10);
+      document.getElementById('umbrellaEndDate').value = u ? u.endDate : '';
+      document.getElementById('umbrellaColor').value = u ? (u.color || '#b45309') : '#b45309';
+      document.getElementById('umbrellaFormModalTitle').textContent = u ? 'Groot Tilburgs event bewerken' : 'Groot Tilburgs event toevoegen';
+      document.getElementById('umbrellaFormModal').classList.add('active');
+    }
+
+    function hideUmbrellaFormModal() {
+      document.getElementById('umbrellaFormModal').classList.remove('active');
+      editingUmbrellaId = null;
+    }
+
+    async function saveUmbrellaEvent() {
+      const title = document.getElementById('umbrellaTitle').value.trim();
+      const startDate = document.getElementById('umbrellaStartDate').value;
+      const endDate = document.getElementById('umbrellaEndDate').value;
+      if (!title || !startDate || !endDate) {
+        showToast('Vul naam, startdatum en einddatum in', 'info');
+        return;
+      }
+      const data = {
+        title,
+        description: document.getElementById('umbrellaDescription').value.trim(),
+        color: document.getElementById('umbrellaColor').value,
+        startDate,
+        endDate,
+      };
+      try {
+        if (editingUmbrellaId) {
+          await firestore.collection('umbrellaEvents').doc(editingUmbrellaId).update(data);
+        } else {
+          await firestore.collection('umbrellaEvents').add({ ...data, createdAt: Date.now() });
+        }
+        hideUmbrellaFormModal();
+        showToast('Groot evenement opgeslagen', 'success');
+      } catch (error) {
+        console.error('Save umbrella event error:', error);
+        showToast('Opslaan mislukt: ' + error.message, 'error');
+      }
+    }
+
+    async function deleteUmbrellaEvent(umbrellaId) {
+      if (!confirm('Dit grote evenement verwijderen? Gekoppelde evenementen blijven bestaan, maar verliezen de koppeling.')) return;
+      try {
+        await firestore.collection('umbrellaEvents').doc(umbrellaId).delete();
+        showToast('Verwijderd', 'info');
+      } catch (error) {
+        showToast('Verwijderen mislukt: ' + error.message, 'error');
+      }
+    }
+
+    function showUmbrellaEventDetail(umbrellaId) {
+      const u = umbrellaEvents.find(x => x.id === umbrellaId);
+      if (!u) return;
+      const children = approvedBusinessEvents.filter(ev => ev.umbrellaEventId === umbrellaId);
+      const childrenHtml = children.length
+        ? children.map(ev => {
+            const cat = EVENT_CATEGORIES[ev.category] || EVENT_CATEGORIES.anders;
+            return `<div class="menu-review-item" style="cursor:pointer;" onclick="hideUmbrellaEventDetail(); showBusinessEventDetail('${ev.id}')">
+              <div class="menu-review-info">
+                <div class="menu-review-name">${cat.emoji} ${escapeHtmlSafe(ev.title)}</div>
+                <div class="menu-review-address">${formatBusinessEventSchedule(ev)}</div>
+              </div>
+            </div>`;
+          }).join('')
+        : '<p style="color:#78716c; font-size:0.85rem;">Nog geen goedgekeurde evenementen onder dit grote evenement.</p>';
+      document.getElementById('umbrellaEventDetailContent').innerHTML = `
+        <h2>🎪 ${escapeHtmlSafe(u.title)}</h2>
+        <p style="color:#78716c; margin-bottom:0.75rem;">🗓️ ${escapeHtmlSafe(u.startDate)} t/m ${escapeHtmlSafe(u.endDate)}</p>
+        ${u.description ? `<p style="margin-bottom:1rem;">${escapeHtmlSafe(u.description)}</p>` : ''}
+        <h4 style="margin-bottom:0.5rem;">Onderdeel van dit evenement</h4>
+        ${childrenHtml}
+      `;
+      document.getElementById('umbrellaEventDetailModal').classList.add('active');
+    }
+
+    function hideUmbrellaEventDetail() {
+      document.getElementById('umbrellaEventDetailModal').classList.remove('active');
     }
 
     // Menu
@@ -4364,6 +4641,9 @@
           <button class="${currentAdminView === 'businessEvents' ? 'active' : ''}" onclick="switchAdminView('businessEvents')">
             🎉 Bedrijfsevents (${allBusinessEventsForAdmin.filter(e => e.status === 'pending').length})
           </button>
+          <button class="${currentAdminView === 'umbrellaEvents' ? 'active' : ''}" onclick="switchAdminView('umbrellaEvents')">
+            🎪 Grote evenementen (${umbrellaEvents.length})
+          </button>
         </div>
       `;
 
@@ -4543,6 +4823,35 @@
                     <button class="btn-small btn-edit" onclick="adminApproveBusinessEvent('${ev.id}')" style="background: white; color: #16a34a; border-color: #16a34a;">Goedkeuren</button>
                     <button class="btn-small btn-delete" onclick="adminRejectBusinessEvent('${ev.id}')" style="background: white; color: #dc2626; border-color: #dc2626;">Afwijzen</button>
                   ` : `<span style="color:#78716c; font-size:0.8rem;">${ev.paid ? '💳 Betaald' : ''}</span>`}
+                </div>
+              </div>
+            `;
+          });
+        }
+        html += `</div>`;
+      } else if (currentAdminView === 'umbrellaEvents') {
+        html += `
+          <button class="btn-save" style="width: 100%; margin-bottom: 0.75rem;" onclick="showUmbrellaFormModal(null)">
+            + Groot evenement toevoegen
+          </button>
+          <div class="admin-table">
+            <div class="admin-table-header" style="grid-template-columns: 2fr 2fr 1.5fr;">
+              <div>Naam</div>
+              <div>Periode</div>
+              <div>Actions</div>
+            </div>
+        `;
+        if (umbrellaEvents.length === 0) {
+          html += `<div style="padding: 2rem; text-align: center; color: #78716c;">Nog geen grote evenementen</div>`;
+        } else {
+          umbrellaEvents.forEach(u => {
+            html += `
+              <div class="admin-table-row" style="grid-template-columns: 2fr 2fr 1.5fr;">
+                <div><span style="display:inline-block; width:0.75rem; height:0.75rem; border-radius:50%; background:${u.color || '#b45309'}; margin-right:0.4rem;"></span><strong>${escapeHtmlSafe(u.title)}</strong></div>
+                <div>${escapeHtmlSafe(u.startDate)} t/m ${escapeHtmlSafe(u.endDate)}</div>
+                <div>
+                  <button class="btn-small btn-edit" onclick="showUmbrellaFormModal('${u.id}')" style="background: white; color: #b45309; border-color: #b45309;">Bewerken</button>
+                  <button class="btn-small btn-delete" onclick="deleteUmbrellaEvent('${u.id}')" style="background: white; color: #dc2626; border-color: #dc2626;">Verwijderen</button>
                 </div>
               </div>
             `;

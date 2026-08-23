@@ -57,6 +57,9 @@ service cloud.firestore {
           'startTime', 'endTime', 'lat', 'lng', 'address', 'ownerId',
           'status', 'paid', 'createdAt'
         ]);
+        // multiDay, dailyTimes, umbrellaEventId are optional extra fields —
+        // no hasAll() requirement for them, same pattern as the required set
+        // above but not mandatory on every event.
 
       allow update: if request.auth != null
         && request.auth.uid == resource.data.ownerId
@@ -68,6 +71,17 @@ service cloud.firestore {
         );
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
+    }
+
+    // Umbrella events ("Groot Tilburgs event", e.g. a festival) — admin-
+    // managed grouping containers that individual businessEvents can
+    // optionally tag themselves under via umbrellaEventId. Public read
+    // (shown on the map/detail pages), admin-only write. Not money- or
+    // approval-sensitive, so a direct admin-gated rule is fine here — no
+    // Cloud Function needed, unlike businessEvents' status/paid.
+    match /umbrellaEvents/{umbrellaId} {
+      allow read: if true;
+      allow write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
     // Everything else is closed by default until its module is built.
