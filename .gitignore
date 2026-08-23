@@ -2,7 +2,9 @@
 .firebase/
 firebase-debug.log
 firestore-debug.log
+database-debug.log
 ui-debug.log
+pubsub-debug.log
 
 # Node
 node_modules/
