@@ -94,6 +94,19 @@ describe("getBusinessProfile / createBusinessProfile", () => {
     expect(await getBusinessProfile("uid1")).toBeNull();
   });
 
+  it("returns the profile with uid when the doc exists", async () => {
+    vi.mocked(getDoc).mockResolvedValue({
+      exists: () => true,
+      data: () => ({ businessName: "My Shop", email: "biz@example.com", createdAt: "ts" }),
+    } as never);
+    expect(await getBusinessProfile("uid1")).toEqual({
+      uid: "uid1",
+      businessName: "My Shop",
+      email: "biz@example.com",
+      createdAt: "ts",
+    });
+  });
+
   it("writes businessName/email/createdAt on create", async () => {
     await createBusinessProfile("uid1", "My Shop", "shop@example.com");
     expect(setDoc).toHaveBeenCalledWith(

@@ -93,4 +93,94 @@ describe("AccountMenu label + entry point priority", () => {
     rerender(<AccountMenu />);
     expect(screen.queryByText("🔐")).not.toBeInTheDocument();
   });
+
+  it("opens the admin login modal from the 🔐 entry", async () => {
+    mockUseAuth.mockReturnValue(baseAuth());
+    const user = userEvent.setup();
+    render(<AccountMenu />);
+
+    await user.click(screen.getByText("🔐"));
+    expect(screen.getByRole("dialog", { name: "Admin inloggen" })).toBeInTheDocument();
+  });
+
+  it("closes the account chooser modal when cancelled", async () => {
+    mockUseAuth.mockReturnValue(baseAuth());
+    const user = userEvent.setup();
+    render(<AccountMenu />);
+
+    await user.click(screen.getByText("👤 Account"));
+    expect(screen.getByRole("dialog", { name: "Wie ben je?" })).toBeInTheDocument();
+
+    await user.click(screen.getByText("Annuleren"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("closes the business dashboard modal", async () => {
+    mockUseAuth.mockReturnValue(
+      baseAuth({
+        currentUser: { uid: "u1" },
+        currentBusiness: { uid: "u1", businessName: "My Shop", email: "biz@example.com", createdAt: null },
+      }),
+    );
+    const user = userEvent.setup();
+    render(<AccountMenu />);
+
+    await user.click(screen.getByText("🎉 My Shop"));
+    await user.click(screen.getByText("Sluiten"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("closes the admin login modal", async () => {
+    mockUseAuth.mockReturnValue(baseAuth());
+    const user = userEvent.setup();
+    render(<AccountMenu />);
+
+    await user.click(screen.getByText("🔐"));
+    await user.click(screen.getByText("Annuleren"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("closes the visitor auth modal reached via the chooser", async () => {
+    mockUseAuth.mockReturnValue(baseAuth());
+    const user = userEvent.setup();
+    render(<AccountMenu />);
+
+    await user.click(screen.getByText("👤 Account"));
+    await user.click(screen.getByText("👤 Ik ben bezoeker"));
+    expect(screen.getByRole("dialog", { name: "Inloggen als bezoeker" })).toBeInTheDocument();
+
+    await user.click(screen.getByText("Annuleren"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("opens and closes the business auth modal reached via the chooser", async () => {
+    mockUseAuth.mockReturnValue(baseAuth());
+    const user = userEvent.setup();
+    render(<AccountMenu />);
+
+    await user.click(screen.getByText("👤 Account"));
+    await user.click(screen.getByText("🎉 Ik ben Event Owner"));
+    expect(screen.getByRole("dialog", { name: "Inloggen" })).toBeInTheDocument();
+
+    await user.click(screen.getByText("Nog geen account? Registreer"));
+    expect(screen.getByRole("dialog", { name: "Account aanmaken" })).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Sluiten"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("closes the visitor dashboard modal", async () => {
+    mockUseAuth.mockReturnValue(
+      baseAuth({
+        currentUser: { uid: "u1" },
+        currentVisitor: { uid: "u1", email: "v@example.com", displayName: "v", createdAt: null },
+      }),
+    );
+    const user = userEvent.setup();
+    render(<AccountMenu />);
+
+    await user.click(screen.getByText("👤 v"));
+    await user.click(screen.getByText("Sluiten"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 });

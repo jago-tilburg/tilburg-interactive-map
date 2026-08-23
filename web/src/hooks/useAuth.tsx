@@ -53,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // being wired up in the monolith.
   useEffect(() => {
     (async () => {
+      /* v8 ignore next -- SSR guard; jsdom always provides `window` under test, so this branch is untestable outside a real server render. */
       if (typeof window === "undefined") return;
       if (!isVisitorMagicLink(window.location.href)) return;
       let email = window.localStorage.getItem(VISITOR_AUTH_EMAIL_KEY);

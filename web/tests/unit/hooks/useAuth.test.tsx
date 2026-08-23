@@ -131,6 +131,22 @@ describe("AuthProvider account-type resolution priority", () => {
     expect(screen.getByTestId("visitor")).toHaveTextContent("user");
   });
 
+  it("creates a visitor profile with an empty email when the Auth user has none (e.g. phone auth)", async () => {
+    vi.mocked(isUidAdmin).mockResolvedValue(false);
+    vi.mocked(getBusinessProfile).mockResolvedValue(null);
+    vi.mocked(getVisitorProfile).mockResolvedValue(null);
+    vi.mocked(createVisitorProfile).mockResolvedValue({
+      uid: "uid-2",
+      email: "",
+      displayName: "Bezoeker",
+      createdAt: null as never,
+    });
+    const fire = captureAuthCallback();
+    fire({ uid: "uid-2", email: null } as User);
+
+    await waitFor(() => expect(createVisitorProfile).toHaveBeenCalledWith("uid-2", ""));
+  });
+
   it("resets all account state on sign-out", async () => {
     vi.mocked(isUidAdmin).mockResolvedValue(true);
     const fire = captureAuthCallback();
@@ -187,5 +203,70 @@ describe("magic-link completion on load", () => {
 
     await waitFor(() => expect(isVisitorMagicLink).toHaveBeenCalled());
     expect(completeVisitorMagicLink).not.toHaveBeenCalled();
+  });
+
+  it("logs and swallows an error if completing the magic link fails", async () => {
+    vi.mocked(isVisitorMagicLink).mockReturnValue(true);
+    vi.mocked(subscribeToAuthState).mockImplementation(() => vi.fn());
+    window.localStorage.setItem(VISITOR_AUTH_EMAIL_KEY, "visitor@example.com");
+    vi.mocked(completeVisitorMagicLink).mockRejectedValue(new Error("expired link"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(consoleError).toHaveBeenCalledWith("Sign-in link error:", expect.any(Error)));
+    // The stashed email is left in place on failure so a retry can reuse it.
+    expect(window.localStorage.getItem(VISITOR_AUTH_EMAIL_KEY)).toBe("visitor@example.com");
+
+    consoleError.mockRestore();
+  });
+
+  it("falls back to window.prompt for the email when localStorage has none (cross-device link)", async () => {
+    vi.mocked(isVisitorMagicLink).mockReturnValue(true);
+    vi.mocked(subscribeToAuthState).mockImplementation(() => vi.fn());
+    vi.mocked(completeVisitorMagicLink).mockResolvedValue(undefined as never);
+    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("prompted@example.com");
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(completeVisitorMagicLink).toHaveBeenCalledWith("prompted@example.com", window.location.href),
+    );
+    expect(promptSpy).toHaveBeenCalled();
+
+    promptSpy.mockRestore();
+  });
+
+  it("does nothing when localStorage has no email and the user cancels the prompt", async () => {
+    vi.mocked(isVisitorMagicLink).mockReturnValue(true);
+    vi.mocked(subscribeToAuthState).mockImplementation(() => vi.fn());
+    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue(null);
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(promptSpy).toHaveBeenCalled());
+    expect(completeVisitorMagicLink).not.toHaveBeenCalled();
+
+    promptSpy.mockRestore();
+  });
+});
+
+describe("useAuth outside a provider", () => {
+  it("throws when called without an enclosing AuthProvider", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => render(<TestConsumer />)).toThrow("useAuth must be used within AuthProvider");
+    consoleError.mockRestore();
   });
 });
