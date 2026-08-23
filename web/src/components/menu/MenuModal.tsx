@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { PrivacyModal } from "@/components/common/PrivacyModal";
+import { AdminLoginModal } from "@/components/auth/AdminLoginModal";
 import { ratingColor } from "@/lib/shops/shopHelpers";
 import { categoryOf, formatBusinessEventSchedule } from "@/lib/events/eventHelpers";
 import { filterShops, filterEvents, sortShops, type ContentTypeFilter, type SortOption } from "@/lib/filters/filterHelpers";
@@ -44,10 +46,12 @@ export function MenuModal({
   onSelectEvent,
   loading = false,
 }: MenuModalProps) {
+  const { isAdmin } = useAuth();
   const [contentType, setContentType] = useState<ContentTypeFilter>("alles");
   const [sort, setSort] = useState<SortOption>("rating-desc");
   const [dietaryFilter, setDietaryFilter] = useState<DietaryFilter>("all");
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [adminLoginOpen, setAdminLoginOpen] = useState(false);
 
   if (!open) return null;
 
@@ -182,12 +186,18 @@ export function MenuModal({
           ))}
         </div>
 
+        {!isAdmin && (
+          <button type="button" className={styles.footerLink} onClick={() => setAdminLoginOpen(true)}>
+            🔐
+          </button>
+        )}
         <button type="button" className={styles.footerLink} onClick={() => setPrivacyOpen(true)}>
           📜 Privacy
         </button>
       </div>
 
       <PrivacyModal open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
+      <AdminLoginModal open={adminLoginOpen} onClose={() => setAdminLoginOpen(false)} />
     </div>
   );
 }

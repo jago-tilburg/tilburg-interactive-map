@@ -1,6 +1,17 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+const mockUseAuth = vi.fn();
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => mockUseAuth(),
+}));
+
+const loginAdmin = vi.fn();
+vi.mock("@/lib/firebase/auth", () => ({
+  loginAdmin: (...a: unknown[]) => loginAdmin(...a),
+}));
+
 import { MenuModal } from "@/components/menu/MenuModal";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
@@ -67,7 +78,7 @@ function setup(overrides: Partial<Parameters<typeof MenuModal>[0]> = {}) {
   const onClose = vi.fn();
   const onSelectShop = vi.fn();
   const onSelectEvent = vi.fn();
-  const { container } = render(
+  const { container, rerender } = render(
     <MenuModal
       open
       onClose={onClose}
@@ -79,10 +90,16 @@ function setup(overrides: Partial<Parameters<typeof MenuModal>[0]> = {}) {
       {...overrides}
     />,
   );
-  return { onClose, onSelectShop, onSelectEvent, container };
+  return { onClose, onSelectShop, onSelectEvent, container, rerender };
 }
 
 describe("MenuModal", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({ isAdmin: false });
+    loginAdmin.mockResolvedValue(undefined);
+  });
+
   it("renders nothing when closed", () => {
     const { container } = render(
       <MenuModal
@@ -195,5 +212,35 @@ describe("MenuModal", () => {
 
     await user.click(within(privacyDialog).getByLabelText("Sluiten"));
     expect(screen.queryByRole("dialog", { name: "Privacybeleid" })).not.toBeInTheDocument();
+  });
+
+  it("shows the admin-login entry only when signed out", () => {
+    const { rerender } = setup();
+    expect(screen.getByText("🔐")).toBeInTheDocument();
+
+    mockUseAuth.mockReturnValue({ isAdmin: true });
+    rerender(
+      <MenuModal
+        open
+        onClose={vi.fn()}
+        shops={[]}
+        businessEvents={[]}
+        umbrellaEvents={[]}
+        onSelectShop={vi.fn()}
+        onSelectEvent={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("🔐")).not.toBeInTheDocument();
+  });
+
+  it("opens and closes the admin login modal from the 🔐 entry", async () => {
+    const user = userEvent.setup();
+    setup();
+
+    await user.click(screen.getByText("🔐"));
+    expect(screen.getByRole("dialog", { name: "Admin inloggen" })).toBeInTheDocument();
+
+    await user.click(screen.getByText("Annuleren"));
+    expect(screen.queryByRole("dialog", { name: "Admin inloggen" })).not.toBeInTheDocument();
   });
 });

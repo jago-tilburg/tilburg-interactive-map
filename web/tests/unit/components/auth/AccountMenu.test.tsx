@@ -134,25 +134,6 @@ describe("AccountMenu label + entry point priority", () => {
     expect(screen.getByRole("dialog", { name: "Wie ben je?" })).toBeInTheDocument();
   });
 
-  it("shows the admin-login entry only when signed out", () => {
-    mockUseAuth.mockReturnValue(baseAuth());
-    const { rerender } = render(<AccountMenu />);
-    expect(screen.getByText("🔐")).toBeInTheDocument();
-
-    mockUseAuth.mockReturnValue(baseAuth({ currentUser: { uid: "u1" }, isAdmin: true }));
-    rerender(<AccountMenu />);
-    expect(screen.queryByText("🔐")).not.toBeInTheDocument();
-  });
-
-  it("opens the admin login modal from the 🔐 entry", async () => {
-    mockUseAuth.mockReturnValue(baseAuth());
-    const user = userEvent.setup();
-    render(<AccountMenu />);
-
-    await user.click(screen.getByText("🔐"));
-    expect(screen.getByRole("dialog", { name: "Admin inloggen" })).toBeInTheDocument();
-  });
-
   it("closes the account chooser modal when cancelled", async () => {
     mockUseAuth.mockReturnValue(baseAuth());
     const user = userEvent.setup();
@@ -177,16 +158,6 @@ describe("AccountMenu label + entry point priority", () => {
 
     await user.click(screen.getByText("🎉 My Shop"));
     await user.click(screen.getByText("Sluiten"));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("closes the admin login modal", async () => {
-    mockUseAuth.mockReturnValue(baseAuth());
-    const user = userEvent.setup();
-    render(<AccountMenu />);
-
-    await user.click(screen.getByText("🔐"));
-    await user.click(screen.getByText("Annuleren"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 

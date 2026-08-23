@@ -122,7 +122,7 @@ export function MapFilterPanel({
           className={contentType === "broodjes" ? styles.typeBtnActive : styles.typeBtn}
           onClick={() => setContentType((c) => (c === "broodjes" ? "alles" : "broodjes"))}
         >
-          🥪 Broodjes <span className={styles.count}>{filterShops(shops, { query, dietary: [] }).length}</span>
+          🥪 Broodjes <span className={styles.count}>({filterShops(shops, { query, dietary: [] }).length})</span>
         </button>
         <button
           type="button"
@@ -131,7 +131,7 @@ export function MapFilterPanel({
         >
           🎉 Events{" "}
           <span className={styles.count}>
-            {filterEvents(businessEvents, { query, categories: [], umbrellaEventId: null, dateFilter: null, today }).length}
+            ({filterEvents(businessEvents, { query, categories: [], umbrellaEventId: null, dateFilter: null, today }).length})
           </span>
         </button>
       </div>

@@ -7,7 +7,6 @@ import { VisitorAuthModal } from "./VisitorAuthModal";
 import { VisitorDashboard } from "./VisitorDashboard";
 import { BusinessAuthModal } from "./BusinessAuthModal";
 import { BusinessDashboard } from "./BusinessDashboard";
-import { AdminLoginModal } from "./AdminLoginModal";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import styles from "./AccountMenu.module.css";
 
@@ -18,14 +17,13 @@ type ActiveModal =
   | "visitorDashboard"
   | "businessAuth"
   | "businessDashboard"
-  | "adminLogin"
   | "adminPanel";
 
 // Mirrors the monolith's updateMenuVisibility() + openAccountEntry() —
 // conditional label/entry rendering based on the priority-ordered auth state
 // from useAuth (admin > business > visitor > signed out).
 export function AccountMenu() {
-  const { currentUser, isAdmin, currentVisitor, currentBusiness } = useAuth();
+  const { isAdmin, currentVisitor, currentBusiness } = useAuth();
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
   function openAccountEntry() {
@@ -53,11 +51,6 @@ export function AccountMenu() {
       <button type="button" className={styles.accountLink} onClick={openAccountEntry}>
         {label}
       </button>
-      {!currentUser && (
-        <button type="button" className={styles.adminLink} onClick={() => setActiveModal("adminLogin")}>
-          🔐
-        </button>
-      )}
 
       <AccountChooserModal
         open={activeModal === "chooser"}
@@ -69,7 +62,6 @@ export function AccountMenu() {
       <VisitorDashboard open={activeModal === "visitorDashboard"} onClose={() => setActiveModal(null)} />
       <BusinessAuthModal open={activeModal === "businessAuth"} onClose={() => setActiveModal(null)} />
       <BusinessDashboard open={activeModal === "businessDashboard"} onClose={() => setActiveModal(null)} />
-      <AdminLoginModal open={activeModal === "adminLogin"} onClose={() => setActiveModal(null)} />
       <AdminPanel open={activeModal === "adminPanel"} onClose={() => setActiveModal(null)} />
     </nav>
   );
