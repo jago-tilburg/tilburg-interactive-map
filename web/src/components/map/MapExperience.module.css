@@ -4,17 +4,26 @@
   min-height: 0;
 }
 
-.addShopButton {
+.addShopButton,
+.requestButton {
   position: absolute;
   bottom: 24px;
   right: 24px;
   z-index: 5;
-  background: #16a34a;
-  color: white;
   border: none;
   border-radius: 999px;
   padding: 12px 20px;
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.addShopButton {
+  background: #16a34a;
+  color: white;
+}
+
+.requestButton {
+  background: white;
+  color: #292524;
 }

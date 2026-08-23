@@ -6,6 +6,8 @@ import { ShopDetailModal } from "@/components/shops/ShopDetailModal";
 import { ShopFormModal } from "@/components/shops/ShopFormModal";
 import { BusinessEventDetailModal } from "@/components/events/BusinessEventDetailModal";
 import { UmbrellaEventDetailModal } from "@/components/events/UmbrellaEventDetailModal";
+import { RequestModal } from "@/components/requests/RequestModal";
+import { RequestConfirmationModal } from "@/components/requests/RequestConfirmationModal";
 import { useAuth } from "@/hooks/useAuth";
 import { subscribeShops } from "@/lib/firebase/shops";
 import { subscribeApprovedBusinessEvents } from "@/lib/firebase/businessEvents";
@@ -32,6 +34,8 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
   const [selectedUmbrellaId, setSelectedUmbrellaId] = useState<string | null>(null);
   const [shopFormMode, setShopFormMode] = useState<"closed" | "create" | "edit">("closed");
   const [shopBeingEdited, setShopBeingEdited] = useState<Shop | null>(null);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [requestConfirmationOpen, setRequestConfirmationOpen] = useState(false);
 
   useEffect(() => {
     const unsubShops = subscribeShops(setShops);
@@ -58,7 +62,7 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
         onBusinessEventClick={setSelectedEventId}
       />
 
-      {isAdmin && (
+      {isAdmin ? (
         <button
           type="button"
           className={styles.addShopButton}
@@ -68,6 +72,10 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
           }}
         >
           + Nieuwe Review Toevoegen
+        </button>
+      ) : (
+        <button type="button" className={styles.requestButton} onClick={() => setRequestModalOpen(true)}>
+          🥪 Vraag een Review Aan
         </button>
       )}
 
@@ -108,6 +116,19 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
           setSelectedUmbrellaId(null);
           setSelectedEventId(eventId);
         }}
+      />
+
+      <RequestModal
+        open={requestModalOpen}
+        onClose={() => setRequestModalOpen(false)}
+        onSubmitted={() => {
+          setRequestModalOpen(false);
+          setRequestConfirmationOpen(true);
+        }}
+      />
+      <RequestConfirmationModal
+        open={requestConfirmationOpen}
+        onClose={() => setRequestConfirmationOpen(false)}
       />
     </div>
   );

@@ -8,7 +8,7 @@ import { VisitorDashboard } from "./VisitorDashboard";
 import { BusinessAuthModal } from "./BusinessAuthModal";
 import { BusinessDashboard } from "./BusinessDashboard";
 import { AdminLoginModal } from "./AdminLoginModal";
-import { AdminEventsPanel } from "@/components/events/AdminEventsPanel";
+import { AdminPanel } from "@/components/admin/AdminPanel";
 import styles from "./AccountMenu.module.css";
 
 type ActiveModal =
@@ -70,7 +70,7 @@ export function AccountMenu() {
       <BusinessAuthModal open={activeModal === "businessAuth"} onClose={() => setActiveModal(null)} />
       <BusinessDashboard open={activeModal === "businessDashboard"} onClose={() => setActiveModal(null)} />
       <AdminLoginModal open={activeModal === "adminLogin"} onClose={() => setActiveModal(null)} />
-      <AdminEventsPanel open={activeModal === "adminPanel"} onClose={() => setActiveModal(null)} />
+      <AdminPanel open={activeModal === "adminPanel"} onClose={() => setActiveModal(null)} />
     </nav>
   );
 }

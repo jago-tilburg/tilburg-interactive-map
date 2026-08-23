@@ -26,6 +26,19 @@ vi.mock("@/lib/firebase/businessEvents", () => ({
   deleteBusinessEvent: vi.fn(),
 }));
 
+vi.mock("@/lib/firebase/shops", () => ({
+  subscribeShops: vi.fn(() => vi.fn()),
+  deleteShop: vi.fn(),
+  getShopViews: vi.fn().mockResolvedValue(0),
+  createShop: vi.fn(),
+  updateShop: vi.fn(),
+}));
+
+vi.mock("@/lib/firebase/requests", () => ({
+  subscribeRequests: vi.fn(() => vi.fn()),
+  deleteRequest: vi.fn(),
+}));
+
 vi.mock("@/lib/firebase/umbrellaEvents", () => ({
   subscribeUmbrellaEvents: vi.fn(() => vi.fn()),
   createUmbrellaEvent: vi.fn(),
@@ -69,7 +82,7 @@ describe("AccountMenu label + entry point priority", () => {
     render(<AccountMenu />);
 
     await user.click(screen.getByText("🛠️ Admin"));
-    expect(screen.getByRole("dialog", { name: "Admin — Evenementen" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Beheerpaneel" })).toBeInTheDocument();
 
     await user.click(screen.getByLabelText("Sluiten"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

@@ -115,6 +115,15 @@ vi.mock("@/lib/shops/navigateToLocation", () => ({
   navigateToLocation: vi.fn(),
 }));
 
+const submitRequest = vi.fn();
+vi.mock("@/lib/firebase/requests", () => ({
+  submitRequest: (...a: unknown[]) => submitRequest(...a),
+}));
+
+vi.mock("@/lib/analytics/trackEvent", () => ({
+  trackEvent: vi.fn(),
+}));
+
 import { MapExperience } from "@/components/map/MapExperience";
 
 beforeEach(() => {
@@ -132,6 +141,7 @@ beforeEach(() => {
     onChange([umbrella]);
     return vi.fn();
   });
+  submitRequest.mockResolvedValue(undefined);
 });
 
 describe("MapExperience", () => {
@@ -209,5 +219,42 @@ describe("MapExperience", () => {
     await user.click(screen.getByText("✏️ Bewerken"));
     expect(screen.getByRole("dialog", { name: "Bewerken Review" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Test Shop")).toBeInTheDocument();
+  });
+
+  it("shows the request-a-review button for a non-admin, not the add-shop button", () => {
+    render(<MapExperience apiKey="test-key" />);
+    expect(screen.getByText("🥪 Vraag een Review Aan")).toBeInTheDocument();
+    expect(screen.queryByText("+ Nieuwe Review Toevoegen")).not.toBeInTheDocument();
+  });
+
+  it("does not show the request button for an admin", () => {
+    mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: true });
+    render(<MapExperience apiKey="test-key" />);
+    expect(screen.queryByText("🥪 Vraag een Review Aan")).not.toBeInTheDocument();
+  });
+
+  it("submits a shop request and shows the confirmation modal", async () => {
+    const user = userEvent.setup();
+    render(<MapExperience apiKey="test-key" />);
+
+    await user.click(screen.getByText("🥪 Vraag een Review Aan"));
+    await user.type(screen.getByLabelText("Naam van de zaak"), "Nieuwe Broodjeszaak");
+    await user.click(screen.getByText("Versturen"));
+
+    expect(await screen.findByRole("dialog", { name: "Bedankt voor je suggestie!" })).toBeInTheDocument();
+
+    await user.click(screen.getByText("Sluiten"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("closes the request modal via cancel without submitting", async () => {
+    const user = userEvent.setup();
+    render(<MapExperience apiKey="test-key" />);
+
+    await user.click(screen.getByText("🥪 Vraag een Review Aan"));
+    await user.click(screen.getByText("Annuleren"));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(submitRequest).not.toHaveBeenCalled();
   });
 });
