@@ -71,6 +71,7 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
           apiKey={apiKey}
           shops={shops}
           businessEvents={businessEvents}
+          umbrellaEvents={umbrellaEvents}
           onShopClick={setSelectedShopId}
           onBusinessEventClick={setSelectedEventId}
         />

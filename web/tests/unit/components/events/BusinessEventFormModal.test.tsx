@@ -92,11 +92,17 @@ describe("BusinessEventFormModal create mode", () => {
     await fillMinimalRequiredFields(user);
     await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
     await user.click(screen.getByText("Extract"));
+    await user.type(screen.getByLabelText("Foto-URL"), "https://example.com/event.jpg");
     await user.click(screen.getByText("Opslaan"));
 
     expect(createBusinessEvent).toHaveBeenCalledWith(
       "owner-uid",
-      expect.objectContaining({ lat: 51.55, lng: 5.09, title: "My Event" }),
+      expect.objectContaining({
+        lat: 51.55,
+        lng: 5.09,
+        title: "My Event",
+        photoUrl: "https://example.com/event.jpg",
+      }),
     );
     expect(onClose).toHaveBeenCalled();
   });

@@ -30,3 +30,98 @@ export const EVENT_STAR_PATH =
 export const LEGACY_EVENT_COLOR = "#9333ea";
 export const BUSINESS_EVENT_COLOR = "#ec4899";
 export const EVENT_ICON_ANCHOR = { x: 12, y: 12 };
+
+// Zoom-scaled "photo card" event marker — a simplified, non-animated port of
+// the prototype's buildEventCardIcon()/computeMarkerSize(): a rounded card
+// with a bottom pointer, a clipped photo (or a category-emoji placeholder),
+// and a two-stop gradient border. Deliberately dropped from the prototype:
+// the rotating-gradient-border animation and the "happening now" pulsing
+// glow (both pure CSS/SVG polish, not core to the marker's information) —
+// noted here rather than silently ported as static-only.
+const CARD_BASE_ZOOM = 14;
+const CARD_BASE_WIDTH = 49;
+const CARD_ASPECT = 4 / 3; // width:height, matches the prototype's 3:4 photo panel below a header strip
+const CARD_SCALE_PER_ZOOM = 1.4;
+const CARD_MIN_WIDTH = 28;
+const CARD_MAX_WIDTH = 200;
+
+export function computeEventCardWidth(zoom: number): number {
+  const width = CARD_BASE_WIDTH * Math.pow(CARD_SCALE_PER_ZOOM, zoom - CARD_BASE_ZOOM);
+  return Math.min(CARD_MAX_WIDTH, Math.max(CARD_MIN_WIDTH, Math.round(width)));
+}
+
+export interface EventCardIconOptions {
+  width: number;
+  photoUrl?: string;
+  categoryEmoji: string;
+  borderColors: [string, string];
+}
+
+// Rounded-rect card body with a small triangular pointer at the bottom
+// center, used both as the visible outline and as the photo clip region.
+function cardOutlinePath(width: number, height: number, radius: number, pointerSize: number): string {
+  const w = width;
+  const h = height - pointerSize;
+  const r = Math.min(radius, w / 2, h / 2);
+  const cx = w / 2;
+  return [
+    `M${r},0`,
+    `H${w - r}`,
+    `Q${w},0 ${w},${r}`,
+    `V${h - r}`,
+    `Q${w},${h} ${w - r},${h}`,
+    `H${cx + pointerSize / 2}`,
+    `L${cx},${h + pointerSize}`,
+    `L${cx - pointerSize / 2},${h}`,
+    `H${r}`,
+    `Q0,${h} 0,${h - r}`,
+    `V${r}`,
+    `Q0,0 ${r},0`,
+    "Z",
+  ].join(" ");
+}
+
+export function buildEventCardIconDataUrl(options: EventCardIconOptions): { url: string; height: number } {
+  const { width, photoUrl, categoryEmoji, borderColors } = options;
+  const height = Math.round(width * CARD_ASPECT);
+  const pointerSize = Math.max(6, Math.round(width * 0.18));
+  const border = Math.max(2, Math.round(width * 0.06));
+  const radius = Math.round(width * 0.22);
+  const outline = cardOutlinePath(width, height, radius, pointerSize);
+  const gradientId = "cardBorder";
+  const clipId = "cardPhoto";
+
+  const photo = photoUrl
+    ? `<image href="${photoUrl}" x="0" y="0" width="${width}" height="${height - pointerSize}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})" />`
+    : `<rect x="0" y="0" width="${width}" height="${height - pointerSize}" rx="${radius}" fill="#f0ebe4" />
+       <text x="${width / 2}" y="${(height - pointerSize) / 2}" font-size="${Math.round(width * 0.4)}" text-anchor="middle" dominant-baseline="central">${categoryEmoji}</text>`;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <defs>
+      <linearGradient id="${gradientId}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${borderColors[0]}" />
+        <stop offset="100%" stop-color="${borderColors[1]}" />
+      </linearGradient>
+      <clipPath id="${clipId}"><path d="${outline}" /></clipPath>
+    </defs>
+    ${photo}
+    <path d="${outline}" fill="none" stroke="url(#${gradientId})" stroke-width="${border}" stroke-linejoin="round" />
+  </svg>`;
+
+  return { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg), height };
+}
+
+// Lightens/darkens a hex color by `percent` (-100..100) — used to derive the
+// second gradient stop from an umbrella event's single brand color, matching
+// the prototype's shadeColor().
+export function shadeColor(hex: string, percent: number): string {
+  const num = parseInt(hex.replace("#", ""), 16);
+  const amt = Math.round(2.55 * percent);
+  const clamp = (v: number) => Math.min(255, Math.max(0, v));
+  const r = clamp((num >> 16) + amt);
+  const g = clamp(((num >> 8) & 0x00ff) + amt);
+  const b = clamp((num & 0x0000ff) + amt);
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
+export const DEFAULT_CARD_BORDER: [string, string] = ["#22c55e", "#ff6b35"];

@@ -31,6 +31,7 @@ export interface BusinessEvent {
   multiDay?: boolean;
   dailyTimes?: Record<string, DailyTime> | null;
   umbrellaEventId?: string | null;
+  photoUrl?: string;
 }
 
 export type BusinessEventInput = Omit<

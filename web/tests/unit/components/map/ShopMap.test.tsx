@@ -9,10 +9,12 @@ vi.mock("@/lib/maps/loadGoogleMaps", () => ({
 }));
 
 let createdMarkers: FakeMarker[] = [];
+let createdMaps: FakeMap[] = [];
 
 class FakeMarker {
   setMap = vi.fn();
   setPosition = vi.fn();
+  setIcon = vi.fn();
   listeners = new Map<string, () => void>();
   constructor(public opts: Record<string, unknown>) {
     createdMarkers.push(this);
@@ -22,10 +24,20 @@ class FakeMarker {
   }
 }
 class FakeMap {
+  zoomListener: (() => void) | null = null;
+  currentZoom = 13;
   constructor(
     public el: HTMLElement,
     public opts: Record<string, unknown>,
-  ) {}
+  ) {
+    createdMaps.push(this);
+  }
+  addListener(event: string, cb: () => void) {
+    if (event === "zoom_changed") this.zoomListener = cb;
+  }
+  getZoom() {
+    return this.currentZoom;
+  }
 }
 class FakeSize {
   constructor(
@@ -89,6 +101,7 @@ function makeEvent(overrides: Partial<BusinessEvent> = {}): BusinessEvent {
 beforeEach(() => {
   vi.clearAllMocks();
   createdMarkers = [];
+  createdMaps = [];
   loadGoogleMaps.mockResolvedValue(undefined);
   window.google = {
     maps: {
@@ -256,5 +269,65 @@ describe("ShopMap", () => {
 
     await waitFor(() => expect(createdMarkers[0].setPosition).toHaveBeenCalledWith({ lat: 52, lng: 6 }));
     expect(createdMarkers).toHaveLength(1);
+  });
+
+  it("uses the parent umbrella's color for a linked event's marker border", async () => {
+    const event = makeEvent({ umbrellaEventId: "u1" });
+    render(
+      <ShopMap
+        apiKey="test-key"
+        shops={[]}
+        businessEvents={[event]}
+        umbrellaEvents={[
+          { id: "u1", title: "Kermis", description: "", color: "#123456", startDate: "2026-01-01", endDate: "2099-01-01", createdAt: null as never },
+        ]}
+        onShopClick={vi.fn()}
+        onBusinessEventClick={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => expect(createdMarkers).toHaveLength(1));
+    const icon = createdMarkers[0].opts.icon as { url: string };
+    expect(decodeURIComponent(icon.url)).toContain("#123456");
+  });
+
+  it("falls back to the default border color when an event has no linked umbrella", async () => {
+    const event = makeEvent();
+    render(
+      <ShopMap apiKey="test-key" shops={[]} businessEvents={[event]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(createdMarkers).toHaveLength(1));
+    const icon = createdMarkers[0].opts.icon as { url: string };
+    expect(decodeURIComponent(icon.url)).toContain("#22c55e");
+  });
+
+  it("shows a category-emoji placeholder when the event has no photoUrl", async () => {
+    const event = makeEvent({ category: "muziek" });
+    render(
+      <ShopMap apiKey="test-key" shops={[]} businessEvents={[event]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(createdMarkers).toHaveLength(1));
+    const icon = createdMarkers[0].opts.icon as { url: string };
+    expect(decodeURIComponent(icon.url)).toContain("🎵");
+  });
+
+  it("rebuilds event marker icons at a larger size when the map zooms in", async () => {
+    const event = makeEvent();
+    render(
+      <ShopMap apiKey="test-key" shops={[]} businessEvents={[event]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(createdMarkers).toHaveLength(1));
+    const initialIcon = createdMarkers[0].opts.icon as { scaledSize: FakeSize };
+
+    createdMaps[0].currentZoom = 18;
+    createdMaps[0].zoomListener?.();
+
+    await waitFor(() => {
+      const latestIcon = createdMarkers[0].setIcon.mock.calls.at(-1)?.[0] as { scaledSize: FakeSize };
+      expect(latestIcon.scaledSize.width).toBeGreaterThan(initialIcon.scaledSize.width);
+    });
   });
 });

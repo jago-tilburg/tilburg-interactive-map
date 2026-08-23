@@ -38,6 +38,7 @@ function emptyForm() {
     differentTimesPerDay: false,
     dailyTimes: {} as Record<string, DailyTime>,
     umbrellaEventId: "",
+    photoUrl: "",
   };
 }
 
@@ -57,6 +58,7 @@ function formFromEvent(ev: BusinessEvent, titleSuffix = "") {
     differentTimesPerDay: !!ev.dailyTimes,
     dailyTimes: ev.dailyTimes ?? {},
     umbrellaEventId: ev.umbrellaEventId ?? "",
+    photoUrl: ev.photoUrl ?? "",
   };
 }
 
@@ -176,6 +178,7 @@ export function BusinessEventFormModal({
       multiDay,
       dailyTimes: dailyTimesToSave,
       umbrellaEventId: form.umbrellaEventId || null,
+      photoUrl: form.photoUrl.trim(),
     };
 
     setSubmitting(true);
@@ -348,6 +351,14 @@ export function BusinessEventFormModal({
           aria-label="Adres"
           value={form.address}
           onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+        />
+
+        <input
+          type="url"
+          placeholder="Foto-URL (optioneel)"
+          aria-label="Foto-URL"
+          value={form.photoUrl}
+          onChange={(e) => setForm((f) => ({ ...f, photoUrl: e.target.value }))}
         />
 
         {error && <p className={styles.error}>{error}</p>}

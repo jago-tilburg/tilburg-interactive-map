@@ -6,12 +6,14 @@ import {
   buildShopIconDataUrl,
   DROP_ICON_SIZE,
   DROP_ICON_ANCHOR,
-  EVENT_STAR_PATH,
-  BUSINESS_EVENT_COLOR,
-  EVENT_ICON_ANCHOR,
+  computeEventCardWidth,
+  buildEventCardIconDataUrl,
+  shadeColor,
+  DEFAULT_CARD_BORDER,
 } from "@/lib/maps/markerIcons";
+import { categoryOf } from "@/lib/events/eventHelpers";
 import type { Shop } from "@/types/shops";
-import type { BusinessEvent } from "@/types/events";
+import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./ShopMap.module.css";
 
 const TILBURG_CENTER = { lat: 51.5555, lng: 5.0913 };
@@ -33,17 +35,26 @@ interface ShopMapProps {
   apiKey: string;
   shops: Shop[];
   businessEvents: BusinessEvent[];
+  umbrellaEvents?: UmbrellaEvent[];
   onShopClick: (shopId: number) => void;
   onBusinessEventClick: (eventId: string) => void;
 }
 
-export function ShopMap({ apiKey, shops, businessEvents, onShopClick, onBusinessEventClick }: ShopMapProps) {
+export function ShopMap({
+  apiKey,
+  shops,
+  businessEvents,
+  umbrellaEvents = [],
+  onShopClick,
+  onBusinessEventClick,
+}: ShopMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const shopMarkersRef = useRef(new Map<number, google.maps.Marker>());
   const eventMarkersRef = useRef(new Map<string, google.maps.Marker>());
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [zoom, setZoom] = useState(13);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +68,10 @@ export function ShopMap({ apiKey, shops, businessEvents, onShopClick, onBusiness
           streetViewControl: false,
           fullscreenControl: false,
           styles: CUSTOM_MAP_STYLE,
+        });
+        mapRef.current.addListener("zoom_changed", () => {
+          /* v8 ignore next */
+          setZoom(mapRef.current?.getZoom() ?? 13);
         });
         setReady(true);
       })
@@ -107,6 +122,7 @@ export function ShopMap({ apiKey, shops, businessEvents, onShopClick, onBusiness
     const map = mapRef.current;
     const markers = eventMarkersRef.current;
     const currentIds = new Set(businessEvents.map((e) => e.id));
+    const width = computeEventCardWidth(zoom);
 
     for (const [id, marker] of markers) {
       if (!currentIds.has(id)) {
@@ -116,25 +132,40 @@ export function ShopMap({ apiKey, shops, businessEvents, onShopClick, onBusiness
     }
 
     for (const event of businessEvents) {
-      if (markers.has(event.id)) continue;
+      const parentUmbrella = event.umbrellaEventId
+        ? umbrellaEvents.find((u) => u.id === event.umbrellaEventId)
+        : undefined;
+      const borderColors: [string, string] = parentUmbrella
+        ? [parentUmbrella.color, shadeColor(parentUmbrella.color, -30)]
+        : DEFAULT_CARD_BORDER;
+      const { url, height } = buildEventCardIconDataUrl({
+        width,
+        photoUrl: event.photoUrl,
+        categoryEmoji: categoryOf(event.category).emoji,
+        borderColors,
+      });
+      const icon: google.maps.Icon = {
+        url,
+        scaledSize: new google.maps.Size(width, height),
+        anchor: new google.maps.Point(width / 2, height),
+      };
+
+      const existing = markers.get(event.id);
+      if (existing) {
+        existing.setPosition({ lat: event.lat, lng: event.lng });
+        existing.setIcon(icon);
+        continue;
+      }
       const marker = new google.maps.Marker({
         position: { lat: event.lat, lng: event.lng },
         map,
         title: event.title,
-        icon: {
-          path: EVENT_STAR_PATH,
-          fillColor: BUSINESS_EVENT_COLOR,
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 2,
-          scale: 1.8,
-          anchor: new google.maps.Point(EVENT_ICON_ANCHOR.x, EVENT_ICON_ANCHOR.y),
-        },
+        icon,
       });
       marker.addListener("click", () => onBusinessEventClick(event.id));
       markers.set(event.id, marker);
     }
-  }, [ready, businessEvents, onBusinessEventClick]);
+  }, [ready, businessEvents, umbrellaEvents, zoom, onBusinessEventClick]);
 
   return (
     <div className={styles.wrapper}>
