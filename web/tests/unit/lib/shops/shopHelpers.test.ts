@@ -10,7 +10,31 @@ import {
   removeUserReview,
   ratingColor,
   RATING_SELECT_OPTIONS,
+  computeAnonymousDataMigration,
 } from "@/lib/shops/shopHelpers";
+import type { Shop } from "@/types/shops";
+
+function makeShop(overrides: Partial<Shop> & { id: number }): Shop {
+  return {
+    name: "Shop",
+    address: "Addr 1",
+    lat: 51.5,
+    lng: 5.09,
+    rating: 8,
+    price: "€€",
+    photoUrl: "",
+    review: "",
+    tiktokUrl: "",
+    instagramUrl: "",
+    dietaryOptions: { glutenvrij: false, halal: false, vega: false },
+    createdAt: "2026-01-01T00:00:00.000Z",
+    likes: [],
+    comments: [],
+    userReviews: [],
+    userRatings: [],
+    ...overrides,
+  };
+}
 
 describe("shopsSnapshotToArray", () => {
   it("returns an empty array for null/undefined", () => {
@@ -134,6 +158,77 @@ describe("RATING_SELECT_OPTIONS", () => {
     expect(RATING_SELECT_OPTIONS[0]).toBe("10.0");
     expect(RATING_SELECT_OPTIONS[1]).toBe("9.9");
     expect(RATING_SELECT_OPTIONS[RATING_SELECT_OPTIONS.length - 1]).toBe("1.0");
+  });
+});
+
+describe("computeAnonymousDataMigration", () => {
+  it("returns no patches when oldId is empty or equal to newId", () => {
+    const shops = [makeShop({ id: 1, likes: ["anon-1"] })];
+    expect(computeAnonymousDataMigration(shops, "", "uid-1")).toEqual({ patches: [], migrated: 0 });
+    expect(computeAnonymousDataMigration(shops, "uid-1", "uid-1")).toEqual({ patches: [], migrated: 0 });
+  });
+
+  it("re-tags a like from the anon id to the new uid", () => {
+    const shops = [makeShop({ id: 1, likes: ["anon-1", "other"] })];
+    const { patches, migrated } = computeAnonymousDataMigration(shops, "anon-1", "uid-1");
+    expect(migrated).toBe(1);
+    expect(patches).toEqual([{ shopId: 1, likes: ["other", "uid-1"] }]);
+  });
+
+  it("dedupes a like when the new uid already liked the same shop", () => {
+    const shops = [makeShop({ id: 1, likes: ["anon-1", "uid-1"] })];
+    const { patches, migrated } = computeAnonymousDataMigration(shops, "anon-1", "uid-1");
+    expect(migrated).toBe(1);
+    expect(patches).toEqual([{ shopId: 1, likes: ["uid-1"] }]);
+  });
+
+  it("re-tags the anon rating, overwriting any existing rating from the new uid", () => {
+    const shops = [
+      makeShop({
+        id: 1,
+        userRatings: [
+          { userId: "anon-1", rating: 9, createdAt: 100 },
+          { userId: "uid-1", rating: 3, createdAt: 50 },
+        ],
+      }),
+    ];
+    const { patches, migrated } = computeAnonymousDataMigration(shops, "anon-1", "uid-1");
+    expect(migrated).toBe(1);
+    expect(patches).toEqual([
+      { shopId: 1, userRatings: [{ userId: "uid-1", rating: 9, createdAt: 100 }] },
+    ]);
+  });
+
+  it("re-tags every comment and review from the anon id, counting each one", () => {
+    const shops = [
+      makeShop({
+        id: 1,
+        comments: [
+          { id: 1, userId: "anon-1", userName: "Jago", text: "a", createdAt: "t" },
+          { id: 2, userId: "anon-1", userName: "Jago", text: "b", createdAt: "t" },
+          { id: 3, userId: "other", userName: "X", text: "c", createdAt: "t" },
+        ],
+        userReviews: [{ id: 1, userId: "anon-1", userName: "Jago", rating: 8, text: "top", createdAt: "t" }],
+      }),
+    ];
+    const { patches, migrated } = computeAnonymousDataMigration(shops, "anon-1", "uid-1");
+    expect(migrated).toBe(3);
+    expect(patches[0].comments).toEqual([
+      { id: 1, userId: "uid-1", userName: "Jago", text: "a", createdAt: "t" },
+      { id: 2, userId: "uid-1", userName: "Jago", text: "b", createdAt: "t" },
+      { id: 3, userId: "other", userName: "X", text: "c", createdAt: "t" },
+    ]);
+    expect(patches[0].userReviews).toEqual([
+      { id: 1, userId: "uid-1", userName: "Jago", rating: 8, text: "top", createdAt: "t" },
+    ]);
+  });
+
+  it("skips shops with nothing tied to the anon id and only patches the ones that changed", () => {
+    const untouched = makeShop({ id: 1, likes: ["someone-else"] });
+    const touched = makeShop({ id: 2, likes: ["anon-1"] });
+    const { patches, migrated } = computeAnonymousDataMigration([untouched, touched], "anon-1", "uid-1");
+    expect(migrated).toBe(1);
+    expect(patches).toEqual([{ shopId: 2, likes: ["uid-1"] }]);
   });
 });
 

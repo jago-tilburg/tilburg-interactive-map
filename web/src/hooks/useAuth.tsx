@@ -22,6 +22,9 @@ import {
   getBusinessProfile,
 } from "@/lib/firebase/firestore";
 import { isUidAdmin } from "@/lib/firebase/admin";
+import { migrateAnonymousDataToVisitor } from "@/lib/firebase/shops";
+import { getAnonUserId } from "@/lib/shops/anonUserId";
+import { useToast } from "@/hooks/useToast";
 import type { Visitor, Business } from "@/types/account";
 
 interface AuthState {
@@ -46,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentBusiness, setCurrentBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
   const suppressAutoProfileLoadRef = useRef(false);
+  const { showToast } = useToast();
 
   // Magic-link completion-on-load — runs once, before the auth-state
   // listener's first resolution matters. Mirrors
@@ -104,16 +108,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const visitor =
           (await getVisitorProfile(user.uid)) ??
           (await createVisitorProfile(user.uid, user.email ?? ""));
-        // TODO(later phase): call the equivalent of migrateAnonymousDataToVisitor(user.uid)
-        // here once the anon-id shop-likes RTDB feature is ported — out of scope for
-        // the auth-only port.
+        try {
+          const anonId = getAnonUserId();
+          const migrated = await migrateAnonymousDataToVisitor(anonId, user.uid);
+          if (migrated > 0) {
+            showToast(`${migrated} eerdere like(s)/beoordeling(en) gekoppeld aan je account.`, "info");
+          }
+        } catch (err) {
+          console.error("Anonymous data migration error:", err);
+        }
         setCurrentVisitor(visitor);
         setCurrentBusiness(null);
       }
       setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [showToast]);
 
   return (
     <AuthContext.Provider

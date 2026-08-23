@@ -54,3 +54,13 @@ export type ShopInput = Omit<
   Shop,
   "id" | "likes" | "comments" | "userReviews" | "userRatings" | "createdAt"
 >;
+
+// Per-shop delta produced by computeAnonymousDataMigration — only the
+// interaction fields that actually changed for that shop are present.
+export interface ShopMigrationPatch {
+  shopId: number;
+  likes?: string[];
+  comments?: ShopComment[];
+  userRatings?: ShopUserRating[];
+  userReviews?: ShopUserReview[];
+}

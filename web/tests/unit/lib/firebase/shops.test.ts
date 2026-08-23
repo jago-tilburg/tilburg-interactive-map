@@ -31,6 +31,8 @@ import {
   setShopComments,
   setShopUserRatings,
   setShopUserReviews,
+  getShopsOnce,
+  migrateAnonymousDataToVisitor,
   trackShopView,
   getShopViews,
 } from "@/lib/firebase/shops";
@@ -123,6 +125,43 @@ describe("setShopLikes / setShopComments / setShopUserRatings / setShopUserRevie
 
     await setShopUserReviews(9001, []);
     expect(set).toHaveBeenCalledWith(refFor("shops/9001/userReviews"), []);
+  });
+});
+
+describe("getShopsOnce", () => {
+  it("reads shops/ once and normalizes the snapshot", async () => {
+    vi.mocked(get).mockResolvedValue({ val: () => ({ "9001": { id: 9001, name: "A" } }) } as never);
+    const result = await getShopsOnce();
+    expect(get).toHaveBeenCalledWith(refFor("shops"));
+    expect(result).toEqual([{ id: 9001, name: "A" }]);
+  });
+});
+
+describe("migrateAnonymousDataToVisitor", () => {
+  it("writes only the changed fields for shops touched by the anon id", async () => {
+    vi.mocked(get).mockResolvedValue({
+      val: () => ({
+        "9001": { id: 9001, likes: ["anon-1"], comments: [], userReviews: [], userRatings: [] },
+        "9002": { id: 9002, likes: ["someone-else"], comments: [], userReviews: [], userRatings: [] },
+      }),
+    } as never);
+
+    const migrated = await migrateAnonymousDataToVisitor("anon-1", "uid-1");
+
+    expect(migrated).toBe(1);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledWith(refFor("shops/9001"), { likes: ["uid-1"] });
+  });
+
+  it("does not write anything when nothing is tied to the anon id", async () => {
+    vi.mocked(get).mockResolvedValue({
+      val: () => ({ "9001": { id: 9001, likes: ["someone-else"], comments: [], userReviews: [], userRatings: [] } }),
+    } as never);
+
+    const migrated = await migrateAnonymousDataToVisitor("anon-1", "uid-1");
+
+    expect(migrated).toBe(0);
+    expect(update).not.toHaveBeenCalled();
   });
 });
 

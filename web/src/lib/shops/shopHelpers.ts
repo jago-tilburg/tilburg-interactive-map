@@ -1,4 +1,4 @@
-import type { Shop, ShopComment, ShopUserRating, ShopUserReview } from "@/types/shops";
+import type { Shop, ShopComment, ShopUserRating, ShopUserReview, ShopMigrationPatch } from "@/types/shops";
 
 // Firebase RTDB stores an id-keyed object; snapshot.val() returns that object
 // (or, defensively, an array — RTDB coerces objects with a high fill-ratio of
@@ -70,6 +70,63 @@ export function addUserReview(
 
 export function removeUserReview(reviews: ShopUserReview[] | undefined, reviewId: number): ShopUserReview[] {
   return (reviews ?? []).filter((r) => r.id !== reviewId);
+}
+
+// Ports migrateAnonymousVisitorData from the prototype: re-tags a shop's
+// likes/rating/comments/reviews from the device-local anonymous id to the
+// newly signed-in visitor's uid. Likes and ratings are max. 1 per user
+// (dedupe/overwrite); comments and userReviews allow several per user, so
+// every one of theirs is re-tagged rather than merged. Pure/no I/O — callers
+// apply the returned patches.
+export function computeAnonymousDataMigration(
+  shops: Shop[],
+  oldId: string,
+  newId: string,
+): { patches: ShopMigrationPatch[]; migrated: number } {
+  if (!oldId || oldId === newId) return { patches: [], migrated: 0 };
+
+  const patches: ShopMigrationPatch[] = [];
+  let migrated = 0;
+
+  for (const shop of shops) {
+    const patch: ShopMigrationPatch = { shopId: shop.id };
+    let changed = false;
+
+    if (shop.likes?.includes(oldId)) {
+      const withoutOld = shop.likes.filter((id) => id !== oldId);
+      patch.likes = withoutOld.includes(newId) ? withoutOld : [...withoutOld, newId];
+      changed = true;
+      migrated++;
+    }
+
+    const oldRating = shop.userRatings?.find((r) => r.userId === oldId);
+    if (oldRating) {
+      patch.userRatings = [
+        ...shop.userRatings.filter((r) => r.userId !== oldId && r.userId !== newId),
+        { ...oldRating, userId: newId },
+      ];
+      changed = true;
+      migrated++;
+    }
+
+    const ownComments = shop.comments?.filter((c) => c.userId === oldId) ?? [];
+    if (ownComments.length > 0) {
+      patch.comments = shop.comments.map((c) => (c.userId === oldId ? { ...c, userId: newId } : c));
+      changed = true;
+      migrated += ownComments.length;
+    }
+
+    const ownReviews = shop.userReviews?.filter((r) => r.userId === oldId) ?? [];
+    if (ownReviews.length > 0) {
+      patch.userReviews = shop.userReviews.map((r) => (r.userId === oldId ? { ...r, userId: newId } : r));
+      changed = true;
+      migrated += ownReviews.length;
+    }
+
+    if (changed) patches.push(patch);
+  }
+
+  return { patches, migrated };
 }
 
 // 10.0 down to 1.0 in 0.1 steps — matches the shopRating/userReviewRating

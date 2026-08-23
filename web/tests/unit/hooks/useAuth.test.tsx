@@ -20,6 +20,19 @@ vi.mock("@/lib/firebase/admin", () => ({
   isUidAdmin: vi.fn(),
 }));
 
+vi.mock("@/lib/firebase/shops", () => ({
+  migrateAnonymousDataToVisitor: vi.fn().mockResolvedValue(0),
+}));
+
+vi.mock("@/lib/shops/anonUserId", () => ({
+  getAnonUserId: vi.fn(() => "anon-1"),
+}));
+
+const showToast = vi.fn();
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ showToast }),
+}));
+
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import {
   subscribeToAuthState,
@@ -29,6 +42,8 @@ import {
 } from "@/lib/firebase/auth";
 import { getVisitorProfile, createVisitorProfile, getBusinessProfile } from "@/lib/firebase/firestore";
 import { isUidAdmin } from "@/lib/firebase/admin";
+import { migrateAnonymousDataToVisitor } from "@/lib/firebase/shops";
+import { getAnonUserId } from "@/lib/shops/anonUserId";
 
 type AuthCallback = (user: User | null) => void;
 
@@ -65,6 +80,8 @@ const fakeUser = { uid: "uid-1", email: "user@example.com" } as User;
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(isVisitorMagicLink).mockReturnValue(false);
+  vi.mocked(getAnonUserId).mockReturnValue("anon-1");
+  vi.mocked(migrateAnonymousDataToVisitor).mockResolvedValue(0);
   window.localStorage.clear();
 });
 
@@ -156,6 +173,69 @@ describe("AuthProvider account-type resolution priority", () => {
     fire(null);
     await waitFor(() => expect(screen.getByTestId("admin")).toHaveTextContent("false"));
     expect(screen.getByTestId("user")).toHaveTextContent("none");
+  });
+
+  it("migrates anonymous shop data to the visitor uid and toasts when items were migrated", async () => {
+    vi.mocked(isUidAdmin).mockResolvedValue(false);
+    vi.mocked(getBusinessProfile).mockResolvedValue(null);
+    vi.mocked(getVisitorProfile).mockResolvedValue({
+      uid: "uid-1",
+      email: "user@example.com",
+      displayName: "user",
+      createdAt: null as never,
+    });
+    vi.mocked(migrateAnonymousDataToVisitor).mockResolvedValue(2);
+    const fire = captureAuthCallback();
+    fire(fakeUser);
+
+    await waitFor(() => expect(migrateAnonymousDataToVisitor).toHaveBeenCalledWith("anon-1", "uid-1"));
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith("2 eerdere like(s)/beoordeling(en) gekoppeld aan je account.", "info"),
+    );
+  });
+
+  it("does not toast when the migration finds nothing to migrate", async () => {
+    vi.mocked(isUidAdmin).mockResolvedValue(false);
+    vi.mocked(getBusinessProfile).mockResolvedValue(null);
+    vi.mocked(getVisitorProfile).mockResolvedValue({
+      uid: "uid-1",
+      email: "user@example.com",
+      displayName: "user",
+      createdAt: null as never,
+    });
+    const fire = captureAuthCallback();
+    fire(fakeUser);
+
+    await waitFor(() => expect(screen.getByTestId("visitor")).toHaveTextContent("user"));
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it("logs and does not block sign-in when migration fails", async () => {
+    vi.mocked(isUidAdmin).mockResolvedValue(false);
+    vi.mocked(getBusinessProfile).mockResolvedValue(null);
+    vi.mocked(getVisitorProfile).mockResolvedValue({
+      uid: "uid-1",
+      email: "user@example.com",
+      displayName: "user",
+      createdAt: null as never,
+    });
+    vi.mocked(migrateAnonymousDataToVisitor).mockRejectedValue(new Error("rtdb down"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const fire = captureAuthCallback();
+    fire(fakeUser);
+
+    await waitFor(() => expect(screen.getByTestId("visitor")).toHaveTextContent("user"));
+    expect(consoleError).toHaveBeenCalledWith("Anonymous data migration error:", expect.any(Error));
+    consoleError.mockRestore();
+  });
+
+  it("does not attempt migration for admins or businesses", async () => {
+    vi.mocked(isUidAdmin).mockResolvedValue(true);
+    const fire = captureAuthCallback();
+    fire(fakeUser);
+
+    await waitFor(() => expect(screen.getByTestId("admin")).toHaveTextContent("true"));
+    expect(migrateAnonymousDataToVisitor).not.toHaveBeenCalled();
   });
 
   it("skips the profile-resolution read while suppressAutoProfileLoadRef is set", async () => {

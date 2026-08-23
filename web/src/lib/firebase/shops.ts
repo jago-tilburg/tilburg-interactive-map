@@ -1,7 +1,7 @@
 import { ref, onValue, set, update, remove, get, type Unsubscribe } from "firebase/database";
 import { getRtdb } from "./database";
-import { shopsSnapshotToArray } from "@/lib/shops/shopHelpers";
-import type { Shop, ShopComment, ShopUserRating, ShopUserReview, ShopInput } from "@/types/shops";
+import { shopsSnapshotToArray, computeAnonymousDataMigration } from "@/lib/shops/shopHelpers";
+import type { Shop, ShopComment, ShopUserRating, ShopUserReview, ShopInput, ShopMigrationPatch } from "@/types/shops";
 
 export function subscribeShops(
   onChange: (shops: Shop[]) => void,
@@ -50,6 +50,27 @@ export async function setShopUserRatings(shopId: number, ratings: ShopUserRating
 
 export async function setShopUserReviews(shopId: number, reviews: ShopUserReview[]) {
   return set(ref(getRtdb(), `shops/${shopId}/userReviews`), reviews);
+}
+
+export async function getShopsOnce(): Promise<Shop[]> {
+  const snap = await get(ref(getRtdb(), "shops"));
+  return shopsSnapshotToArray(snap.val());
+}
+
+async function applyShopMigrationPatches(patches: ShopMigrationPatch[]) {
+  await Promise.all(
+    patches.map(({ shopId, ...fields }) => update(ref(getRtdb(), `shops/${shopId}`), fields)),
+  );
+}
+
+// Re-tags a signed-in-for-the-first-time visitor's pre-login likes/rating/
+// comments/reviews (stored under their device-local anonymous id) to their
+// new account uid. Returns the number of items migrated (0 if none).
+export async function migrateAnonymousDataToVisitor(oldId: string, newId: string): Promise<number> {
+  const shops = await getShopsOnce();
+  const { patches, migrated } = computeAnonymousDataMigration(shops, oldId, newId);
+  if (patches.length > 0) await applyShopMigrationPatches(patches);
+  return migrated;
 }
 
 export async function trackShopView(shopId: number) {

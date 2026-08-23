@@ -46,12 +46,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </Script>
           </>
         )}
-        <AuthProvider>
-          <ToastProvider>
+        <ToastProvider>
+          <AuthProvider>
             {children}
             <CookieBanner />
-          </ToastProvider>
-        </AuthProvider>
+          </AuthProvider>
+        </ToastProvider>
       </body>
     </html>
   );
