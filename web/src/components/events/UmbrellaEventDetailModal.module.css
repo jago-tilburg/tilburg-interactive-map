@@ -1,0 +1,37 @@
+.dates {
+  color: #78716c;
+  margin-bottom: 0.75rem;
+}
+
+.description {
+  margin-bottom: 1rem;
+}
+
+.empty {
+  color: #78716c;
+  font-size: 0.85rem;
+}
+
+.children {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.childItem {
+  text-align: left;
+  background: #f7f7f7;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.childTitle {
+  font-weight: 600;
+}
+
+.childSchedule {
+  font-size: 0.8rem;
+  color: #78716c;
+}

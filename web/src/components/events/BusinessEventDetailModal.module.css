@@ -1,0 +1,19 @@
+.umbrellaBadge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid;
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+}
+
+.address {
+  color: #78716c;
+  margin-bottom: 0.75rem;
+}
+
+.schedule {
+  margin-bottom: 0.75rem;
+}

@@ -20,6 +20,25 @@ vi.mock("@/lib/firebase/firestore", () => ({
   createBusinessProfile: vi.fn(),
 }));
 
+vi.mock("@/lib/firebase/businessEvents", () => ({
+  subscribeMyBusinessEvents: vi.fn(() => vi.fn()),
+  subscribeAllBusinessEventsForAdmin: vi.fn(() => vi.fn()),
+  deleteBusinessEvent: vi.fn(),
+}));
+
+vi.mock("@/lib/firebase/umbrellaEvents", () => ({
+  subscribeUmbrellaEvents: vi.fn(() => vi.fn()),
+  createUmbrellaEvent: vi.fn(),
+  updateUmbrellaEvent: vi.fn(),
+  deleteUmbrellaEvent: vi.fn(),
+}));
+
+vi.mock("@/lib/firebase/functions", () => ({
+  approveEvent: vi.fn(),
+  rejectEvent: vi.fn(),
+  confirmEventPaymentStub: vi.fn(),
+}));
+
 import { AccountMenu } from "@/components/auth/AccountMenu";
 
 beforeEach(() => {
@@ -42,6 +61,18 @@ describe("AccountMenu label + entry point priority", () => {
     mockUseAuth.mockReturnValue(baseAuth({ isAdmin: true, currentUser: { uid: "u1" } }));
     render(<AccountMenu />);
     expect(screen.getByText("🛠️ Admin")).toBeInTheDocument();
+  });
+
+  it("opens and closes the admin events panel when isAdmin is true", async () => {
+    mockUseAuth.mockReturnValue(baseAuth({ isAdmin: true, currentUser: { uid: "u1" } }));
+    const user = userEvent.setup();
+    render(<AccountMenu />);
+
+    await user.click(screen.getByText("🛠️ Admin"));
+    expect(screen.getByRole("dialog", { name: "Admin — Evenementen" })).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Sluiten"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("shows the business label and opens the business dashboard when signed in as a business", async () => {

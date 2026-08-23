@@ -1,0 +1,96 @@
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.tab,
+.tabActive {
+  background: none;
+  border: none;
+  padding: 8px 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.tabActive {
+  color: #1a73e8;
+  font-weight: 600;
+  border-bottom: 2px solid #1a73e8;
+}
+
+.error {
+  color: #c0392b;
+  font-size: 0.9rem;
+}
+
+.empty {
+  color: #78716c;
+  font-size: 0.85rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  background: #f7f7f7;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.rowTitle {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #92400e;
+  background: #fef3c7;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.rowMeta {
+  font-size: 0.8rem;
+  color: #78716c;
+}
+
+.rowActions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.rowActions button {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  border: 1px solid #d2d2d7;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+}
+
+.addButton {
+  padding: 10px;
+  border: 1px dashed #1a73e8;
+  border-radius: 8px;
+  background: none;
+  color: #1a73e8;
+  cursor: pointer;
+  font-size: 0.9rem;
+}

@@ -8,6 +8,7 @@ import { VisitorDashboard } from "./VisitorDashboard";
 import { BusinessAuthModal } from "./BusinessAuthModal";
 import { BusinessDashboard } from "./BusinessDashboard";
 import { AdminLoginModal } from "./AdminLoginModal";
+import { AdminEventsPanel } from "@/components/events/AdminEventsPanel";
 import styles from "./AccountMenu.module.css";
 
 type ActiveModal =
@@ -17,7 +18,8 @@ type ActiveModal =
   | "visitorDashboard"
   | "businessAuth"
   | "businessDashboard"
-  | "adminLogin";
+  | "adminLogin"
+  | "adminPanel";
 
 // Mirrors the monolith's updateMenuVisibility() + openAccountEntry() —
 // conditional label/entry rendering based on the priority-ordered auth state
@@ -27,7 +29,9 @@ export function AccountMenu() {
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
   function openAccountEntry() {
-    if (currentBusiness) {
+    if (isAdmin) {
+      setActiveModal("adminPanel");
+    } else if (currentBusiness) {
       setActiveModal("businessDashboard");
     } else if (currentVisitor) {
       setActiveModal("visitorDashboard");
@@ -66,6 +70,7 @@ export function AccountMenu() {
       <BusinessAuthModal open={activeModal === "businessAuth"} onClose={() => setActiveModal(null)} />
       <BusinessDashboard open={activeModal === "businessDashboard"} onClose={() => setActiveModal(null)} />
       <AdminLoginModal open={activeModal === "adminLogin"} onClose={() => setActiveModal(null)} />
+      <AdminEventsPanel open={activeModal === "adminPanel"} onClose={() => setActiveModal(null)} />
     </nav>
   );
 }
