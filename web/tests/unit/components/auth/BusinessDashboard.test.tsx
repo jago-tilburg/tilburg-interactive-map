@@ -25,6 +25,13 @@ vi.mock("@/lib/firebase/businessEvents", () => ({
     ...args: [string, (events: BusinessEvent[]) => void, ((err: Error) => void)?]
   ) => subscribeMyBusinessEvents(...args),
   deleteBusinessEvent: (...args: [string]) => deleteBusinessEvent(...args),
+  trackEventView: vi.fn().mockResolvedValue(undefined),
+  incrementEventInterest: vi.fn().mockResolvedValue(undefined),
+  incrementEventClicks: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/firebase/firestore", () => ({
+  setEventSaved: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/firebase/umbrellaEvents", () => ({

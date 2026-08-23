@@ -7,6 +7,8 @@
 .form input[type="text"],
 .form input[type="date"],
 .form input[type="time"],
+.form input[type="url"],
+.form input[type="number"],
 .form select,
 .form textarea {
   width: 100%;
@@ -56,6 +58,34 @@
 
 .dailyTimeRow input {
   flex: 1;
+}
+
+.priceRows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.priceRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.priceRow input[type="text"] {
+  flex: 2;
+}
+
+.priceRow input[type="number"] {
+  flex: 1;
+}
+
+.priceRow label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 
 .error {

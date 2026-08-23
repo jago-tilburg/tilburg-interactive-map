@@ -14,12 +14,15 @@ vi.mock("firebase/firestore", () => ({
   getDoc: vi.fn(),
   setDoc: vi.fn(),
   deleteDoc: vi.fn(),
+  updateDoc: vi.fn(),
   serverTimestamp: vi.fn(() => "SERVER_TIMESTAMP"),
   writeBatch: vi.fn(),
   collection: vi.fn((_db, name) => ({ name })),
   query: vi.fn((...args) => ({ args })),
   where: vi.fn((field, op, value) => ({ field, op, value })),
   getDocs: vi.fn(),
+  arrayUnion: vi.fn((v) => ({ __arrayUnion: v })),
+  arrayRemove: vi.fn((v) => ({ __arrayRemove: v })),
 }));
 
 vi.mock("@/lib/firebase/app", () => ({
@@ -33,8 +36,9 @@ import {
   getBusinessProfile,
   createBusinessProfile,
   deleteBusinessAccountCascade,
+  setEventSaved,
 } from "@/lib/firebase/firestore";
-import { getDoc, setDoc, deleteDoc, getDocs, writeBatch } from "firebase/firestore";
+import { getDoc, setDoc, deleteDoc, getDocs, writeBatch, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -113,6 +117,24 @@ describe("getBusinessProfile / createBusinessProfile", () => {
       docRef("businesses/uid1"),
       { businessName: "My Shop", email: "shop@example.com", createdAt: "SERVER_TIMESTAMP" },
     );
+  });
+});
+
+describe("setEventSaved", () => {
+  it("adds the event id via arrayUnion when saved is true", async () => {
+    await setEventSaved("visitor-1", "evt1", true);
+    expect(arrayUnion).toHaveBeenCalledWith("evt1");
+    expect(updateDoc).toHaveBeenCalledWith(docRef("visitors/visitor-1"), {
+      savedEventIds: { __arrayUnion: "evt1" },
+    });
+  });
+
+  it("removes the event id via arrayRemove when saved is false", async () => {
+    await setEventSaved("visitor-1", "evt1", false);
+    expect(arrayRemove).toHaveBeenCalledWith("evt1");
+    expect(updateDoc).toHaveBeenCalledWith(docRef("visitors/visitor-1"), {
+      savedEventIds: { __arrayRemove: "evt1" },
+    });
   });
 });
 

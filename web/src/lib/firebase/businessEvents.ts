@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  increment,
   onSnapshot,
   query,
   serverTimestamp,
@@ -80,4 +81,19 @@ export async function updateBusinessEvent(
 
 export async function deleteBusinessEvent(eventId: string) {
   return deleteDoc(doc(getDb(), "businessEvents", eventId));
+}
+
+// Public engagement counters — open to any visitor (including
+// unauthenticated) on an approved event; see the `businessEvents` update
+// rule's counter-bump branch in firestore.rules.
+export async function trackEventView(eventId: string) {
+  return updateDoc(doc(getDb(), "businessEvents", eventId), { views: increment(1) });
+}
+
+export async function incrementEventInterest(eventId: string) {
+  return updateDoc(doc(getDb(), "businessEvents", eventId), { interest: increment(1) });
+}
+
+export async function incrementEventClicks(eventId: string) {
+  return updateDoc(doc(getDb(), "businessEvents", eventId), { clicks: increment(1) });
 }

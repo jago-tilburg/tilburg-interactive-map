@@ -10,7 +10,7 @@ import {
   isMultiDay,
   activeUmbrellaEvents,
 } from "@/lib/events/eventHelpers";
-import type { BusinessEvent, DailyTime, EventCategory, UmbrellaEvent } from "@/types/events";
+import type { BusinessEvent, DailyTime, EventCategory, EventPriceTier, UmbrellaEvent } from "@/types/events";
 import styles from "./BusinessEventFormModal.module.css";
 
 interface BusinessEventFormModalProps {
@@ -39,6 +39,8 @@ function emptyForm() {
     dailyTimes: {} as Record<string, DailyTime>,
     umbrellaEventId: "",
     photoUrl: "",
+    websiteUrl: "",
+    prices: [] as EventPriceTier[],
   };
 }
 
@@ -59,6 +61,8 @@ function formFromEvent(ev: BusinessEvent, titleSuffix = "") {
     dailyTimes: ev.dailyTimes ?? {},
     umbrellaEventId: ev.umbrellaEventId ?? "",
     photoUrl: ev.photoUrl ?? "",
+    websiteUrl: ev.websiteUrl ?? "",
+    prices: ev.prices ?? [],
   };
 }
 
@@ -122,6 +126,21 @@ export function BusinessEventFormModal({
     }));
   }
 
+  function addPriceRow() {
+    setForm((f) => ({ ...f, prices: [...f.prices, { label: "", amount: 0 }] }));
+  }
+
+  function updatePriceRow(index: number, patch: Partial<EventPriceTier>) {
+    setForm((f) => ({
+      ...f,
+      prices: f.prices.map((p, i) => (i === index ? { ...p, ...patch } : p)),
+    }));
+  }
+
+  function removePriceRow(index: number) {
+    setForm((f) => ({ ...f, prices: f.prices.filter((_, i) => i !== index) }));
+  }
+
   function handleExtractCoords() {
     const coords = extractCoordsFromMapsUrl(form.mapUrl);
     if (!coords) {
@@ -179,6 +198,8 @@ export function BusinessEventFormModal({
       dailyTimes: dailyTimesToSave,
       umbrellaEventId: form.umbrellaEventId || null,
       photoUrl: form.photoUrl.trim(),
+      websiteUrl: form.websiteUrl.trim(),
+      prices: form.prices.filter((p) => p.label.trim()),
     };
 
     setSubmitting(true);
@@ -360,6 +381,52 @@ export function BusinessEventFormModal({
           value={form.photoUrl}
           onChange={(e) => setForm((f) => ({ ...f, photoUrl: e.target.value }))}
         />
+
+        <input
+          type="url"
+          placeholder="Website-URL (optioneel)"
+          aria-label="Website-URL"
+          value={form.websiteUrl}
+          onChange={(e) => setForm((f) => ({ ...f, websiteUrl: e.target.value }))}
+        />
+
+        <div className={styles.priceRows}>
+          <span>Toegangsprijzen (optioneel)</span>
+          {form.prices.map((price, index) => (
+            <div key={index} className={styles.priceRow}>
+              <input
+                type="text"
+                placeholder="Label (bv. Vroegboekticket)"
+                aria-label={`Prijslabel ${index + 1}`}
+                value={price.label}
+                onChange={(e) => updatePriceRow(index, { label: e.target.value })}
+              />
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                aria-label={`Prijsbedrag ${index + 1}`}
+                value={price.amount}
+                onChange={(e) => updatePriceRow(index, { amount: Number(e.target.value) })}
+              />
+              <label>
+                <input
+                  type="checkbox"
+                  aria-label={`Gratis ${index + 1}`}
+                  checked={price.amount === 0}
+                  onChange={(e) => updatePriceRow(index, { amount: e.target.checked ? 0 : price.amount })}
+                />
+                Gratis
+              </label>
+              <button type="button" onClick={() => removePriceRow(index)}>
+                Verwijderen
+              </button>
+            </div>
+          ))}
+          <button type="button" onClick={addPriceRow}>
+            + Voeg toegangsprijs toe
+          </button>
+        </div>
 
         {error && <p className={styles.error}>{error}</p>}
 

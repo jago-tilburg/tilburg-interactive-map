@@ -17,3 +17,88 @@
 .schedule {
   margin-bottom: 0.75rem;
 }
+
+.photo {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-card, 16px);
+  margin-bottom: 0.75rem;
+}
+
+.photoPlaceholder {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  background: var(--color-surface-alt, #f0ebe4);
+  border-radius: var(--radius-card, 16px);
+  margin-bottom: 0.75rem;
+}
+
+.readMoreToggle {
+  border: none;
+  background: none;
+  color: var(--color-purple, #9333ea);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 0 0 0.35rem;
+}
+
+.prices {
+  margin: 0.75rem 0;
+  border-top: 1px solid var(--color-border, #e7e0d6);
+  padding-top: 0.5rem;
+}
+
+.priceLine {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  padding: 0.2rem 0;
+}
+
+.ctaBar {
+  display: flex;
+  gap: 8px;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.ctaBar button {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save,
+.saveActive {
+  background: var(--color-surface-alt, #f0ebe4);
+  color: var(--color-text, #1c1917);
+}
+
+.saveActive {
+  background: var(--color-orange, #ff6b35);
+  color: white;
+}
+
+.interest {
+  background: var(--color-surface-alt, #f0ebe4);
+  color: var(--color-text, #1c1917);
+}
+
+.website {
+  background: var(--color-green-dark, #16a34a);
+  color: white;
+  flex: 1;
+}
+
+.saveHint {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary, #57534e);
+  margin-top: 0.4rem;
+}

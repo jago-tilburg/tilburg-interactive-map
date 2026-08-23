@@ -5,6 +5,7 @@ export interface Visitor {
   email: string;
   displayName: string;
   createdAt: Timestamp;
+  savedEventIds?: string[];
 }
 
 export interface Business {

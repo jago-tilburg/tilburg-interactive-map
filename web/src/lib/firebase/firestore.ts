@@ -10,6 +10,9 @@ import {
   query,
   where,
   getDocs,
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
   type Firestore,
 } from "firebase/firestore";
 import { getFirebaseApp } from "./app";
@@ -39,6 +42,16 @@ export async function createVisitorProfile(uid: string, email: string): Promise<
 
 export async function deleteVisitorProfile(uid: string) {
   return deleteDoc(doc(getDb(), "visitors", uid));
+}
+
+// Saved/favorited business events — a plain array field on the visitor's own
+// profile doc, not a subcollection, since the existing owner-only
+// `visitors/{uid}` update rule already covers arbitrary field writes with no
+// extra rules needed.
+export async function setEventSaved(uid: string, eventId: string, saved: boolean) {
+  return updateDoc(doc(getDb(), "visitors", uid), {
+    savedEventIds: saved ? arrayUnion(eventId) : arrayRemove(eventId),
+  });
 }
 
 export async function getBusinessProfile(uid: string): Promise<Business | null> {

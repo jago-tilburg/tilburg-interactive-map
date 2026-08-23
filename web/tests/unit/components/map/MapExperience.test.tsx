@@ -97,6 +97,13 @@ const subscribeApprovedBusinessEvents = vi.fn((onChange: (e: BusinessEvent[]) =>
 vi.mock("@/lib/firebase/businessEvents", () => ({
   subscribeApprovedBusinessEvents: (...a: [(e: BusinessEvent[]) => void]) =>
     subscribeApprovedBusinessEvents(...a),
+  trackEventView: vi.fn().mockResolvedValue(undefined),
+  incrementEventInterest: vi.fn().mockResolvedValue(undefined),
+  incrementEventClicks: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/firebase/firestore", () => ({
+  setEventSaved: vi.fn().mockResolvedValue(undefined),
 }));
 
 const subscribeUmbrellaEvents = vi.fn((onChange: (u: UmbrellaEvent[]) => void) => {

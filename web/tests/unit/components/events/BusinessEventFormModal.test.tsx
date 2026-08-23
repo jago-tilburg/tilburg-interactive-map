@@ -93,6 +93,7 @@ describe("BusinessEventFormModal create mode", () => {
     await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
     await user.click(screen.getByText("Extract"));
     await user.type(screen.getByLabelText("Foto-URL"), "https://example.com/event.jpg");
+    await user.type(screen.getByLabelText("Website-URL"), "https://example.com");
     await user.click(screen.getByText("Opslaan"));
 
     expect(createBusinessEvent).toHaveBeenCalledWith(
@@ -102,9 +103,63 @@ describe("BusinessEventFormModal create mode", () => {
         lng: 5.09,
         title: "My Event",
         photoUrl: "https://example.com/event.jpg",
+        websiteUrl: "https://example.com",
+        prices: [],
       }),
     );
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("adds, edits, toggles Gratis on, toggles Gratis off, and removes a price row", async () => {
+    const user = userEvent.setup();
+    render(
+      <BusinessEventFormModal open onClose={vi.fn()} ownerId="owner-uid" editingEvent={null} umbrellaEvents={[]} />,
+    );
+
+    await user.click(screen.getByText("+ Voeg toegangsprijs toe"));
+    await user.type(screen.getByLabelText("Prijslabel 1"), "Vroegboekticket");
+    await user.type(screen.getByLabelText("Prijsbedrag 1"), "12.5");
+    expect(screen.getByLabelText("Prijsbedrag 1")).toHaveValue(12.5);
+
+    await user.click(screen.getByLabelText("Gratis 1"));
+    expect(screen.getByLabelText("Prijsbedrag 1")).toHaveValue(0);
+
+    await user.click(screen.getByLabelText("Gratis 1"));
+    expect(screen.getByLabelText("Prijsbedrag 1")).toHaveValue(0);
+
+    await user.click(screen.getByText("Verwijderen"));
+    expect(screen.queryByLabelText("Prijslabel 1")).not.toBeInTheDocument();
+  });
+
+  it("updates only the targeted price row when multiple rows exist", async () => {
+    const user = userEvent.setup();
+    render(
+      <BusinessEventFormModal open onClose={vi.fn()} ownerId="owner-uid" editingEvent={null} umbrellaEvents={[]} />,
+    );
+
+    await user.click(screen.getByText("+ Voeg toegangsprijs toe"));
+    await user.click(screen.getByText("+ Voeg toegangsprijs toe"));
+    await user.type(screen.getByLabelText("Prijslabel 1"), "Vroegboekticket");
+    await user.type(screen.getByLabelText("Prijslabel 2"), "VIP");
+
+    expect(screen.getByLabelText("Prijslabel 1")).toHaveValue("Vroegboekticket");
+    expect(screen.getByLabelText("Prijslabel 2")).toHaveValue("VIP");
+  });
+
+  it("filters out price rows with an empty label on save", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BusinessEventFormModal open onClose={onClose} ownerId="owner-uid" editingEvent={null} umbrellaEvents={[]} />,
+    );
+
+    await fillMinimalRequiredFields(user);
+    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
+    await user.click(screen.getByText("Extract"));
+    await user.click(screen.getByText("+ Voeg toegangsprijs toe"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(createBusinessEvent).toHaveBeenCalledWith("owner-uid", expect.objectContaining({ prices: [] }));
   });
 
   it("shows an error when the Maps URL has no extractable coordinates", async () => {

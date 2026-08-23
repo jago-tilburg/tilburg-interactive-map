@@ -161,6 +161,52 @@ describe("businessEvents/{eventId} update", () => {
   });
 });
 
+describe("businessEvents/{eventId} public engagement counters", () => {
+  it("allows an unauthenticated visitor to bump the view count on an approved event", async () => {
+    await seedEvent({ status: "approved", views: 0 });
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertSucceeds(updateDoc(doc(db, "businessEvents", EVENT_ID), { views: 1 }));
+  });
+
+  it("allows an unauthenticated visitor to bump the interest count on an approved event", async () => {
+    await seedEvent({ status: "approved", interest: 0 });
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertSucceeds(updateDoc(doc(db, "businessEvents", EVENT_ID), { interest: 1 }));
+  });
+
+  it("allows an unauthenticated visitor to bump the click count on an approved event", async () => {
+    await seedEvent({ status: "approved", clicks: 0 });
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertSucceeds(updateDoc(doc(db, "businessEvents", EVENT_ID), { clicks: 1 }));
+  });
+
+  it("denies bumping the view count on a pending event", async () => {
+    await seedEvent({ status: "pending", views: 0 });
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { views: 1 }));
+  });
+
+  it("denies smuggling a status change alongside a counter bump", async () => {
+    await seedEvent({ status: "approved", views: 0 });
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(
+      updateDoc(doc(db, "businessEvents", EVENT_ID), { views: 1, status: "pending" }),
+    );
+  });
+
+  it("denies smuggling a paid change alongside a counter bump", async () => {
+    await seedEvent({ status: "approved", paid: false, views: 0 });
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { views: 1, paid: true }));
+  });
+
+  it("denies changing an unrelated field via the counter-update branch", async () => {
+    await seedEvent({ status: "approved", views: 0 });
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "hijacked" }));
+  });
+});
+
 describe("businessEvents/{eventId} delete", () => {
   it("allows the owner to delete their own event", async () => {
     await seedEvent();

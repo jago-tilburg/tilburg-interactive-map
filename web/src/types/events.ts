@@ -7,6 +7,11 @@ export interface DailyTime {
   endTime: string;
 }
 
+export interface EventPriceTier {
+  label: string;
+  amount: number;
+}
+
 export type BusinessEventStatus = "pending" | "approved" | "rejected";
 
 export interface BusinessEvent {
@@ -32,6 +37,11 @@ export interface BusinessEvent {
   dailyTimes?: Record<string, DailyTime> | null;
   umbrellaEventId?: string | null;
   photoUrl?: string;
+  websiteUrl?: string;
+  prices?: EventPriceTier[];
+  views?: number;
+  interest?: number;
+  clicks?: number;
 }
 
 export type BusinessEventInput = Omit<

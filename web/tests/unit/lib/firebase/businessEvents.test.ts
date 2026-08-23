@@ -19,6 +19,7 @@ vi.mock("firebase/firestore", () => ({
   updateDoc: vi.fn(),
   deleteDoc: vi.fn(),
   serverTimestamp: vi.fn(() => "SERVER_TIMESTAMP"),
+  increment: vi.fn((n) => ({ __increment: n })),
 }));
 
 vi.mock("@/lib/firebase/app", () => ({
@@ -32,8 +33,11 @@ import {
   createBusinessEvent,
   updateBusinessEvent,
   deleteBusinessEvent,
+  trackEventView,
+  incrementEventInterest,
+  incrementEventClicks,
 } from "@/lib/firebase/businessEvents";
-import { onSnapshot, addDoc, updateDoc, deleteDoc, where } from "firebase/firestore";
+import { onSnapshot, addDoc, updateDoc, deleteDoc, where, increment } from "firebase/firestore";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -188,5 +192,23 @@ describe("deleteBusinessEvent", () => {
   it("deletes the businessEvents/{id} doc", async () => {
     await deleteBusinessEvent("evt1");
     expect(deleteDoc).toHaveBeenCalledWith(docRef("businessEvents/evt1"));
+  });
+});
+
+describe("engagement counters", () => {
+  it("trackEventView increments views by 1", async () => {
+    await trackEventView("evt1");
+    expect(increment).toHaveBeenCalledWith(1);
+    expect(updateDoc).toHaveBeenCalledWith(docRef("businessEvents/evt1"), { views: { __increment: 1 } });
+  });
+
+  it("incrementEventInterest increments interest by 1", async () => {
+    await incrementEventInterest("evt1");
+    expect(updateDoc).toHaveBeenCalledWith(docRef("businessEvents/evt1"), { interest: { __increment: 1 } });
+  });
+
+  it("incrementEventClicks increments clicks by 1", async () => {
+    await incrementEventClicks("evt1");
+    expect(updateDoc).toHaveBeenCalledWith(docRef("businessEvents/evt1"), { clicks: { __increment: 1 } });
   });
 });

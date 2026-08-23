@@ -61,14 +61,22 @@ service cloud.firestore {
         // no hasAll() requirement for them, same pattern as the required set
         // above but not mandatory on every event.
 
-      allow update: if request.auth != null
+      allow update: if (request.auth != null
         && request.auth.uid == resource.data.ownerId
         && request.resource.data.ownerId == resource.data.ownerId
         && request.resource.data.paid == resource.data.paid
         && (
           request.resource.data.status == resource.data.status
           || (resource.data.status == 'approved' && request.resource.data.status == 'pending')
-        );
+        ))
+        // Public engagement counters (views/interest/clicks) — open to
+        // anyone, including unauthenticated visitors, on an approved event,
+        // mirroring the RTDB shops' openly-writable likes/views. Every
+        // other field must stay byte-for-byte identical, so this branch can
+        // never be used to smuggle a status/paid/ownerId change past the
+        // owner-only branch above.
+        || (resource.data.status == 'approved'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'interest', 'clicks']));
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
