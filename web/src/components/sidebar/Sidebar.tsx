@@ -12,6 +12,7 @@ import {
   type ContentTypeFilter,
   type DietaryKey,
   type SortOption,
+  type DateQuickFilter,
 } from "@/lib/filters/filterHelpers";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, EventCategory, UmbrellaEvent } from "@/types/events";
@@ -48,26 +49,30 @@ export function Sidebar({
   const [dietary, setDietary] = useState<DietaryKey[]>([]);
   const [categories, setCategories] = useState<EventCategory[]>([]);
   const [umbrellaFilter, setUmbrellaFilter] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<DateQuickFilter>(null);
   const [sort, setSort] = useState<SortOption>("rating-desc");
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   const showShops = contentType !== "events";
   const showEvents = contentType !== "broodjes";
+  const today = new Date().toISOString().slice(0, 10);
 
   const filteredShops = showShops ? sortShops(filterShops(shops, { query, dietary }), sort) : [];
   const filteredEvents = showEvents
-    ? filterEvents(businessEvents, { query, categories, umbrellaEventId: umbrellaFilter })
+    ? filterEvents(businessEvents, { query, categories, umbrellaEventId: umbrellaFilter, dateFilter, today })
     : [];
 
   const activeUmbrellas = umbrellaEvents;
   const resultsCount = filteredShops.length + filteredEvents.length;
-  const activeFilterCount = dietary.length + categories.length + (umbrellaFilter ? 1 : 0) + (query.trim() ? 1 : 0);
+  const activeFilterCount =
+    dietary.length + categories.length + (umbrellaFilter ? 1 : 0) + (dateFilter ? 1 : 0) + (query.trim() ? 1 : 0);
 
   function clearAllFilters() {
     setQuery("");
     setDietary([]);
     setCategories([]);
     setUmbrellaFilter(null);
+    setDateFilter(null);
   }
 
   return (
@@ -172,6 +177,28 @@ export function Sidebar({
                     {EVENT_CATEGORIES[key].emoji} {EVENT_CATEGORIES[key].label}
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {showEvents && (
+            <div className={styles.filterGroup}>
+              <span className={styles.filterGroupLabel}>Wanneer</span>
+              <div className={styles.pillRow}>
+                <button
+                  type="button"
+                  className={dateFilter === "today" ? styles.filterPillActive : styles.filterPill}
+                  onClick={() => setDateFilter((cur) => (cur === "today" ? null : "today"))}
+                >
+                  Vandaag
+                </button>
+                <button
+                  type="button"
+                  className={dateFilter === "tomorrow" ? styles.filterPillActive : styles.filterPill}
+                  onClick={() => setDateFilter((cur) => (cur === "tomorrow" ? null : "tomorrow"))}
+                >
+                  Morgen
+                </button>
               </div>
             </div>
           )}

@@ -173,6 +173,36 @@ describe("Sidebar", () => {
     expect(rows[0].textContent).toContain("Broodjeshuis Noord");
   });
 
+  it("filters events to 'Vandaag'", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const user = userEvent.setup();
+    setup({ businessEvents: [{ ...businessEvent, startDate: today, endDate: today }] });
+
+    await user.click(screen.getByRole("tab", { name: "🎉 Events" }));
+    await user.click(screen.getByText(/Meer filters/));
+    await user.click(screen.getByText("Vandaag"));
+
+    expect(screen.getByText("1 resultaten")).toBeInTheDocument();
+    expect(screen.getByText("Kermis Rit")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Vandaag"));
+    expect(screen.getByText("1 resultaten")).toBeInTheDocument();
+  });
+
+  it("filters events to 'Morgen', excluding an event happening only today", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const user = userEvent.setup();
+    setup({ businessEvents: [{ ...businessEvent, startDate: today, endDate: today }] });
+
+    await user.click(screen.getByRole("tab", { name: "🎉 Events" }));
+    await user.click(screen.getByText(/Meer filters/));
+    await user.click(screen.getByText("Morgen"));
+    expect(screen.getByText("0 resultaten")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Morgen"));
+    expect(screen.getByText("1 resultaten")).toBeInTheDocument();
+  });
+
   it("clears all active filters", async () => {
     const user = userEvent.setup();
     setup();

@@ -5,6 +5,7 @@ import {
   filterEvents,
   sortShops,
   toggleInList,
+  addDaysToIsoDate,
 } from "@/lib/filters/filterHelpers";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent } from "@/types/events";
@@ -92,27 +93,52 @@ describe("filterShops", () => {
   });
 });
 
+describe("addDaysToIsoDate", () => {
+  it("adds days within the same month", () => {
+    expect(addDaysToIsoDate("2026-09-01", 1)).toBe("2026-09-02");
+  });
+
+  it("rolls over a month boundary", () => {
+    expect(addDaysToIsoDate("2026-09-30", 1)).toBe("2026-10-01");
+  });
+
+  it("rolls over a year boundary", () => {
+    expect(addDaysToIsoDate("2026-12-31", 1)).toBe("2027-01-01");
+  });
+});
+
 describe("filterEvents", () => {
   const umbrellaId = "u1";
+  const today = "2026-09-05";
+  const base = { query: "", categories: [] as never[], umbrellaEventId: null, dateFilter: null, today };
   const events = [
-    makeEvent({ id: "e1", title: "Kermis Rit", category: "anders", umbrellaEventId: umbrellaId }),
-    makeEvent({ id: "e2", title: "Live Muziek", category: "muziek" }),
+    makeEvent({ id: "e1", title: "Kermis Rit", category: "anders", umbrellaEventId: umbrellaId, startDate: today, endDate: today }),
+    makeEvent({ id: "e2", title: "Live Muziek", category: "muziek", startDate: "2026-09-06", endDate: "2026-09-06" }),
+    makeEvent({ id: "e3", title: "Multi-day fest", category: "markt", startDate: "2026-09-04", endDate: "2026-09-07" }),
   ];
 
   it("filters by search query", () => {
-    expect(filterEvents(events, { query: "kermis", categories: [], umbrellaEventId: null })).toEqual([events[0]]);
+    expect(filterEvents(events, { ...base, query: "kermis" })).toEqual([events[0]]);
   });
 
   it("filters by category list", () => {
-    expect(filterEvents(events, { query: "", categories: ["muziek"], umbrellaEventId: null })).toEqual([events[1]]);
+    expect(filterEvents(events, { ...base, categories: ["muziek"] })).toEqual([events[1]]);
   });
 
   it("filters by umbrella event id", () => {
-    expect(filterEvents(events, { query: "", categories: [], umbrellaEventId: umbrellaId })).toEqual([events[0]]);
+    expect(filterEvents(events, { ...base, umbrellaEventId: umbrellaId })).toEqual([events[0]]);
+  });
+
+  it("filters to events happening today (inclusive of multi-day ranges)", () => {
+    expect(filterEvents(events, { ...base, dateFilter: "today" })).toEqual([events[0], events[2]]);
+  });
+
+  it("filters to events happening tomorrow", () => {
+    expect(filterEvents(events, { ...base, dateFilter: "tomorrow" })).toEqual([events[1], events[2]]);
   });
 
   it("returns everything when no filters are active", () => {
-    expect(filterEvents(events, { query: "", categories: [], umbrellaEventId: null })).toEqual(events);
+    expect(filterEvents(events, base)).toEqual(events);
   });
 });
 
