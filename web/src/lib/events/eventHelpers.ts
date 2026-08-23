@@ -1,4 +1,7 @@
 import type { BusinessEvent, EventCategory } from "@/types/events";
+import { extractCoordsFromMapsUrl } from "@/lib/maps/extractCoordsFromUrl";
+
+export { extractCoordsFromMapsUrl };
 
 export const EVENT_CATEGORIES: Record<EventCategory, { label: string; emoji: string }> = {
   eten: { label: "Eten & Drinken", emoji: "🍔" },
@@ -48,39 +51,6 @@ export function formatBusinessEventSchedule(ev: {
     return `${dateLabel} · ${perDay}`;
   }
   return `${dateLabel} · ${ev.startTime}–${ev.endTime}`;
-}
-
-export interface Coords {
-  lat: number;
-  lng: number;
-}
-
-// Extracts lat/lng from a pasted Google Maps URL, trying the same patterns
-// (in the same order) as the original app: @lat,lng, a place/…/@lat,lng
-// permalink, ll=, and q=.
-export function extractCoordsFromMapsUrl(url: string): Coords | null {
-  if (!url) return null;
-  try {
-    let match = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-    if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
-
-    match = url.match(/place\/[^/]+\/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-    /* v8 ignore next -- unreachable as ported: any URL matching this place/…/@lat,lng
-       pattern also contains the same @lat,lng substring the unanchored regex above
-       already matches first, so this branch never fires. Inherited verbatim from the
-       original app's extractCoordsFromUrl(); kept for behavioral parity, not fixed here. */
-    if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
-
-    match = url.match(/ll=(-?\d+\.\d+),(-?\d+\.\d+)/);
-    if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
-
-    match = url.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
-    if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
-
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 export function isMultiDay(startDate: string, endDate: string): boolean {

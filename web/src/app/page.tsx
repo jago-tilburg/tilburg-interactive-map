@@ -1,11 +1,10 @@
 import { AccountMenu } from "@/components/auth/AccountMenu";
+import { MapExperience } from "@/components/map/MapExperience";
 import styles from "./page.module.css";
 
-// Placeholder landing page for this phase — the map/shop UI is a separate
-// porting domain (out of scope here). This page exists to host AccountMenu
-// so the auth/account port can be verified end-to-end against a real
-// deployed URL.
 export default function Home() {
+  const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -13,7 +12,13 @@ export default function Home() {
         <AccountMenu />
       </header>
       <main className={styles.main}>
-        <p>Next.js rewrite in progress — map/shop features not yet ported.</p>
+        {mapsApiKey ? (
+          <MapExperience apiKey={mapsApiKey} />
+        ) : (
+          <p className={styles.missingKey}>
+            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not set — the map can&apos;t load.
+          </p>
+        )}
       </main>
     </div>
   );

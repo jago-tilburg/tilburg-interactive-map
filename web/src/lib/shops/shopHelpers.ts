@@ -72,6 +72,10 @@ export function removeUserReview(reviews: ShopUserReview[] | undefined, reviewId
   return (reviews ?? []).filter((r) => r.id !== reviewId);
 }
 
+// 10.0 down to 1.0 in 0.1 steps — matches the shopRating/userReviewRating
+// <select> population loop in the monolith exactly (i from 100 to 10).
+export const RATING_SELECT_OPTIONS: string[] = Array.from({ length: 91 }, (_, i) => ((100 - i) / 10).toFixed(1));
+
 export function ratingColor(rating: number): string {
   if (rating >= 7) return "#16a34a";
   if (rating >= 5) return "#d97706";

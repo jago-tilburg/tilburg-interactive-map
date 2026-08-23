@@ -9,6 +9,7 @@ import {
   addUserReview,
   removeUserReview,
   ratingColor,
+  RATING_SELECT_OPTIONS,
 } from "@/lib/shops/shopHelpers";
 
 describe("shopsSnapshotToArray", () => {
@@ -124,6 +125,15 @@ describe("addUserReview / removeUserReview", () => {
 
   it("returns an empty array when removing from an undefined list", () => {
     expect(removeUserReview(undefined, 1)).toEqual([]);
+  });
+});
+
+describe("RATING_SELECT_OPTIONS", () => {
+  it("has 91 options from 10.0 down to 1.0 in 0.1 steps", () => {
+    expect(RATING_SELECT_OPTIONS).toHaveLength(91);
+    expect(RATING_SELECT_OPTIONS[0]).toBe("10.0");
+    expect(RATING_SELECT_OPTIONS[1]).toBe("9.9");
+    expect(RATING_SELECT_OPTIONS[RATING_SELECT_OPTIONS.length - 1]).toBe("1.0");
   });
 });
 

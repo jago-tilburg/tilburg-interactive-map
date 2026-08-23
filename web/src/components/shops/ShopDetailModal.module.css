@@ -1,0 +1,150 @@
+.address {
+  display: block;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: #78716c;
+  margin-bottom: 0.75rem;
+  padding: 0;
+  font-size: 1rem;
+}
+
+.address:hover {
+  color: #0066cc;
+}
+
+.badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.ratingBadge,
+.priceBadge,
+.avgBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #f7f7f7;
+}
+
+.avgBadge {
+  background: #3b82f6;
+  color: white;
+}
+
+.error {
+  color: #c0392b;
+  font-size: 0.9rem;
+}
+
+.photo {
+  width: 100%;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.reviewSection {
+  margin-bottom: 1rem;
+}
+
+.reviewLabel {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+}
+
+.reviewText {
+  color: #292524;
+}
+
+.interactionBar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.likeButton,
+.likedButton {
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 1px solid #d2d2d7;
+  background: white;
+  cursor: pointer;
+}
+
+.likedButton {
+  background: #fee2e2;
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.viewCount {
+  color: #78716c;
+  font-size: 0.85rem;
+}
+
+.adminActions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+
+.adminActions button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #d2d2d7;
+  background: white;
+  cursor: pointer;
+}
+
+.empty {
+  color: #78716c;
+  font-size: 0.85rem;
+}
+
+.commentList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.commentItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #f7f7f7;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+
+.commentItem button {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0;
+}
+
+.reviewSection textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px;
+  border: 1px solid #d2d2d7;
+  border-radius: 8px;
+  font-family: inherit;
+  margin-bottom: 6px;
+}

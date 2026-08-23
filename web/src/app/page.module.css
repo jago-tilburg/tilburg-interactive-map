@@ -1,5 +1,5 @@
 .page {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -10,6 +10,7 @@
   justify-content: space-between;
   padding: 12px 20px;
   border-bottom: 1px solid #eee;
+  flex-shrink: 0;
 }
 
 .logo {
@@ -19,9 +20,12 @@
 
 .main {
   flex: 1;
+  min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+}
+
+.missingKey {
+  margin: auto;
   color: #888;
   padding: 40px;
   text-align: center;

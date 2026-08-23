@@ -1,0 +1,37 @@
+.wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.label {
+  font-size: 0.8125rem;
+  color: #78716c;
+  white-space: nowrap;
+}
+
+.tiktok,
+.instagram {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: transform 0.2s;
+}
+
+.tiktok:hover,
+.instagram:hover {
+  transform: scale(1.05);
+}
+
+.tiktok {
+  background: #000;
+}
+
+.instagram {
+  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+}
