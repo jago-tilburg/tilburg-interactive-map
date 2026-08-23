@@ -11,94 +11,131 @@
 
 .address {
   color: #78716c;
+  font-size: 0.875rem;
   margin-bottom: 0.75rem;
 }
 
 .schedule {
   margin-bottom: 0.75rem;
+  font-size: 0.92rem;
 }
 
 .photo {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 3 / 4;
   object-fit: cover;
-  border-radius: var(--radius-card, 16px);
+  border-radius: 14px;
+  display: block;
   margin-bottom: 0.75rem;
 }
 
 .photoPlaceholder {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 3 / 4;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 3rem;
-  background: var(--color-surface-alt, #f0ebe4);
-  border-radius: var(--radius-card, 16px);
+  font-size: 2.8rem;
+  background: #f0ebe4;
+  border-radius: 14px;
   margin-bottom: 0.75rem;
 }
 
 .readMoreToggle {
   border: none;
   background: none;
-  color: var(--color-purple, #9333ea);
-  font-weight: 600;
+  color: #9333ea;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  font-family: inherit;
   cursor: pointer;
   padding: 0 0 0 0.35rem;
 }
 
 .prices {
   margin: 0.75rem 0;
-  border-top: 1px solid var(--color-border, #e7e0d6);
+  border-top: 1px solid #f0ebe4;
   padding-top: 0.5rem;
 }
 
 .priceLine {
   display: flex;
   justify-content: space-between;
-  font-size: 0.9rem;
-  padding: 0.2rem 0;
+  font-size: 0.92rem;
+  padding: 0.3rem 0;
 }
 
 .ctaBar {
-  display: flex;
-  gap: 8px;
+  position: sticky;
+  bottom: 0;
+  background: white;
   margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #f0ebe4;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   flex-wrap: wrap;
 }
 
-.ctaBar button {
-  border: none;
-  border-radius: 999px;
-  padding: 10px 16px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
 .save,
-.saveActive {
-  background: var(--color-surface-alt, #f0ebe4);
-  color: var(--color-text, #1c1917);
-}
-
-.saveActive {
-  background: var(--color-orange, #ff6b35);
-  color: white;
-}
-
+.saveActive,
 .interest {
-  background: var(--color-surface-alt, #f0ebe4);
-  color: var(--color-text, #1c1917);
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: #faf8f5;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  color: #1c1917;
+}
+
+.save:hover,
+.saveActive:hover,
+.interest:hover {
+  background: #e8e8ed;
+  transform: scale(1.02);
+}
+
+.saveActive {
+  background: #22c55e;
+  color: white;
 }
 
 .website {
-  background: var(--color-green-dark, #16a34a);
+  background: #d97706;
   color: white;
-  flex: 1;
+  border: none;
+  padding: 0.875rem;
+  border-radius: 10px;
+  width: 100%;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex: 1 1 100%;
+}
+
+.website:hover {
+  background: #b45309;
+  transform: scale(1.02);
 }
 
 .saveHint {
   font-size: 0.8rem;
-  color: var(--color-text-secondary, #57534e);
+  color: #57534e;
   margin-top: 0.4rem;
 }

@@ -1,7 +1,7 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.75rem;
 }
 
 .form input[type="text"],
@@ -9,11 +9,21 @@
 .form select,
 .form textarea {
   width: 100%;
-  padding: 10px;
+  padding: 0.875rem 1rem;
   border: 1px solid #d2d2d7;
-  border-radius: 8px;
+  border-radius: 10px;
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
+  transition: all 0.2s;
+}
+
+.form input[type="text"]:focus,
+.form input[type="number"]:focus,
+.form select:focus,
+.form textarea:focus {
+  outline: none;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
 }
 
 .form textarea {
@@ -22,7 +32,7 @@
 
 .row {
   display: flex;
-  gap: 8px;
+  gap: 0.75rem;
 }
 
 .row > * {
@@ -51,23 +61,38 @@
 
 .actions {
   display: flex;
-  gap: 8px;
-  margin-top: 4px;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.actions button[type="submit"],
+.actions button[type="button"] {
+  flex: 1;
+  padding: 0.875rem;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.2s;
 }
 
 .actions button[type="submit"] {
-  background: #1a73e8;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 10px 16px;
-  cursor: pointer;
+  background: #ff6b35;
+  color: white;
+}
+
+.actions button[type="submit"]:hover {
+  background: #e55a28;
+  transform: scale(1.02);
 }
 
 .actions button[type="button"] {
-  background: none;
-  border: 1px solid #d2d2d7;
-  border-radius: 6px;
-  padding: 10px 16px;
-  cursor: pointer;
+  background: #faf8f5;
+  color: #1c1917;
+}
+
+.actions button[type="button"]:hover {
+  background: #e8e8ed;
 }

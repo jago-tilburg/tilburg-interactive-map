@@ -240,10 +240,10 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
 
         {isAdmin && (
           <div className={styles.adminActions}>
-            <button type="button" onClick={() => onEditRequested?.(shop)}>
+            <button type="button" className={styles.btnEdit} onClick={() => onEditRequested?.(shop)}>
               ✏️ Bewerken
             </button>
-            <button type="button" onClick={handleDeleteShop}>
+            <button type="button" className={styles.btnDelete} onClick={handleDeleteShop}>
               🗑️ Verwijderen
             </button>
           </div>
@@ -257,8 +257,10 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
             <ul className={styles.commentList}>
               {shop.comments.map((c) => (
                 <li key={c.id} className={styles.commentItem}>
-                  <strong>{c.userName}</strong>
-                  <span>{c.text}</span>
+                  <div className={styles.commentHeader}>
+                    <span className={styles.commentAuthor}>{c.userName}</span>
+                  </div>
+                  <p className={styles.commentText}>{c.text}</p>
                   {(isAdmin || c.userId === userId) && (
                     <button type="button" onClick={() => handleDeleteComment(c.id)}>
                       Verwijderen
@@ -286,11 +288,12 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
           ) : (
             <ul className={styles.commentList}>
               {shop.userReviews.map((r) => (
-                <li key={r.id} className={styles.commentItem}>
-                  <strong>
-                    {r.userName} — {r.rating} ⭐
-                  </strong>
-                  <span>{r.text}</span>
+                <li key={r.id} className={styles.userReview}>
+                  <div className={styles.userReviewHeader}>
+                    <span className={styles.userReviewAuthor}>{r.userName}</span>
+                    <span className={styles.userReviewRating}>{r.rating} ⭐</span>
+                  </div>
+                  <p className={styles.userReviewText}>{r.text}</p>
                   {(isAdmin || r.userId === userId) && (
                     <button type="button" onClick={() => handleDeleteReview(r.id)}>
                       Verwijderen

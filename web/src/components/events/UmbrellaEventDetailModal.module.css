@@ -20,10 +20,10 @@
 
 .childItem {
   text-align: left;
-  background: #f7f7f7;
+  background: #faf8f5;
   border: none;
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: 10px;
+  padding: 10px 12px;
   cursor: pointer;
 }
 

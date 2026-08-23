@@ -1,31 +1,32 @@
 .email {
-  color: #555;
+  color: #78716c;
 }
 
 .kpiStrip {
-  display: flex;
-  gap: 8px;
-  margin: 8px 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  margin: 0.75rem 0 1rem;
 }
 
 .kpi {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: #f7f7f7;
-  border-radius: 8px;
-  padding: 10px 4px;
+  background: #faf8f5;
+  border: 1px solid #eee6da;
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  text-align: center;
 }
 
 .kpiValue {
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #292524;
 }
 
 .kpiLabel {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: #78716c;
+  margin-top: 0.1rem;
 }
 
 .eventStats {
@@ -35,13 +36,22 @@
 
 .newEventButton {
   width: 100%;
-  padding: 10px;
-  background: #1a73e8;
-  color: #fff;
+  padding: 0.875rem;
+  background: #ff6b35;
+  color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   cursor: pointer;
-  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: all 0.2s;
+  margin-bottom: 0.75rem;
+}
+
+.newEventButton:hover {
+  background: #e55a28;
+  transform: scale(1.02);
 }
 
 .error {
@@ -50,7 +60,7 @@
 }
 
 .events {
-  border-top: 1px solid #eee;
+  border-top: 1px solid #e8e2db;
   padding-top: 8px;
   max-height: 320px;
   overflow-y: auto;
@@ -60,14 +70,15 @@
 }
 
 .empty {
-  color: #888;
+  color: #78716c;
   font-size: 0.9rem;
 }
 
 .eventItem {
-  background: #f7f7f7;
-  border-radius: 8px;
-  padding: 10px;
+  background: #faf8f5;
+  border: 1px solid #eee6da;
+  border-radius: 10px;
+  padding: 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -87,6 +98,7 @@
   cursor: pointer;
   padding: 0;
   text-align: left;
+  font-family: inherit;
 }
 
 .statusBadge {
@@ -106,17 +118,25 @@
 
 .eventActions {
   display: flex;
-  gap: 6px;
+  gap: 0.4rem;
   flex-wrap: wrap;
 }
 
 .eventActions button {
-  padding: 6px 10px;
-  font-size: 0.8rem;
-  border: 1px solid #d2d2d7;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid #d6d3d1;
   border-radius: 6px;
   background: white;
   cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.eventActions button:hover {
+  border-color: #22c55e;
+  color: #22c55e;
 }
 
 .deleteButton {
