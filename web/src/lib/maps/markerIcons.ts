@@ -55,6 +55,10 @@ export interface EventCardIconOptions {
   photoUrl?: string;
   categoryEmoji: string;
   borderColors: [string, string];
+  // Adds a pulsing blurred glow behind the card — mirrors the prototype's
+  // "happening now" treatment for events currently in progress (see
+  // isEventHappeningNow in eventHelpers.ts).
+  happeningNow?: boolean;
 }
 
 // Rounded-rect card body with a small triangular pointer at the bottom
@@ -82,7 +86,7 @@ function cardOutlinePath(width: number, height: number, radius: number, pointerS
 }
 
 export function buildEventCardIconDataUrl(options: EventCardIconOptions): { url: string; height: number } {
-  const { width, photoUrl, categoryEmoji, borderColors } = options;
+  const { width, photoUrl, categoryEmoji, borderColors, happeningNow = false } = options;
   const height = Math.round(width * CARD_ASPECT);
   const pointerSize = Math.max(6, Math.round(width * 0.18));
   const border = Math.max(2, Math.round(width * 0.06));
@@ -90,20 +94,44 @@ export function buildEventCardIconDataUrl(options: EventCardIconOptions): { url:
   const outline = cardOutlinePath(width, height, radius, pointerSize);
   const gradientId = "cardBorder";
   const clipId = "cardPhoto";
+  const glowId = "cardGlow";
 
   const photo = photoUrl
     ? `<image href="${photoUrl}" x="0" y="0" width="${width}" height="${height - pointerSize}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})" />`
     : `<rect x="0" y="0" width="${width}" height="${height - pointerSize}" rx="${radius}" fill="#f0ebe4" />
        <text x="${width / 2}" y="${(height - pointerSize) / 2}" font-size="${Math.round(width * 0.4)}" text-anchor="middle" dominant-baseline="central">${categoryEmoji}</text>`;
 
+  // Pulsing blurred glow, sized/padded beyond the card and rendered first
+  // (behind everything else). SVG's viewBox is left un-expanded (matching
+  // the card's own bounds) since the glow only needs to bleed slightly past
+  // the edges, not add real layout size to the marker.
+  const glow = happeningNow
+    ? `<ellipse cx="${width / 2}" cy="${height / 2}" rx="${width * 0.6}" ry="${height * 0.6}" fill="url(#${glowId})" filter="url(#glowBlur)">
+         <animate attributeName="opacity" values="0.35;0.85;0.35" dur="2s" repeatCount="indefinite" />
+       </ellipse>`
+    : "";
+
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     <defs>
       <linearGradient id="${gradientId}" x1="0" y1="0" x2="1" y2="1">
+        <animateTransform attributeName="gradientTransform" type="rotate" from="0 0.5 0.5" to="360 0.5 0.5" dur="3s" repeatCount="indefinite" />
         <stop offset="0%" stop-color="${borderColors[0]}" />
         <stop offset="100%" stop-color="${borderColors[1]}" />
       </linearGradient>
       <clipPath id="${clipId}"><path d="${outline}" /></clipPath>
+      ${
+        happeningNow
+          ? `<radialGradient id="${glowId}">
+               <stop offset="0%" stop-color="${borderColors[0]}" stop-opacity="0.9" />
+               <stop offset="100%" stop-color="${borderColors[0]}" stop-opacity="0" />
+             </radialGradient>
+             <filter id="glowBlur" x="-50%" y="-50%" width="200%" height="200%">
+               <feGaussianBlur stdDeviation="${Math.max(2, width * 0.08)}" />
+             </filter>`
+          : ""
+      }
     </defs>
+    ${glow}
     ${photo}
     <path d="${outline}" fill="none" stroke="url(#${gradientId})" stroke-width="${border}" stroke-linejoin="round" />
   </svg>`;

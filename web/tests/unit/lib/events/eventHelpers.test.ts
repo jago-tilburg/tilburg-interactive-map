@@ -8,6 +8,7 @@ import {
   isMultiDay,
   activeUmbrellaEvents,
   businessEventStatusLabel,
+  isEventHappeningNow,
 } from "@/lib/events/eventHelpers";
 
 describe("categoryOf", () => {
@@ -157,5 +158,53 @@ describe("businessEventStatusLabel", () => {
     expect(businessEventStatusLabel("approved")).toBe("Goedgekeurd");
     expect(businessEventStatusLabel("rejected")).toBe("Afgewezen");
     expect(businessEventStatusLabel("pending")).toBe("In afwachting");
+  });
+});
+
+describe("isEventHappeningNow", () => {
+  const base = { startDate: "2026-09-05", endDate: "2026-09-05", startTime: "10:00", endTime: "18:00" };
+
+  it("is true when now falls within a single-day event's date and time range", () => {
+    expect(isEventHappeningNow(base, new Date(2026, 8, 5, 14, 0))).toBe(true);
+  });
+
+  it("is true at the exact start and end boundary", () => {
+    expect(isEventHappeningNow(base, new Date(2026, 8, 5, 10, 0))).toBe(true);
+    expect(isEventHappeningNow(base, new Date(2026, 8, 5, 18, 0))).toBe(true);
+  });
+
+  it("is false before the start time on the event's own day", () => {
+    expect(isEventHappeningNow(base, new Date(2026, 8, 5, 9, 59))).toBe(false);
+  });
+
+  it("is false after the end time on the event's own day", () => {
+    expect(isEventHappeningNow(base, new Date(2026, 8, 5, 18, 1))).toBe(false);
+  });
+
+  it("is false on a date outside the event's range", () => {
+    expect(isEventHappeningNow(base, new Date(2026, 8, 6, 14, 0))).toBe(false);
+  });
+
+  it("uses the per-day override time for a multi-day event when present", () => {
+    const multiDay = {
+      startDate: "2026-09-05",
+      endDate: "2026-09-06",
+      startTime: "10:00",
+      endTime: "18:00",
+      dailyTimes: { "2026-09-06": { startTime: "08:00", endTime: "12:00" } },
+    };
+    expect(isEventHappeningNow(multiDay, new Date(2026, 8, 6, 9, 0))).toBe(true);
+    expect(isEventHappeningNow(multiDay, new Date(2026, 8, 6, 13, 0))).toBe(false);
+  });
+
+  it("falls back to the base start/endTime when a day has no per-day override", () => {
+    const multiDay = {
+      startDate: "2026-09-05",
+      endDate: "2026-09-06",
+      startTime: "10:00",
+      endTime: "18:00",
+      dailyTimes: { "2026-09-06": { startTime: "08:00", endTime: "12:00" } },
+    };
+    expect(isEventHappeningNow(multiDay, new Date(2026, 8, 5, 14, 0))).toBe(true);
   });
 });

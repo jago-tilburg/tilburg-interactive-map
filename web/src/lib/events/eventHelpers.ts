@@ -68,3 +68,34 @@ export function businessEventStatusLabel(status: BusinessEvent["status"]): strin
   if (status === "rejected") return "Afgewezen";
   return "In afwachting";
 }
+
+function localIsoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// Drives the marker "happening now" glow — true if `now` (local wall-clock,
+// since these are always Tilburg-local times with no timezone field) falls
+// within the event's date range and, for today specifically, within its
+// (possibly per-day-overridden) time range.
+export function isEventHappeningNow(
+  event: {
+    startDate: string;
+    endDate: string;
+    startTime: string;
+    endTime: string;
+    dailyTimes?: Record<string, { startTime: string; endTime: string }> | null;
+  },
+  now: Date,
+): boolean {
+  const today = localIsoDate(now);
+  if (today < event.startDate || today > event.endDate) return false;
+
+  const todayTimes = event.dailyTimes?.[today] ?? { startTime: event.startTime, endTime: event.endTime };
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  return nowMinutes >= timeToMinutes(todayTimes.startTime) && nowMinutes <= timeToMinutes(todayTimes.endTime);
+}

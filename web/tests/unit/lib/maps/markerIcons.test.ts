@@ -86,6 +86,42 @@ describe("buildEventCardIconDataUrl", () => {
     expect(svg).not.toContain("<image");
     expect(svg).toContain("🎵");
   });
+
+  it("animates the border gradient's rotation", () => {
+    const { url } = buildEventCardIconDataUrl({
+      width: 49,
+      categoryEmoji: "🍔",
+      borderColors: ["#22c55e", "#ff6b35"],
+    });
+    const svg = decodeURIComponent(url);
+    expect(svg).toContain('<animateTransform attributeName="gradientTransform" type="rotate"');
+  });
+
+  it("adds no glow when happeningNow is false or omitted", () => {
+    const { url } = buildEventCardIconDataUrl({
+      width: 49,
+      categoryEmoji: "🍔",
+      borderColors: ["#22c55e", "#ff6b35"],
+      happeningNow: false,
+    });
+    const svg = decodeURIComponent(url);
+    expect(svg).not.toContain("cardGlow");
+    expect(svg).not.toContain("glowBlur");
+  });
+
+  it("adds a pulsing glow when happeningNow is true", () => {
+    const { url } = buildEventCardIconDataUrl({
+      width: 49,
+      categoryEmoji: "🍔",
+      borderColors: ["#22c55e", "#ff6b35"],
+      happeningNow: true,
+    });
+    const svg = decodeURIComponent(url);
+    expect(svg).toContain("cardGlow");
+    expect(svg).toContain("glowBlur");
+    expect(svg).toContain("feGaussianBlur");
+    expect(svg).toContain('<animate attributeName="opacity"');
+  });
 });
 
 describe("shadeColor", () => {

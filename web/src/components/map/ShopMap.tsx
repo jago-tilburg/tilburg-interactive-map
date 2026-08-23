@@ -11,7 +11,7 @@ import {
   shadeColor,
   DEFAULT_CARD_BORDER,
 } from "@/lib/maps/markerIcons";
-import { categoryOf } from "@/lib/events/eventHelpers";
+import { categoryOf, isEventHappeningNow } from "@/lib/events/eventHelpers";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./ShopMap.module.css";
@@ -61,6 +61,15 @@ export function ShopMap({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState(13);
+  const [now, setNow] = useState(() => new Date());
+
+  // Rebuilds event marker icons every 60s so the "happening now" glow turns
+  // on/off as events start/end, without needing a page reload — mirrors the
+  // prototype's checkHappeningNowChanges().
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,6 +158,7 @@ export function ShopMap({
         photoUrl: event.photoUrl,
         categoryEmoji: categoryOf(event.category).emoji,
         borderColors,
+        happeningNow: isEventHappeningNow(event, now),
       });
       const icon: google.maps.Icon = {
         url,
@@ -171,7 +181,7 @@ export function ShopMap({
       marker.addListener("click", () => onBusinessEventClick(event.id));
       markers.set(event.id, marker);
     }
-  }, [ready, businessEvents, umbrellaEvents, zoom, onBusinessEventClick]);
+  }, [ready, businessEvents, umbrellaEvents, zoom, now, onBusinessEventClick]);
 
   // Admin-only long-press-to-add: hold the map (not a marker) for 800ms to
   // trigger onLongPressAdd at that point. Uses the Maps API's own mouse

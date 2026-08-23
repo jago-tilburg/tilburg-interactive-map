@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent } from "@/types/events";
 
@@ -304,6 +304,58 @@ describe("ShopMap", () => {
     await waitFor(() => expect(createdMarkers).toHaveLength(1));
     const icon = createdMarkers[0].opts.icon as { url: string };
     expect(decodeURIComponent(icon.url)).toContain("#22c55e");
+  });
+
+  it("marks a currently-in-progress event's icon as happening now", async () => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const event = makeEvent({
+      startDate: today,
+      endDate: today,
+      startTime: "00:00",
+      endTime: "23:59",
+    });
+    render(
+      <ShopMap apiKey="test-key" shops={[]} businessEvents={[event]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(createdMarkers).toHaveLength(1));
+    const icon = createdMarkers[0].opts.icon as { url: string };
+    expect(decodeURIComponent(icon.url)).toContain("cardGlow");
+  });
+
+  it("does not mark an event outside its date range as happening now", async () => {
+    const event = makeEvent({ startDate: "2020-01-01", endDate: "2020-01-01" });
+    render(
+      <ShopMap apiKey="test-key" shops={[]} businessEvents={[event]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(createdMarkers).toHaveLength(1));
+    const icon = createdMarkers[0].opts.icon as { url: string };
+    expect(decodeURIComponent(icon.url)).not.toContain("cardGlow");
+  });
+
+  it("rebuilds event marker icons every 60s to reflect happening-now transitions", async () => {
+    vi.useFakeTimers();
+    try {
+      const event = makeEvent();
+      render(
+        <ShopMap apiKey="test-key" shops={[]} businessEvents={[event]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(createdMarkers).toHaveLength(1);
+
+      const callsBefore = createdMarkers[0].setIcon.mock.calls.length;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+      expect(createdMarkers[0].setIcon.mock.calls.length).toBeGreaterThan(callsBefore);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows a category-emoji placeholder when the event has no photoUrl", async () => {
