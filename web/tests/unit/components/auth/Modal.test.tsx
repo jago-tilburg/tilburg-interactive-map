@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Modal } from "@/components/common/Modal";
 
@@ -57,5 +57,70 @@ describe("Modal", () => {
     );
     await user.click(screen.getByLabelText("Sluiten"));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  describe("swipe-to-close", () => {
+    function header() {
+      return screen.getByRole("heading", { name: "Test" }).parentElement!;
+    }
+
+    it("closes when dragged down past the threshold", () => {
+      const onClose = vi.fn();
+      render(
+        <Modal open onClose={onClose} title="Test">
+          body
+        </Modal>,
+      );
+
+      fireEvent.touchStart(header(), { touches: [{ clientY: 100 }] });
+      fireEvent.touchMove(header(), { touches: [{ clientY: 250 }] });
+      fireEvent.touchEnd(header());
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("snaps back without closing when dragged down less than the threshold", () => {
+      const onClose = vi.fn();
+      render(
+        <Modal open onClose={onClose} title="Test">
+          body
+        </Modal>,
+      );
+
+      fireEvent.touchStart(header(), { touches: [{ clientY: 100 }] });
+      fireEvent.touchMove(header(), { touches: [{ clientY: 150 }] });
+      fireEvent.touchEnd(header());
+
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("ignores an upward drag", () => {
+      const onClose = vi.fn();
+      render(
+        <Modal open onClose={onClose} title="Test">
+          body
+        </Modal>,
+      );
+
+      fireEvent.touchStart(header(), { touches: [{ clientY: 200 }] });
+      fireEvent.touchMove(header(), { touches: [{ clientY: 50 }] });
+      fireEvent.touchEnd(header());
+
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("ignores a touchmove with no preceding touchstart", () => {
+      const onClose = vi.fn();
+      render(
+        <Modal open onClose={onClose} title="Test">
+          body
+        </Modal>,
+      );
+
+      fireEvent.touchMove(header(), { touches: [{ clientY: 250 }] });
+      fireEvent.touchEnd(header());
+
+      expect(onClose).not.toHaveBeenCalled();
+    });
   });
 });
