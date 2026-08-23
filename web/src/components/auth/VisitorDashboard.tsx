@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/common/Modal";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
 import { signOutCurrentUser, deleteCurrentUser } from "@/lib/firebase/auth";
 import { subscribeVisitorProfile, deleteVisitorProfile } from "@/lib/firebase/firestore";
 import { subscribeShops } from "@/lib/firebase/shops";
@@ -20,6 +21,7 @@ interface VisitorDashboardProps {
 
 export function VisitorDashboard({ open, onClose }: VisitorDashboardProps) {
   const { currentUser, currentVisitor } = useAuth();
+  const { showToast } = useToast();
   const [liveVisitor, setLiveVisitor] = useState<Visitor | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [businessEvents, setBusinessEvents] = useState<BusinessEvent[]>([]);
@@ -48,6 +50,7 @@ export function VisitorDashboard({ open, onClose }: VisitorDashboardProps) {
     try {
       await deleteVisitorProfile(currentUser.uid);
       await deleteCurrentUser(currentUser);
+      showToast("Account verwijderd.", "success");
       onClose();
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Account verwijderen mislukt.");

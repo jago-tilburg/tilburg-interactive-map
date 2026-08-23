@@ -10,6 +10,11 @@ vi.mock("@/lib/firebase/umbrellaEvents", () => ({
   updateUmbrellaEvent: (...args: unknown[]) => updateUmbrellaEvent(...args),
 }));
 
+const showToast = vi.fn();
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ showToast }),
+}));
+
 import { UmbrellaFormModal } from "@/components/events/UmbrellaFormModal";
 
 const umbrella: UmbrellaEvent = {

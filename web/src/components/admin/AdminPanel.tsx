@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/common/Modal";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
 import { subscribeShops, deleteShop, getShopViews } from "@/lib/firebase/shops";
 import { subscribeRequests, deleteRequest } from "@/lib/firebase/requests";
 import { subscribeAllBusinessEventsForAdmin } from "@/lib/firebase/businessEvents";
@@ -26,6 +27,7 @@ type Tab = "shops" | "userRatings" | "requests" | "businessEvents" | "umbrellaEv
 
 export function AdminPanel({ open, onClose }: AdminPanelProps) {
   const { currentUser } = useAuth();
+  const { showToast } = useToast();
   const [tab, setTab] = useState<Tab>("shops");
   const [shops, setShops] = useState<Shop[]>([]);
   const [requests, setRequests] = useState<ShopRequest[]>([]);
@@ -71,6 +73,7 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
     setError(null);
     try {
       await deleteShop(shopId);
+      showToast("Review verwijderd.", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verwijderen mislukt.");
     }
@@ -80,6 +83,7 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
     setError(null);
     try {
       await deleteRequest(firebaseKey);
+      showToast("Aanvraag verwijderd.", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verwijderen mislukt.");
     }
@@ -90,6 +94,7 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
     setError(null);
     try {
       await approveEvent(eventId);
+      showToast("Evenement goedgekeurd.", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Goedkeuren mislukt.");
     } finally {
@@ -102,6 +107,7 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
     setError(null);
     try {
       await rejectEvent(eventId);
+      showToast("Evenement afgewezen.", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Afwijzen mislukt.");
     } finally {
@@ -113,6 +119,7 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
     setError(null);
     try {
       await deleteUmbrellaEvent(umbrellaId);
+      showToast("Groot evenement verwijderd.", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verwijderen mislukt.");
     }

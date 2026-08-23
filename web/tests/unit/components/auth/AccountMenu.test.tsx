@@ -7,6 +7,10 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ showToast: vi.fn() }),
+}));
+
 vi.mock("@/lib/firebase/auth", () => ({
   sendVisitorMagicLink: vi.fn(),
   loginBusiness: vi.fn(),

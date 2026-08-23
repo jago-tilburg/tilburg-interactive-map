@@ -10,6 +10,11 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+const showToast = vi.fn();
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ showToast }),
+}));
+
 let emittedShops: Shop[] = [];
 let emittedRequests: ShopRequest[] = [];
 let emittedEvents: BusinessEvent[] = [];
@@ -355,6 +360,9 @@ describe("AdminPanel businessEvents tab", () => {
     await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Goedkeuren"));
     expect(approveEvent).toHaveBeenCalledWith("evt1");
+
+    await user.click(screen.getByText("Afwijzen"));
+    expect(rejectEvent).toHaveBeenCalledWith("evt1");
   });
 
   it("shows an error when approving fails", async () => {

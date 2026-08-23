@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Modal } from "@/components/common/Modal";
 import { createBusinessEvent, updateBusinessEvent } from "@/lib/firebase/businessEvents";
+import { useToast } from "@/hooks/useToast";
 import {
   EVENT_CATEGORIES,
   dateRangeArray,
@@ -74,6 +75,7 @@ export function BusinessEventFormModal({
   duplicateFrom,
   umbrellaEvents,
 }: BusinessEventFormModalProps) {
+  const { showToast } = useToast();
   // Identifies which record (if any) the form should currently reflect, so a
   // change can be detected and reset during render rather than in an effect
   // (see https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes).
@@ -214,8 +216,10 @@ export function BusinessEventFormModal({
         await updateBusinessEvent(editingEvent.id, input, {
           pullBackToPending: significantChange && editingEvent.status === "approved",
         });
+        showToast("Evenement bijgewerkt.", "success");
       } else {
         await createBusinessEvent(ownerId, input);
+        showToast("Evenement toegevoegd, in afwachting van goedkeuring.", "success");
       }
       onClose();
     } catch (err) {

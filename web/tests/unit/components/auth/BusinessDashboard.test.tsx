@@ -14,6 +14,11 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+const showToast = vi.fn();
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ showToast }),
+}));
+
 let emittedEvents: BusinessEvent[] = [];
 const subscribeMyBusinessEvents = vi.fn(
   (_uid: string, onChange: (events: BusinessEvent[]) => void, ..._rest: [((err: Error) => void)?]) => {

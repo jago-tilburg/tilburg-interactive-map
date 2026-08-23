@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/common/Modal";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
 import { signOutCurrentUser, deleteCurrentUser } from "@/lib/firebase/auth";
 import { deleteBusinessAccountCascade } from "@/lib/firebase/firestore";
 import { subscribeMyBusinessEvents, deleteBusinessEvent } from "@/lib/firebase/businessEvents";
@@ -21,6 +22,7 @@ interface BusinessDashboardProps {
 
 export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
   const { currentUser, currentBusiness } = useAuth();
+  const { showToast } = useToast();
   const [events, setEvents] = useState<BusinessEvent[]>([]);
   const [umbrellas, setUmbrellas] = useState<UmbrellaEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +54,7 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
     try {
       await deleteBusinessAccountCascade(currentUser.uid);
       await deleteCurrentUser(currentUser);
+      showToast("Account verwijderd.", "success");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Account verwijderen mislukt.");
@@ -80,6 +83,7 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
     setError(null);
     try {
       await deleteBusinessEvent(eventId);
+      showToast("Evenement verwijderd.", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verwijderen mislukt.");
     }
@@ -89,6 +93,7 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
     setError(null);
     try {
       await confirmEventPaymentStub(eventId);
+      showToast("Betaald! Je evenement is nu live op de kaart.", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Betalen mislukt.");
     }

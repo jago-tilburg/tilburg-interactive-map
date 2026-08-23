@@ -9,6 +9,10 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ showToast: vi.fn() }),
+}));
+
 vi.mock("@/components/map/ShopMap", () => ({
   ShopMap: ({
     onShopClick,

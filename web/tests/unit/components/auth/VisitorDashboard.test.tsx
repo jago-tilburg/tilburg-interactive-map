@@ -16,6 +16,11 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+const showToast = vi.fn();
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ showToast }),
+}));
+
 const subscribeVisitorProfile = vi.fn();
 const deleteVisitorProfile = vi.fn();
 vi.mock("@/lib/firebase/firestore", () => ({

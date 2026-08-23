@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Modal } from "@/components/common/Modal";
 import { createUmbrellaEvent, updateUmbrellaEvent } from "@/lib/firebase/umbrellaEvents";
+import { useToast } from "@/hooks/useToast";
 import type { UmbrellaEvent } from "@/types/events";
 import styles from "./UmbrellaFormModal.module.css";
 
@@ -24,6 +25,7 @@ function emptyForm() {
 }
 
 export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFormModalProps) {
+  const { showToast } = useToast();
   const formIdentity = !open ? null : (editingUmbrella?.id ?? "new");
   const [renderedIdentity, setRenderedIdentity] = useState(formIdentity);
   const [form, setForm] = useState(() =>
@@ -80,6 +82,7 @@ export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFo
       } else {
         await createUmbrellaEvent(input);
       }
+      showToast(editingUmbrella ? "Groot evenement bijgewerkt." : "Groot evenement toegevoegd.", "success");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? `Opslaan mislukt: ${err.message}` : "Opslaan mislukt.");

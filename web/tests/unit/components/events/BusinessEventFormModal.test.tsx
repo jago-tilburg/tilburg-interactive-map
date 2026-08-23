@@ -10,6 +10,11 @@ vi.mock("@/lib/firebase/businessEvents", () => ({
   updateBusinessEvent: (...args: unknown[]) => updateBusinessEvent(...args),
 }));
 
+const showToast = vi.fn();
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ showToast }),
+}));
+
 import { BusinessEventFormModal } from "@/components/events/BusinessEventFormModal";
 
 function makeEvent(overrides: Partial<BusinessEvent> = {}): BusinessEvent {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Modal } from "@/components/common/Modal";
 import { createShop, updateShop } from "@/lib/firebase/shops";
+import { useToast } from "@/hooks/useToast";
 import { extractCoordsFromMapsUrl } from "@/lib/maps/extractCoordsFromUrl";
 import { RATING_SELECT_OPTIONS } from "@/lib/shops/shopHelpers";
 import type { Shop, ShopInput } from "@/types/shops";
@@ -53,6 +54,7 @@ function formFromShop(shop: Shop) {
 }
 
 export function ShopFormModal({ open, onClose, editingShop }: ShopFormModalProps) {
+  const { showToast } = useToast();
   const formIdentity = !open ? null : (editingShop?.id ?? "new");
   const [renderedIdentity, setRenderedIdentity] = useState(formIdentity);
   const [form, setForm] = useState(() => (editingShop ? formFromShop(editingShop) : emptyForm()));
@@ -108,6 +110,7 @@ export function ShopFormModal({ open, onClose, editingShop }: ShopFormModalProps
       } else {
         await createShop(input);
       }
+      showToast(editingShop ? "Review bijgewerkt." : "Review toegevoegd.", "success");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? `Opslaan mislukt: ${err.message}` : "Opslaan mislukt.");

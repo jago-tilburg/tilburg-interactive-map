@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Paytone_One, DM_Sans } from "next/font/google";
 import Script from "next/script";
 import { AuthProvider } from "@/hooks/useAuth";
+import { ToastProvider } from "@/hooks/useToast";
 import { CookieBanner } from "@/components/common/CookieBanner";
 import "./globals.css";
 
@@ -45,8 +46,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </Script>
           </>
         )}
-        <AuthProvider>{children}</AuthProvider>
-        <CookieBanner />
+        <AuthProvider>
+          <ToastProvider>
+            {children}
+            <CookieBanner />
+          </ToastProvider>
+        </AuthProvider>
       </body>
     </html>
   );

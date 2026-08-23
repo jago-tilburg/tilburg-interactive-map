@@ -10,6 +10,11 @@ vi.mock("@/lib/firebase/shops", () => ({
   updateShop: (...a: unknown[]) => updateShop(...a),
 }));
 
+const showToast = vi.fn();
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ showToast }),
+}));
+
 import { ShopFormModal } from "@/components/shops/ShopFormModal";
 
 function makeShop(overrides: Partial<Shop> = {}): Shop {
