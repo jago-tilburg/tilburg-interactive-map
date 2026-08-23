@@ -5,6 +5,11 @@ import type { Shop } from "@/types/shops";
 import type { ShopRequest } from "@/types/requests";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 
+const mockUseAuth = vi.fn();
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => mockUseAuth(),
+}));
+
 let emittedShops: Shop[] = [];
 let emittedRequests: ShopRequest[] = [];
 let emittedEvents: BusinessEvent[] = [];
@@ -40,9 +45,12 @@ const subscribeAllBusinessEventsForAdmin = vi.fn(
     return vi.fn();
   },
 );
+const createBusinessEvent = vi.fn();
 vi.mock("@/lib/firebase/businessEvents", () => ({
   subscribeAllBusinessEventsForAdmin: (...a: [(e: BusinessEvent[]) => void, ((err: Error) => void)?]) =>
     subscribeAllBusinessEventsForAdmin(...a),
+  createBusinessEvent: (...a: unknown[]) => createBusinessEvent(...a),
+  updateBusinessEvent: vi.fn(),
 }));
 
 const subscribeUmbrellaEvents = vi.fn(
@@ -135,6 +143,8 @@ beforeEach(() => {
   deleteShop.mockResolvedValue(undefined);
   deleteRequest.mockResolvedValue(undefined);
   getShopViews.mockResolvedValue(0);
+  createBusinessEvent.mockResolvedValue(undefined);
+  mockUseAuth.mockReturnValue({ currentUser: { uid: "admin-uid" } });
 });
 
 describe("AdminPanel shops tab", () => {
@@ -305,6 +315,36 @@ describe("AdminPanel businessEvents tab", () => {
 
     await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
     expect(screen.getByText("Nog geen bedrijfsevenementen.")).toBeInTheDocument();
+  });
+
+  it("shows the quick-add button when signed in, and lets the admin create a quick event", async () => {
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("+ Snel evenement toevoegen"));
+    expect(screen.getByRole("dialog", { name: "Nieuw evenement" })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Titel"), "Kermis opening");
+    await user.type(screen.getByLabelText("Beschrijving"), "Opening van de kermis");
+    await user.type(screen.getByLabelText("Startdatum"), "2026-09-01");
+    await user.type(screen.getByLabelText("Adres"), "Heuvelplein 1");
+    await user.type(screen.getByLabelText("Starttijd"), "10:00");
+    await user.type(screen.getByLabelText("Eindtijd"), "18:00");
+    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
+    await user.click(screen.getByText("Extract"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(createBusinessEvent).toHaveBeenCalledWith("admin-uid", expect.objectContaining({ title: "Kermis opening" }));
+  });
+
+  it("hides the quick-add button when there is no signed-in user", async () => {
+    mockUseAuth.mockReturnValue({ currentUser: null });
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    expect(screen.queryByText("+ Snel evenement toevoegen")).not.toBeInTheDocument();
   });
 
   it("approves and rejects pending events", async () => {

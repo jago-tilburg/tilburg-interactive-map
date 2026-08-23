@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/common/Modal";
+import { useAuth } from "@/hooks/useAuth";
 import { subscribeShops, deleteShop, getShopViews } from "@/lib/firebase/shops";
 import { subscribeRequests, deleteRequest } from "@/lib/firebase/requests";
 import { subscribeAllBusinessEventsForAdmin } from "@/lib/firebase/businessEvents";
@@ -10,6 +11,7 @@ import { approveEvent, rejectEvent } from "@/lib/firebase/functions";
 import { categoryOf, formatBusinessEventSchedule, businessEventStatusLabel } from "@/lib/events/eventHelpers";
 import { ShopFormModal } from "@/components/shops/ShopFormModal";
 import { UmbrellaFormModal } from "@/components/events/UmbrellaFormModal";
+import { BusinessEventFormModal } from "@/components/events/BusinessEventFormModal";
 import type { Shop } from "@/types/shops";
 import type { ShopRequest } from "@/types/requests";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
@@ -23,6 +25,7 @@ interface AdminPanelProps {
 type Tab = "shops" | "userRatings" | "requests" | "businessEvents" | "umbrellaEvents";
 
 export function AdminPanel({ open, onClose }: AdminPanelProps) {
+  const { currentUser } = useAuth();
   const [tab, setTab] = useState<Tab>("shops");
   const [shops, setShops] = useState<Shop[]>([]);
   const [requests, setRequests] = useState<ShopRequest[]>([]);
@@ -35,6 +38,7 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
   const [editingShop, setEditingShop] = useState<Shop | null>(null);
   const [umbrellaFormOpen, setUmbrellaFormOpen] = useState(false);
   const [editingUmbrella, setEditingUmbrella] = useState<UmbrellaEvent | null>(null);
+  const [quickEventFormOpen, setQuickEventFormOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -124,7 +128,11 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
 
   return (
     <>
-      <Modal open={open && !shopFormOpen && !umbrellaFormOpen} onClose={onClose} title="Beheerpaneel">
+      <Modal
+        open={open && !shopFormOpen && !umbrellaFormOpen && !quickEventFormOpen}
+        onClose={onClose}
+        title="Beheerpaneel"
+      >
         <div className={styles.tabs}>
           <button type="button" className={tab === "shops" ? styles.tabActive : styles.tab} onClick={() => setTab("shops")}>
             Reviews ({shops.length})
@@ -239,12 +247,17 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
             </div>
           ))}
 
-        {tab === "businessEvents" &&
-          (events.length === 0 ? (
-            <p className={styles.empty}>Nog geen bedrijfsevenementen.</p>
-          ) : (
-            <div className={styles.list}>
-              {events.map((ev) => {
+        {tab === "businessEvents" && (
+          <div className={styles.list}>
+            {currentUser && (
+              <button type="button" className={styles.addButton} onClick={() => setQuickEventFormOpen(true)}>
+                + Snel evenement toevoegen
+              </button>
+            )}
+            {events.length === 0 ? (
+              <p className={styles.empty}>Nog geen bedrijfsevenementen.</p>
+            ) : (
+              events.map((ev) => {
                 const cat = categoryOf(ev.category);
                 return (
                   <div key={ev.id} className={styles.row}>
@@ -269,9 +282,10 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
                     )}
                   </div>
                 );
-              })}
-            </div>
-          ))}
+              })
+            )}
+          </div>
+        )}
 
         {tab === "umbrellaEvents" && (
           <div className={styles.list}>
@@ -319,6 +333,22 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
         onClose={() => setUmbrellaFormOpen(false)}
         editingUmbrella={editingUmbrella}
       />
+      {currentUser && (
+        // Folds the legacy RTDB `events` domain into businessEvents rather than
+        // maintaining two parallel event systems — see the master plan's own
+        // "revisit once the new events UI exists" note. There was no existing
+        // data in the legacy node to migrate. Firestore rules require every
+        // client-created event to start 'pending' (even an admin's), so this
+        // still needs a follow-up "Goedkeuren" click — it lands in the same
+        // pending list above, not auto-approved.
+        <BusinessEventFormModal
+          open={quickEventFormOpen}
+          onClose={() => setQuickEventFormOpen(false)}
+          ownerId={currentUser.uid}
+          editingEvent={null}
+          umbrellaEvents={umbrellas}
+        />
+      )}
     </>
   );
 }
