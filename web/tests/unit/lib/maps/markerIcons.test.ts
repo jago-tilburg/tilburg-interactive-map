@@ -1,9 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   buildDropIconDataUrl,
   buildShopIconDataUrl,
   computeEventCardWidth,
   buildEventCardIconDataUrl,
+  fetchEventPhotoDataUrl,
   shadeColor,
 } from "@/lib/maps/markerIcons";
 
@@ -121,6 +122,91 @@ describe("buildEventCardIconDataUrl", () => {
     expect(svg).toContain("glowBlur");
     expect(svg).toContain("feGaussianBlur");
     expect(svg).toContain('<animate attributeName="opacity"');
+  });
+
+  it("computes height from width using the prototype's 1.5 aspect ratio", () => {
+    const { height } = buildEventCardIconDataUrl({
+      width: 100,
+      categoryEmoji: "🍔",
+      borderColors: ["#22c55e", "#ff6b35"],
+    });
+    expect(height).toBe(150);
+  });
+});
+
+describe("fetchEventPhotoDataUrl", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns a data: URL unchanged without fetching", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchEventPhotoDataUrl("data:image/png;base64,abc123");
+
+    expect(result).toBe("data:image/png;base64,abc123");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fetches the photo with cors mode and converts the blob to a base64 data URL", async () => {
+    const blob = new Blob(["fake-image-bytes"], { type: "image/png" });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: () => Promise.resolve(blob) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchEventPhotoDataUrl("https://example.com/photo-fetch-a.jpg");
+
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/photo-fetch-a.jpg", { mode: "cors" });
+    expect(result).toMatch(/^data:/);
+  });
+
+  it("caches by URL — a second call for the same URL does not re-fetch", async () => {
+    const blob = new Blob(["fake-image-bytes"], { type: "image/png" });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: () => Promise.resolve(blob) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchEventPhotoDataUrl("https://example.com/photo-fetch-b.jpg");
+    await fetchEventPhotoDataUrl("https://example.com/photo-fetch-b.jpg");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns null and does not cache on a non-ok response, allowing a later retry", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+    const first = await fetchEventPhotoDataUrl("https://example.com/photo-fetch-c.jpg");
+    expect(first).toBeNull();
+
+    const blob = new Blob(["fake-image-bytes"], { type: "image/png" });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, blob: () => Promise.resolve(blob) }));
+    const second = await fetchEventPhotoDataUrl("https://example.com/photo-fetch-c.jpg");
+    expect(second).toMatch(/^data:/);
+  });
+
+  it("returns null when fetch itself rejects (e.g. a CORS or network failure)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network error")));
+
+    const result = await fetchEventPhotoDataUrl("https://example.com/photo-fetch-d.jpg");
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null when the blob-to-data-URL conversion itself fails", async () => {
+    const blob = new Blob(["fake-image-bytes"], { type: "image/png" });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, blob: () => Promise.resolve(blob) }));
+
+    class FailingFileReader {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      error = new Error("read failed");
+      readAsDataURL() {
+        queueMicrotask(() => this.onerror?.());
+      }
+    }
+    vi.stubGlobal("FileReader", FailingFileReader);
+
+    const result = await fetchEventPhotoDataUrl("https://example.com/photo-fetch-e.jpg");
+
+    expect(result).toBeNull();
   });
 });
 

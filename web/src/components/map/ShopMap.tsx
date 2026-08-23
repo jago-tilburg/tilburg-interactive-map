@@ -8,6 +8,7 @@ import {
   DROP_ICON_ANCHOR,
   computeEventCardWidth,
   buildEventCardIconDataUrl,
+  fetchEventPhotoDataUrl,
   shadeColor,
   DEFAULT_CARD_BORDER,
 } from "@/lib/maps/markerIcons";
@@ -58,6 +59,10 @@ export function ShopMap({
   const mapRef = useRef<google.maps.Map | null>(null);
   const shopMarkersRef = useRef(new Map<number, google.maps.Marker>());
   const eventMarkersRef = useRef(new Map<string, google.maps.Marker>());
+  // Resolved photoUrl -> data URL, populated as fetchEventPhotoDataUrl()
+  // resolves (see the effect below) so a re-render/rebuild for an
+  // already-fetched photo doesn't re-fetch or flash back to the emoji.
+  const eventPhotoDataRef = useRef(new Map<string, string>());
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState(13);
@@ -136,6 +141,7 @@ export function ShopMap({
     if (!ready || !mapRef.current) return;
     const map = mapRef.current;
     const markers = eventMarkersRef.current;
+    const photoDataCache = eventPhotoDataRef.current;
     const currentIds = new Set(businessEvents.map((e) => e.id));
     const width = computeEventCardWidth(zoom);
 
@@ -146,7 +152,7 @@ export function ShopMap({
       }
     }
 
-    for (const event of businessEvents) {
+    function buildIcon(event: BusinessEvent, photoUrl: string | undefined): google.maps.Icon {
       const parentUmbrella = event.umbrellaEventId
         ? umbrellaEvents.find((u) => u.id === event.umbrellaEventId)
         : undefined;
@@ -155,31 +161,50 @@ export function ShopMap({
         : DEFAULT_CARD_BORDER;
       const { url, height } = buildEventCardIconDataUrl({
         width,
-        photoUrl: event.photoUrl,
+        photoUrl,
         categoryEmoji: categoryOf(event.category).emoji,
         borderColors,
         happeningNow: isEventHappeningNow(event, now),
       });
-      const icon: google.maps.Icon = {
+      return {
         url,
         scaledSize: new google.maps.Size(width, height),
         anchor: new google.maps.Point(width / 2, height),
       };
+    }
+
+    for (const event of businessEvents) {
+      const resolvedPhoto = event.photoUrl ? photoDataCache.get(event.photoUrl) : undefined;
+      const icon = buildIcon(event, resolvedPhoto);
 
       const existing = markers.get(event.id);
       if (existing) {
         existing.setPosition({ lat: event.lat, lng: event.lng });
         existing.setIcon(icon);
-        continue;
+      } else {
+        const marker = new google.maps.Marker({
+          position: { lat: event.lat, lng: event.lng },
+          map,
+          title: event.title,
+          icon,
+        });
+        marker.addListener("click", () => onBusinessEventClick(event.id));
+        markers.set(event.id, marker);
       }
-      const marker = new google.maps.Marker({
-        position: { lat: event.lat, lng: event.lng },
-        map,
-        title: event.title,
-        icon,
-      });
-      marker.addListener("click", () => onBusinessEventClick(event.id));
-      markers.set(event.id, marker);
+
+      // photoUrl is a plain external URL (not yet a data URL) — kick off the
+      // CORS-safe conversion and swap the icon in once it resolves, matching
+      // the prototype's getEventPhotoDataUrl(). See fetchEventPhotoDataUrl's
+      // own comment for why embedding the raw URL directly doesn't work.
+      if (event.photoUrl && !resolvedPhoto) {
+        const photoUrl = event.photoUrl;
+        fetchEventPhotoDataUrl(photoUrl).then((dataUrl) => {
+          if (!dataUrl) return;
+          photoDataCache.set(photoUrl, dataUrl);
+          const marker = markers.get(event.id);
+          marker?.setIcon(buildIcon(event, dataUrl));
+        });
+      }
     }
   }, [ready, businessEvents, umbrellaEvents, zoom, now, onBusinessEventClick]);
 

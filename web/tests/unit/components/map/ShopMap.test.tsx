@@ -358,6 +358,81 @@ describe("ShopMap", () => {
     }
   });
 
+  it("shows the emoji fallback immediately, then upgrades the icon once the photo fetch resolves", async () => {
+    const blob = new Blob(["fake-image-bytes"], { type: "image/png" });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: () => Promise.resolve(blob) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const event = makeEvent({ category: "muziek", photoUrl: "https://example.com/shopmap-photo.jpg" });
+    render(
+      <ShopMap apiKey="test-key" shops={[]} businessEvents={[event]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(createdMarkers).toHaveLength(1));
+    const marker = createdMarkers[0];
+    expect(decodeURIComponent((marker.opts.icon as { url: string }).url)).toContain("🎵");
+
+    await waitFor(() => {
+      const latest = marker.setIcon.mock.calls.at(-1)?.[0] as { url: string } | undefined;
+      expect(latest && decodeURIComponent(latest.url)).toContain("<image");
+    });
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/shopmap-photo.jpg", { mode: "cors" });
+
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps the emoji fallback icon when the photo fetch fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const event = makeEvent({ category: "sport", photoUrl: "https://example.com/shopmap-photo-404.jpg" });
+    render(
+      <ShopMap apiKey="test-key" shops={[]} businessEvents={[event]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    // give the failed fetch's microtask queue a turn, then confirm no setIcon
+    // upgrade happened — the marker's only icon is still the emoji fallback.
+    await Promise.resolve();
+    await Promise.resolve();
+    const marker = createdMarkers[0];
+    expect(marker.setIcon).not.toHaveBeenCalled();
+    expect(decodeURIComponent((marker.opts.icon as { url: string }).url)).toContain("⚽");
+
+    vi.unstubAllGlobals();
+  });
+
+  it("does not re-fetch an already-resolved event photo on a later re-render", async () => {
+    const blob = new Blob(["fake-image-bytes"], { type: "image/png" });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: () => Promise.resolve(blob) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const event = makeEvent({ photoUrl: "https://example.com/shopmap-photo-cached.jpg" });
+    const { rerender } = render(
+      <ShopMap apiKey="test-key" shops={[]} businessEvents={[event]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      const latest = createdMarkers[0].setIcon.mock.calls.at(-1)?.[0] as { url: string } | undefined;
+      expect(latest && decodeURIComponent(latest.url)).toContain("<image");
+    });
+
+    rerender(
+      <ShopMap apiKey="test-key" shops={[]} businessEvents={[{ ...event, title: "Updated" }]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(createdMarkers[0].setPosition).toHaveBeenCalled());
+    // The re-render's own synchronous icon build already has the resolved
+    // photo (from the component-level cache) — no flicker back to the emoji
+    // fallback while a redundant fetch resolves.
+    const latestAfterRerender = createdMarkers[0].setIcon.mock.calls.at(-1)?.[0] as { url: string };
+    expect(decodeURIComponent(latestAfterRerender.url)).toContain("<image");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    vi.unstubAllGlobals();
+  });
+
   it("shows a category-emoji placeholder when the event has no photoUrl", async () => {
     const event = makeEvent({ category: "muziek" });
     render(

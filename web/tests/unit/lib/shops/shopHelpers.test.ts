@@ -208,7 +208,10 @@ describe("computeAnonymousDataMigration", () => {
           { id: 2, userId: "anon-1", userName: "Jago", text: "b", createdAt: "t" },
           { id: 3, userId: "other", userName: "X", text: "c", createdAt: "t" },
         ],
-        userReviews: [{ id: 1, userId: "anon-1", userName: "Jago", rating: 8, text: "top", createdAt: "t" }],
+        userReviews: [
+          { id: 1, userId: "anon-1", userName: "Jago", rating: 8, text: "top", createdAt: "t" },
+          { id: 2, userId: "other", userName: "X", rating: 6, text: "meh", createdAt: "t" },
+        ],
       }),
     ];
     const { patches, migrated } = computeAnonymousDataMigration(shops, "anon-1", "uid-1");
@@ -220,7 +223,21 @@ describe("computeAnonymousDataMigration", () => {
     ]);
     expect(patches[0].userReviews).toEqual([
       { id: 1, userId: "uid-1", userName: "Jago", rating: 8, text: "top", createdAt: "t" },
+      { id: 2, userId: "other", userName: "X", rating: 6, text: "meh", createdAt: "t" },
     ]);
+  });
+
+  it("treats missing comments/userReviews arrays as empty rather than throwing", () => {
+    const shop = makeShop({ id: 1, likes: ["anon-1"] });
+    // @ts-expect-error -- simulating a legacy/partial RTDB record with the arrays absent
+    delete shop.comments;
+    // @ts-expect-error -- same, for userReviews
+    delete shop.userReviews;
+
+    const { patches, migrated } = computeAnonymousDataMigration([shop], "anon-1", "uid-1");
+
+    expect(migrated).toBe(1);
+    expect(patches).toEqual([{ shopId: 1, likes: ["uid-1"] }]);
   });
 
   it("skips shops with nothing tied to the anon id and only patches the ones that changed", () => {

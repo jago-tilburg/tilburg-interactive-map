@@ -40,7 +40,10 @@ export const EVENT_ICON_ANCHOR = { x: 12, y: 12 };
 // noted here rather than silently ported as static-only.
 const CARD_BASE_ZOOM = 14;
 const CARD_BASE_WIDTH = 49;
-const CARD_ASPECT = 4 / 3; // width:height, matches the prototype's 3:4 photo panel below a header strip
+// height = width * CARD_ASPECT — matches the prototype's markerTuning.aspectRatio (1.5),
+// not the 4/3 this was previously (incorrectly) set to, which made every card noticeably
+// squatter/smaller than the prototype's actual portrait-shaped cards.
+const CARD_ASPECT = 1.5;
 const CARD_SCALE_PER_ZOOM = 1.4;
 const CARD_MIN_WIDTH = 28;
 const CARD_MAX_WIDTH = 200;
@@ -137,6 +140,45 @@ export function buildEventCardIconDataUrl(options: EventCardIconOptions): { url:
   </svg>`;
 
   return { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg), height };
+}
+
+// Ports getEventPhotoDataUrl from the prototype. SVGs used as a marker icon
+// (a data-URI <img>) don't reliably load an external <image href="https://...">
+// — it's an "image inside an image" the browser doesn't consistently fetch
+// (confirmed: renders fine in Chromium, silently blank in WebKit/Safari,
+// which is what real iOS users hit). So the photo is fetched once and
+// converted to a base64 data URL, which does work embedded in the SVG.
+// Deliberately not cached on failure — a transient fetch failure (e.g. too
+// many concurrent requests during a batch re-render) shouldn't be
+// remembered forever; the next call is allowed to retry.
+const eventPhotoDataCache = new Map<string, Promise<string | null>>();
+
+export function fetchEventPhotoDataUrl(photoUrl: string): Promise<string | null> {
+  if (photoUrl.startsWith("data:")) return Promise.resolve(photoUrl);
+  const cached = eventPhotoDataCache.get(photoUrl);
+  if (cached) return cached;
+
+  const promise = fetch(photoUrl, { mode: "cors" })
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.blob();
+    })
+    .then(
+      (blob) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        }),
+    )
+    .catch(() => {
+      eventPhotoDataCache.delete(photoUrl);
+      return null;
+    });
+
+  eventPhotoDataCache.set(photoUrl, promise);
+  return promise;
 }
 
 // Lightens/darkens a hex color by `percent` (-100..100) — used to derive the
