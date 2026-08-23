@@ -4,7 +4,10 @@ import type { BusinessEvent, EventCategory } from "@/types/events";
 export type ContentTypeFilter = "alles" | "broodjes" | "events";
 export type DietaryKey = "glutenvrij" | "halal" | "vega";
 export type SortOption = "rating-desc" | "rating-asc" | "name-asc" | "name-desc";
-export type DateQuickFilter = "today" | "tomorrow" | null;
+// "today"/"tomorrow" are resolved relative to `today` below; any other
+// string is treated as a specific 'YYYY-MM-DD' date picked from the
+// calendar popover.
+export type DateQuickFilter = "today" | "tomorrow" | string | null;
 
 export interface ShopFilterState {
   query: string;
@@ -57,7 +60,7 @@ export function filterEvents(events: BusinessEvent[], filters: EventFilterState)
       ? filters.today
       : filters.dateFilter === "tomorrow"
         ? addDaysToIsoDate(filters.today, 1)
-        : null;
+        : (filters.dateFilter ?? null);
 
   return events.filter((event) => {
     if (!matchesQuery([event.title, event.address], filters.query)) return false;

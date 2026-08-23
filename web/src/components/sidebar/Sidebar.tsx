@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DIETARY_BADGES } from "@/lib/shops/socialAndDietary";
 import { ratingColor } from "@/lib/shops/shopHelpers";
 import { EVENT_CATEGORIES, categoryOf, formatBusinessEventSchedule } from "@/lib/events/eventHelpers";
+import { DatePickerPopover } from "./DatePickerPopover";
 import {
   filterShops,
   filterEvents,
@@ -54,10 +55,12 @@ export function Sidebar({
   const [dateFilter, setDateFilter] = useState<DateQuickFilter>(null);
   const [sort, setSort] = useState<SortOption>("rating-desc");
   const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const showShops = contentType !== "events";
   const showEvents = contentType !== "broodjes";
   const today = new Date().toISOString().slice(0, 10);
+  const isCustomDate = dateFilter !== null && dateFilter !== "today" && dateFilter !== "tomorrow";
 
   const filteredShops = showShops ? sortShops(filterShops(shops, { query, dietary }), sort) : [];
   const filteredEvents = showEvents
@@ -201,6 +204,22 @@ export function Sidebar({
                 >
                   Morgen
                 </button>
+                <div className={styles.datePickerAnchor}>
+                  <button
+                    type="button"
+                    className={isCustomDate ? styles.filterPillActive : styles.filterPill}
+                    onClick={() => setDatePickerOpen((v) => !v)}
+                  >
+                    📅 {isCustomDate ? dateFilter : "Kies datum"}
+                  </button>
+                  <DatePickerPopover
+                    open={datePickerOpen}
+                    onClose={() => setDatePickerOpen(false)}
+                    events={businessEvents}
+                    today={today}
+                    onSelectDate={setDateFilter}
+                  />
+                </div>
               </div>
             </div>
           )}

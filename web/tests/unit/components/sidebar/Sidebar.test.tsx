@@ -203,6 +203,22 @@ describe("Sidebar", () => {
     expect(screen.getByText("1 resultaten")).toBeInTheDocument();
   });
 
+  it("opens the calendar popover and filters events to a picked date", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const user = userEvent.setup();
+    setup({ businessEvents: [{ ...businessEvent, startDate: today, endDate: today }] });
+
+    await user.click(screen.getByRole("tab", { name: "🎉 Events" }));
+    await user.click(screen.getByText(/Meer filters/));
+    await user.click(screen.getByText(/Kies datum/));
+
+    const day = Number(today.slice(-2));
+    await user.click(screen.getByText(String(day)));
+
+    expect(screen.getByText("1 resultaten")).toBeInTheDocument();
+    expect(screen.queryByText(/Kies datum/)).not.toBeInTheDocument();
+  });
+
   it("clears all active filters", async () => {
     const user = userEvent.setup();
     setup();
