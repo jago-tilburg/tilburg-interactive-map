@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within, act } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
@@ -15,15 +15,21 @@ vi.mock("@/hooks/useToast", () => ({
 
 vi.mock("@/components/map/ShopMap", () => ({
   ShopMap: ({
+    shops,
+    businessEvents,
     onShopClick,
     onBusinessEventClick,
     onLongPressAdd,
   }: {
+    shops: Shop[];
+    businessEvents: BusinessEvent[];
     onShopClick: (id: number) => void;
     onBusinessEventClick: (id: string) => void;
     onLongPressAdd?: (lat: number, lng: number) => void;
   }) => (
     <div>
+      <span data-testid="visible-shop-count">{shops.length}</span>
+      <span data-testid="visible-event-count">{businessEvents.length}</span>
       <button onClick={() => onShopClick(9001)}>click-shop</button>
       <button onClick={() => onBusinessEventClick("evt1")}>click-event</button>
       <button onClick={() => onLongPressAdd?.(51.6, 5.1)}>trigger-long-press</button>
@@ -165,6 +171,13 @@ beforeEach(() => {
 });
 
 describe("MapExperience", () => {
+  it("shows the header title and passes shops/events through to the map", () => {
+    render(<MapExperience apiKey="test-key" />);
+    expect(screen.getByText("2 HAPPIES BIJ")).toBeInTheDocument();
+    expect(screen.getByTestId("visible-shop-count")).toHaveTextContent("1");
+    expect(screen.getByTestId("visible-event-count")).toHaveTextContent("1");
+  });
+
   it("opens the shop detail modal when a shop marker is clicked", async () => {
     const user = userEvent.setup();
     render(<MapExperience apiKey="test-key" />);
@@ -221,25 +234,6 @@ describe("MapExperience", () => {
     expect(screen.getByRole("dialog", { name: "🍔 Test Event" })).toBeInTheDocument();
   });
 
-  it("shows skeleton rows in the sidebar until both shops and events have loaded", () => {
-    let shopsCallback: ((s: Shop[]) => void) | null = null;
-    subscribeShops.mockImplementation((onChange: (s: Shop[]) => void) => {
-      shopsCallback = onChange;
-      return vi.fn();
-    });
-
-    const { container } = render(<MapExperience apiKey="test-key" />);
-    expect(container.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThan(0);
-
-    act(() => shopsCallback?.([shop]));
-    expect(container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(0);
-  });
-
-  it("does not show the add-shop button for a non-admin", () => {
-    render(<MapExperience apiKey="test-key" />);
-    expect(screen.queryByText("+ Nieuwe Review Toevoegen")).not.toBeInTheDocument();
-  });
-
   it("opens a pre-filled create-shop form after an admin long-presses the map", async () => {
     mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: true });
     const user = userEvent.setup();
@@ -253,7 +247,7 @@ describe("MapExperience", () => {
     expect(screen.getByLabelText("Lengtegraad")).toHaveValue(5.1);
   });
 
-  it("clears the long-press prefill when the create-shop form is opened via the button instead", async () => {
+  it("clears the long-press prefill after cancelling, then editing a shop opens a clean edit form", async () => {
     mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: true });
     const user = userEvent.setup();
     render(<MapExperience apiKey="test-key" />);
@@ -262,52 +256,30 @@ describe("MapExperience", () => {
     expect(await screen.findByDisplayValue("Heuvelplein 1, Tilburg")).toBeInTheDocument();
     await user.click(screen.getByText("Annuleren"));
 
-    await user.click(screen.getByText("+ Nieuwe Review Toevoegen"));
-    expect(screen.queryByDisplayValue("Heuvelplein 1, Tilburg")).not.toBeInTheDocument();
-  });
-
-  it("lets an admin open the create-shop form, and edit from the detail modal", async () => {
-    mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: true });
-    const user = userEvent.setup();
-    render(<MapExperience apiKey="test-key" />);
-
-    await user.click(screen.getByText("+ Nieuwe Review Toevoegen"));
-    expect(screen.getByRole("dialog", { name: "Add New Review" })).toBeInTheDocument();
-    await user.click(screen.getByText("Annuleren"));
-
     await user.click(screen.getByText("click-shop"));
     await user.click(screen.getByText("✏️ Bewerken"));
     expect(screen.getByRole("dialog", { name: "Bewerken Review" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Test Shop")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Heuvelplein 1, Tilburg")).not.toBeInTheDocument();
   });
 
-  it("shows the request-a-review button for a non-admin, not the add-shop button", () => {
-    render(<MapExperience apiKey="test-key" />);
-    expect(screen.getByText("🥪 Vraag een Review Aan")).toBeInTheDocument();
-    expect(screen.queryByText("+ Nieuwe Review Toevoegen")).not.toBeInTheDocument();
-  });
-
-  it("does not show the request button for an admin", () => {
+  it("always shows the request-a-review button in the header, regardless of admin status", () => {
     mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: true });
     render(<MapExperience apiKey="test-key" />);
-    expect(screen.queryByText("🥪 Vraag een Review Aan")).not.toBeInTheDocument();
+    expect(screen.getByText(/Vraag een review aan/)).toBeInTheDocument();
   });
 
-  it("submits a shop request and shows the confirmation modal", async () => {
+  it("narrows the map markers to match the filter panel's active filters", async () => {
     const user = userEvent.setup();
     render(<MapExperience apiKey="test-key" />);
 
-    await user.click(screen.getByText("🥪 Vraag een Review Aan"));
-    await user.type(screen.getByLabelText("Naam van de zaak"), "Nieuwe Broodjeszaak");
-    await user.click(screen.getByText("Versturen"));
-
-    expect(await screen.findByRole("dialog", { name: "Bedankt voor je suggestie!" })).toBeInTheDocument();
-
-    await user.click(screen.getByText("Sluiten"));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("visible-event-count")).toHaveTextContent("1");
+    await user.click(screen.getByText(/🥪 Broodjes/));
+    expect(screen.getByTestId("visible-shop-count")).toHaveTextContent("1");
+    expect(screen.getByTestId("visible-event-count")).toHaveTextContent("0");
   });
 
-  it("opens the mobile filter sheet and closes it from the sidebar", async () => {
+  it("opens and closes the mobile filter sheet", async () => {
     const user = userEvent.setup();
     render(<MapExperience apiKey="test-key" />);
 
@@ -316,22 +288,14 @@ describe("MapExperience", () => {
     expect(screen.getByText("🔍 Filters")).toBeInTheDocument();
   });
 
-  it("selects a shop from the sidebar", async () => {
+  it("selects a shop from the header's full list menu", async () => {
     const user = userEvent.setup();
     render(<MapExperience apiKey="test-key" />);
 
+    await user.click(screen.getByLabelText("Alle 2 Happies"));
     await user.click(screen.getByText("Test Shop"));
+
     expect(screen.getByRole("dialog", { name: "Test Shop" })).toBeInTheDocument();
-  });
-
-  it("closes the request modal via cancel without submitting", async () => {
-    const user = userEvent.setup();
-    render(<MapExperience apiKey="test-key" />);
-
-    await user.click(screen.getByText("🥪 Vraag een Review Aan"));
-    await user.click(screen.getByText("Annuleren"));
-
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(submitRequest).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "Alle 2 Happies" })).not.toBeInTheDocument();
   });
 });

@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { ShopMap } from "@/components/map/ShopMap";
-import { Sidebar } from "@/components/sidebar/Sidebar";
+import { MapFilterPanel } from "@/components/mapfilter/MapFilterPanel";
+import { Header } from "@/components/layout/Header";
 import { ShopDetailModal } from "@/components/shops/ShopDetailModal";
 import { ShopFormModal } from "@/components/shops/ShopFormModal";
 import { BusinessEventDetailModal } from "@/components/events/BusinessEventDetailModal";
 import { UmbrellaEventDetailModal } from "@/components/events/UmbrellaEventDetailModal";
-import { RequestModal } from "@/components/requests/RequestModal";
-import { RequestConfirmationModal } from "@/components/requests/RequestConfirmationModal";
 import { useAuth } from "@/hooks/useAuth";
 import { subscribeShops } from "@/lib/firebase/shops";
 import { subscribeApprovedBusinessEvents } from "@/lib/firebase/businessEvents";
@@ -31,15 +30,17 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
   const [shops, setShops] = useState<Shop[]>([]);
   const [businessEvents, setBusinessEvents] = useState<BusinessEvent[]>([]);
   const [umbrellaEvents, setUmbrellaEvents] = useState<UmbrellaEvent[]>([]);
+  // Narrowed by MapFilterPanel — the map markers reflect the same filters
+  // as the panel, not just its own results count.
+  const [visibleShops, setVisibleShops] = useState<Shop[]>([]);
+  const [visibleEvents, setVisibleEvents] = useState<BusinessEvent[]>([]);
   const [selectedShopId, setSelectedShopId] = useState<number | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedUmbrellaId, setSelectedUmbrellaId] = useState<string | null>(null);
   const [shopFormMode, setShopFormMode] = useState<"closed" | "create" | "edit">("closed");
   const [shopBeingEdited, setShopBeingEdited] = useState<Shop | null>(null);
   const [shopPrefill, setShopPrefill] = useState<{ lat: number; lng: number; address: string } | null>(null);
-  const [requestModalOpen, setRequestModalOpen] = useState(false);
-  const [requestConfirmationOpen, setRequestConfirmationOpen] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [shopsLoaded, setShopsLoaded] = useState(false);
   const [eventsLoaded, setEventsLoaded] = useState(false);
 
@@ -72,23 +73,21 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
   const selectedUmbrella = umbrellaEvents.find((u) => u.id === selectedUmbrellaId) ?? null;
 
   return (
-    <div className={styles.wrapper}>
-      <Sidebar
+    <div className={styles.appContainer}>
+      <Header
         shops={shops}
         businessEvents={businessEvents}
         umbrellaEvents={umbrellaEvents}
         onSelectShop={setSelectedShopId}
         onSelectEvent={setSelectedEventId}
-        mobileOpen={mobileSidebarOpen}
-        onCloseMobile={() => setMobileSidebarOpen(false)}
         loading={!shopsLoaded || !eventsLoaded}
       />
 
-      <div className={styles.mapArea}>
+      <div className={styles.mainContent}>
         <ShopMap
           apiKey={apiKey}
-          shops={shops}
-          businessEvents={businessEvents}
+          shops={visibleShops}
+          businessEvents={visibleEvents}
           umbrellaEvents={umbrellaEvents}
           onShopClick={setSelectedShopId}
           onBusinessEventClick={setSelectedEventId}
@@ -96,31 +95,18 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
           onLongPressAdd={handleLongPressAdd}
         />
 
-        <button
-          type="button"
-          className={styles.mobileFilterButton}
-          onClick={() => setMobileSidebarOpen(true)}
-        >
-          🔍 Filters
-        </button>
-
-        {isAdmin ? (
-          <button
-            type="button"
-            className={styles.addShopButton}
-            onClick={() => {
-              setShopBeingEdited(null);
-              setShopPrefill(null);
-              setShopFormMode("create");
-            }}
-          >
-            + Nieuwe Review Toevoegen
-          </button>
-        ) : (
-          <button type="button" className={styles.requestButton} onClick={() => setRequestModalOpen(true)}>
-            🥪 Vraag een Review Aan
-          </button>
-        )}
+        <MapFilterPanel
+          shops={shops}
+          businessEvents={businessEvents}
+          umbrellaEvents={umbrellaEvents}
+          mobileOpen={mobileFilterOpen}
+          onOpenMobile={() => setMobileFilterOpen(true)}
+          onCloseMobile={() => setMobileFilterOpen(false)}
+          onFilteredResultsChange={(nextShops, nextEvents) => {
+            setVisibleShops(nextShops);
+            setVisibleEvents(nextEvents);
+          }}
+        />
       </div>
 
       <ShopDetailModal
@@ -165,19 +151,6 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
           setSelectedUmbrellaId(null);
           setSelectedEventId(eventId);
         }}
-      />
-
-      <RequestModal
-        open={requestModalOpen}
-        onClose={() => setRequestModalOpen(false)}
-        onSubmitted={() => {
-          setRequestModalOpen(false);
-          setRequestConfirmationOpen(true);
-        }}
-      />
-      <RequestConfirmationModal
-        open={requestConfirmationOpen}
-        onClose={() => setRequestConfirmationOpen(false)}
       />
     </div>
   );

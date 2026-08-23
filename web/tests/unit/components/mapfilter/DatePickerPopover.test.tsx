@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DatePickerPopover } from "@/components/sidebar/DatePickerPopover";
+import { DatePickerPopover } from "@/components/mapfilter/DatePickerPopover";
 import type { BusinessEvent } from "@/types/events";
 
 function makeEvent(overrides: Partial<BusinessEvent> = {}): BusinessEvent {

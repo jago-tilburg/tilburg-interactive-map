@@ -1,4 +1,3 @@
-import { AccountMenu } from "@/components/auth/AccountMenu";
 import { MapExperience } from "@/components/map/MapExperience";
 import styles from "./page.module.css";
 
@@ -7,19 +6,13 @@ export default function Home() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <span className={styles.logo}>2happies</span>
-        <AccountMenu />
-      </header>
-      <main className={styles.main}>
-        {mapsApiKey ? (
-          <MapExperience apiKey={mapsApiKey} />
-        ) : (
-          <p className={styles.missingKey}>
-            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not set — the map can&apos;t load.
-          </p>
-        )}
-      </main>
+      {mapsApiKey ? (
+        <MapExperience apiKey={mapsApiKey} />
+      ) : (
+        <p className={styles.missingKey}>
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not set — the map can&apos;t load.
+        </p>
+      )}
     </div>
   );
 }
