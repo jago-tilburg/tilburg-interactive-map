@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ShopMap } from "@/components/map/ShopMap";
+import { Sidebar } from "@/components/sidebar/Sidebar";
 import { ShopDetailModal } from "@/components/shops/ShopDetailModal";
 import { ShopFormModal } from "@/components/shops/ShopFormModal";
 import { BusinessEventDetailModal } from "@/components/events/BusinessEventDetailModal";
@@ -36,6 +37,7 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
   const [shopBeingEdited, setShopBeingEdited] = useState<Shop | null>(null);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [requestConfirmationOpen, setRequestConfirmationOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     const unsubShops = subscribeShops(setShops);
@@ -54,30 +56,50 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
 
   return (
     <div className={styles.wrapper}>
-      <ShopMap
-        apiKey={apiKey}
+      <Sidebar
         shops={shops}
         businessEvents={businessEvents}
-        onShopClick={setSelectedShopId}
-        onBusinessEventClick={setSelectedEventId}
+        umbrellaEvents={umbrellaEvents}
+        onSelectShop={setSelectedShopId}
+        onSelectEvent={setSelectedEventId}
+        mobileOpen={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
-      {isAdmin ? (
+      <div className={styles.mapArea}>
+        <ShopMap
+          apiKey={apiKey}
+          shops={shops}
+          businessEvents={businessEvents}
+          onShopClick={setSelectedShopId}
+          onBusinessEventClick={setSelectedEventId}
+        />
+
         <button
           type="button"
-          className={styles.addShopButton}
-          onClick={() => {
-            setShopBeingEdited(null);
-            setShopFormMode("create");
-          }}
+          className={styles.mobileFilterButton}
+          onClick={() => setMobileSidebarOpen(true)}
         >
-          + Nieuwe Review Toevoegen
+          🔍 Filters
         </button>
-      ) : (
-        <button type="button" className={styles.requestButton} onClick={() => setRequestModalOpen(true)}>
-          🥪 Vraag een Review Aan
-        </button>
-      )}
+
+        {isAdmin ? (
+          <button
+            type="button"
+            className={styles.addShopButton}
+            onClick={() => {
+              setShopBeingEdited(null);
+              setShopFormMode("create");
+            }}
+          >
+            + Nieuwe Review Toevoegen
+          </button>
+        ) : (
+          <button type="button" className={styles.requestButton} onClick={() => setRequestModalOpen(true)}>
+            🥪 Vraag een Review Aan
+          </button>
+        )}
+      </div>
 
       <ShopDetailModal
         open={selectedShopId !== null}

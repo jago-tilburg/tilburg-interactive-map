@@ -43,6 +43,7 @@ export interface UmbrellaEvent {
   title: string;
   description: string;
   color: string;
+  photoUrl?: string;
   startDate: string;
   endDate: string;
   createdAt: Timestamp;

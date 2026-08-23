@@ -48,6 +48,7 @@ describe("UmbrellaFormModal create mode", () => {
     await user.type(screen.getByLabelText("Startdatum"), "2026-09-01");
     await user.type(screen.getByLabelText("Einddatum"), "2026-09-10");
     await user.type(screen.getByLabelText("Omschrijving"), "Jaarlijkse kermis");
+    await user.type(screen.getByLabelText("Foto-URL"), "https://example.com/kermis.jpg");
     // Native color inputs aren't reliably typeable via userEvent.type —
     // fire the change event RTL/React expects directly instead.
     fireEvent.change(screen.getByLabelText("Kleur"), { target: { value: "#123456" } });
@@ -58,6 +59,7 @@ describe("UmbrellaFormModal create mode", () => {
         title: "Kermis 2026",
         startDate: "2026-09-01",
         description: "Jaarlijkse kermis",
+        photoUrl: "https://example.com/kermis.jpg",
       }),
     );
     expect(onClose).toHaveBeenCalled();

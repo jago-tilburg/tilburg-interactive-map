@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
@@ -166,7 +166,7 @@ describe("MapExperience", () => {
     render(<MapExperience apiKey="test-key" />);
 
     await user.click(screen.getByText("click-shop"));
-    await user.click(screen.getByLabelText("Sluiten"));
+    await user.click(within(screen.getByRole("dialog")).getByLabelText("Sluiten"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -175,7 +175,7 @@ describe("MapExperience", () => {
     render(<MapExperience apiKey="test-key" />);
 
     await user.click(screen.getByText("click-event"));
-    await user.click(screen.getByLabelText("Sluiten"));
+    await user.click(within(screen.getByRole("dialog")).getByLabelText("Sluiten"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -184,8 +184,8 @@ describe("MapExperience", () => {
     render(<MapExperience apiKey="test-key" />);
 
     await user.click(screen.getByText("click-event"));
-    await user.click(screen.getByText(/Onderdeel van Kermis/));
-    await user.click(screen.getByLabelText("Sluiten"));
+    await user.click(within(screen.getByRole("dialog")).getByText(/Onderdeel van Kermis/));
+    await user.click(within(screen.getByRole("dialog")).getByLabelText("Sluiten"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -194,10 +194,10 @@ describe("MapExperience", () => {
     render(<MapExperience apiKey="test-key" />);
 
     await user.click(screen.getByText("click-event"));
-    await user.click(screen.getByText(/Onderdeel van Kermis/));
+    await user.click(within(screen.getByRole("dialog")).getByText(/Onderdeel van Kermis/));
     expect(screen.getByRole("dialog", { name: "🎪 Kermis" })).toBeInTheDocument();
 
-    await user.click(screen.getByText(/Test Event/));
+    await user.click(within(screen.getByRole("dialog")).getByText(/Test Event/));
     expect(screen.getByRole("dialog", { name: "🍔 Test Event" })).toBeInTheDocument();
   });
 
@@ -245,6 +245,23 @@ describe("MapExperience", () => {
 
     await user.click(screen.getByText("Sluiten"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("opens the mobile filter sheet and closes it from the sidebar", async () => {
+    const user = userEvent.setup();
+    render(<MapExperience apiKey="test-key" />);
+
+    await user.click(screen.getByText("🔍 Filters"));
+    await user.click(screen.getByLabelText("Filters sluiten"));
+    expect(screen.getByText("🔍 Filters")).toBeInTheDocument();
+  });
+
+  it("selects a shop from the sidebar", async () => {
+    const user = userEvent.setup();
+    render(<MapExperience apiKey="test-key" />);
+
+    await user.click(screen.getByText("Test Shop"));
+    expect(screen.getByRole("dialog", { name: "Test Shop" })).toBeInTheDocument();
   });
 
   it("closes the request modal via cancel without submitting", async () => {

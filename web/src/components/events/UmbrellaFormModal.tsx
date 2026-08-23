@@ -17,6 +17,7 @@ function emptyForm() {
     title: "",
     description: "",
     color: "#b45309",
+    photoUrl: "",
     startDate: new Date().toISOString().slice(0, 10),
     endDate: "",
   };
@@ -31,6 +32,7 @@ export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFo
           title: editingUmbrella.title,
           description: editingUmbrella.description,
           color: editingUmbrella.color || "#b45309",
+          photoUrl: editingUmbrella.photoUrl ?? "",
           startDate: editingUmbrella.startDate,
           endDate: editingUmbrella.endDate,
         }
@@ -47,6 +49,7 @@ export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFo
             title: editingUmbrella.title,
             description: editingUmbrella.description,
             color: editingUmbrella.color || "#b45309",
+            photoUrl: editingUmbrella.photoUrl ?? "",
             startDate: editingUmbrella.startDate,
             endDate: editingUmbrella.endDate,
           }
@@ -66,6 +69,7 @@ export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFo
       title: form.title.trim(),
       description: form.description.trim(),
       color: form.color,
+      photoUrl: form.photoUrl.trim(),
       startDate: form.startDate,
       endDate: form.endDate,
     };
@@ -117,6 +121,13 @@ export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFo
           aria-label="Omschrijving"
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+        />
+        <input
+          type="url"
+          placeholder="Foto-URL (bv. https://...)"
+          aria-label="Foto-URL"
+          value={form.photoUrl}
+          onChange={(e) => setForm((f) => ({ ...f, photoUrl: e.target.value }))}
         />
         <label htmlFor="umbrella-color">Kleur</label>
         <input
