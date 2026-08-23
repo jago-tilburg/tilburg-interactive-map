@@ -1,0 +1,61 @@
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Modal } from "@/components/common/Modal";
+
+describe("Modal", () => {
+  it("renders nothing when closed", () => {
+    render(
+      <Modal open={false} onClose={vi.fn()} title="Test">
+        content
+      </Modal>,
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("renders title and children when open", () => {
+    render(
+      <Modal open onClose={vi.fn()} title="Test title">
+        <p>body content</p>
+      </Modal>,
+    );
+    expect(screen.getByRole("dialog", { name: "Test title" })).toBeInTheDocument();
+    expect(screen.getByText("body content")).toBeInTheDocument();
+  });
+
+  it("calls onClose when the overlay is clicked", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Modal open onClose={onClose} title="Test">
+        body
+      </Modal>,
+    );
+    await user.click(screen.getByRole("presentation"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call onClose when the dialog body is clicked", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Modal open onClose={onClose} title="Test">
+        body
+      </Modal>,
+    );
+    await user.click(screen.getByText("body"));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("calls onClose when the close button is clicked", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Modal open onClose={onClose} title="Test">
+        body
+      </Modal>,
+    );
+    await user.click(screen.getByLabelText("Sluiten"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

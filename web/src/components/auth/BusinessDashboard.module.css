@@ -1,0 +1,13 @@
+.email {
+  color: #555;
+}
+
+.events {
+  border-top: 1px solid #eee;
+  padding-top: 8px;
+}
+
+.empty {
+  color: #888;
+  font-size: 0.9rem;
+}

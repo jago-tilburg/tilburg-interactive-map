@@ -1,0 +1,21 @@
+.menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.accountLink {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 6px 10px;
+}
+
+.adminLink {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 6px;
+}

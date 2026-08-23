@@ -1,0 +1,28 @@
+runConfig:
+  minInstances: 0
+  maxInstances: 1
+  concurrency: 80
+  cpuAlwaysAllocated: false
+
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: tilburg-interactive-map-5710f.firebaseapp.com
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_DATABASE_URL
+    value: https://tilburg-interactive-map-5710f-default-rtdb.europe-west1.firebasedatabase.app
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: tilburg-interactive-map-5710f
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: tilburg-interactive-map-5710f.firebasestorage.app
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "451533571295"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:451533571295:web:e3efd663e42e8df0e7d56a"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    secret: firebase-api-key-staging
+    availability: [BUILD, RUNTIME]
