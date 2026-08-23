@@ -13,7 +13,9 @@ import {
   updateDoc,
   arrayUnion,
   arrayRemove,
+  onSnapshot,
   type Firestore,
+  type Unsubscribe,
 } from "firebase/firestore";
 import { getFirebaseApp } from "./app";
 import type { Visitor, Business } from "@/types/account";
@@ -25,6 +27,22 @@ export function getDb(): Firestore {
 export async function getVisitorProfile(uid: string): Promise<Visitor | null> {
   const snap = await getDoc(doc(getDb(), "visitors", uid));
   return snap.exists() ? ({ uid, ...snap.data() } as Visitor) : null;
+}
+
+// Live view of a visitor's own profile — separate from the one-time
+// getVisitorProfile() read the auth hook uses, so screens like the
+// dashboard reflect a savedEventIds change immediately instead of waiting
+// for the next auth-state refresh.
+export function subscribeVisitorProfile(
+  uid: string,
+  onChange: (visitor: Visitor | null) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    doc(getDb(), "visitors", uid),
+    (snap) => onChange(snap.exists() ? ({ uid, ...snap.data() } as Visitor) : null),
+    (error) => onError?.(error),
+  );
 }
 
 // createdAt uses serverTimestamp() instead of the monolith's Date.now() —

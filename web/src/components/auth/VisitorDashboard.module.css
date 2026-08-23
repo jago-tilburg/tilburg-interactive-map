@@ -1,10 +1,23 @@
 .email {
   font-weight: 600;
+  margin-bottom: 0.75rem;
 }
 
-.likedShops h3 {
+.section {
+  margin-bottom: 1rem;
+}
+
+.section h3 {
   font-size: 1rem;
   margin-bottom: 4px;
+}
+
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
 }
 
 .empty {

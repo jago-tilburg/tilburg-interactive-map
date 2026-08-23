@@ -23,6 +23,7 @@ vi.mock("firebase/firestore", () => ({
   getDocs: vi.fn(),
   arrayUnion: vi.fn((v) => ({ __arrayUnion: v })),
   arrayRemove: vi.fn((v) => ({ __arrayRemove: v })),
+  onSnapshot: vi.fn(),
 }));
 
 vi.mock("@/lib/firebase/app", () => ({
@@ -37,8 +38,19 @@ import {
   createBusinessProfile,
   deleteBusinessAccountCascade,
   setEventSaved,
+  subscribeVisitorProfile,
 } from "@/lib/firebase/firestore";
-import { getDoc, setDoc, deleteDoc, getDocs, writeBatch, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import {
+  getDoc,
+  setDoc,
+  deleteDoc,
+  getDocs,
+  writeBatch,
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
+  onSnapshot,
+} from "firebase/firestore";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -117,6 +129,48 @@ describe("getBusinessProfile / createBusinessProfile", () => {
       docRef("businesses/uid1"),
       { businessName: "My Shop", email: "shop@example.com", createdAt: "SERVER_TIMESTAMP" },
     );
+  });
+});
+
+describe("subscribeVisitorProfile", () => {
+  it("maps an existing doc to a Visitor with uid", () => {
+    const onChange = vi.fn();
+    vi.mocked(onSnapshot).mockImplementation((_ref: unknown, next: unknown) => {
+      (next as (snap: unknown) => void)({
+        exists: () => true,
+        data: () => ({ email: "a@b.com", displayName: "a", createdAt: "ts" }),
+      });
+      return vi.fn();
+    });
+
+    subscribeVisitorProfile("uid1", onChange);
+
+    expect(onChange).toHaveBeenCalledWith({ uid: "uid1", email: "a@b.com", displayName: "a", createdAt: "ts" });
+  });
+
+  it("maps a missing doc to null", () => {
+    const onChange = vi.fn();
+    vi.mocked(onSnapshot).mockImplementation((_ref: unknown, next: unknown) => {
+      (next as (snap: unknown) => void)({ exists: () => false });
+      return vi.fn();
+    });
+
+    subscribeVisitorProfile("uid1", onChange);
+
+    expect(onChange).toHaveBeenCalledWith(null);
+  });
+
+  it("forwards errors to onError", () => {
+    const onError = vi.fn();
+    const error = new Error("boom");
+    vi.mocked(onSnapshot).mockImplementation((_ref: unknown, _next: unknown, errCb: unknown) => {
+      (errCb as (e: Error) => void)(error);
+      return vi.fn();
+    });
+
+    subscribeVisitorProfile("uid1", vi.fn(), onError);
+
+    expect(onError).toHaveBeenCalledWith(error);
   });
 });
 

@@ -18,11 +18,13 @@ vi.mock("@/lib/firebase/auth", () => ({
 
 vi.mock("@/lib/firebase/firestore", () => ({
   createBusinessProfile: vi.fn(),
+  subscribeVisitorProfile: vi.fn(() => vi.fn()),
 }));
 
 vi.mock("@/lib/firebase/businessEvents", () => ({
   subscribeMyBusinessEvents: vi.fn(() => vi.fn()),
   subscribeAllBusinessEventsForAdmin: vi.fn(() => vi.fn()),
+  subscribeApprovedBusinessEvents: vi.fn(() => vi.fn()),
   deleteBusinessEvent: vi.fn(),
 }));
 
