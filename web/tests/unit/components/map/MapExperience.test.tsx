@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
@@ -210,6 +210,20 @@ describe("MapExperience", () => {
 
     await user.click(within(screen.getByRole("dialog")).getByText(/Test Event/));
     expect(screen.getByRole("dialog", { name: "🍔 Test Event" })).toBeInTheDocument();
+  });
+
+  it("shows skeleton rows in the sidebar until both shops and events have loaded", () => {
+    let shopsCallback: ((s: Shop[]) => void) | null = null;
+    subscribeShops.mockImplementation((onChange: (s: Shop[]) => void) => {
+      shopsCallback = onChange;
+      return vi.fn();
+    });
+
+    const { container } = render(<MapExperience apiKey="test-key" />);
+    expect(container.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThan(0);
+
+    act(() => shopsCallback?.([shop]));
+    expect(container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(0);
   });
 
   it("does not show the add-shop button for a non-admin", () => {

@@ -26,6 +26,7 @@ interface SidebarProps {
   onSelectEvent: (eventId: string) => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  loading?: boolean;
 }
 
 const SORT_LABELS: Record<SortOption, string> = {
@@ -43,6 +44,7 @@ export function Sidebar({
   onSelectEvent,
   mobileOpen,
   onCloseMobile,
+  loading = false,
 }: SidebarProps) {
   const [contentType, setContentType] = useState<ContentTypeFilter>("alles");
   const [query, setQuery] = useState("");
@@ -226,57 +228,70 @@ export function Sidebar({
       )}
 
       <div className={styles.list}>
-        {resultsCount === 0 && <p className={styles.empty}>Geen resultaten gevonden 🥲</p>}
+        {loading &&
+          Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className={styles.skeletonCard} aria-hidden="true">
+              <span className={styles.skeletonPill} />
+              <span className={styles.skeletonLines}>
+                <span className={styles.skeletonLine} />
+                <span className={styles.skeletonLine} />
+              </span>
+            </div>
+          ))}
 
-        {filteredEvents.map((ev) => {
-          const cat = categoryOf(ev.category);
-          const parentUmbrella = ev.umbrellaEventId
-            ? umbrellaEvents.find((u) => u.id === ev.umbrellaEventId)
-            : undefined;
-          return (
+        {!loading && resultsCount === 0 && <p className={styles.empty}>Geen resultaten gevonden 🥲</p>}
+
+        {!loading &&
+          filteredEvents.map((ev) => {
+            const cat = categoryOf(ev.category);
+            const parentUmbrella = ev.umbrellaEventId
+              ? umbrellaEvents.find((u) => u.id === ev.umbrellaEventId)
+              : undefined;
+            return (
+              <button
+                key={ev.id}
+                type="button"
+                className={styles.row}
+                onClick={() => {
+                  onSelectEvent(ev.id);
+                  onCloseMobile();
+                }}
+              >
+                <span className={styles.eventPill} style={{ background: parentUmbrella?.color ?? "#ec4899" }}>
+                  {cat.emoji}
+                </span>
+                <span className={styles.rowBody}>
+                  <span className={styles.rowTitle}>{ev.title}</span>
+                  <span className={styles.rowSubtitle}>{formatBusinessEventSchedule(ev)}</span>
+                  {parentUmbrella && (
+                    <span className={styles.rowUmbrellaCaption}>🏙️ Onderdeel van {parentUmbrella.title}</span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+
+        {!loading &&
+          filteredShops.map((shop) => (
             <button
-              key={ev.id}
+              key={shop.id}
               type="button"
               className={styles.row}
               onClick={() => {
-                onSelectEvent(ev.id);
+                onSelectShop(shop.id);
                 onCloseMobile();
               }}
             >
-              <span className={styles.eventPill} style={{ background: parentUmbrella?.color ?? "#ec4899" }}>
-                {cat.emoji}
+              <span className={styles.shopPill} style={{ background: ratingColor(shop.rating) }}>
+                {shop.rating.toFixed(1)}
               </span>
               <span className={styles.rowBody}>
-                <span className={styles.rowTitle}>{ev.title}</span>
-                <span className={styles.rowSubtitle}>{formatBusinessEventSchedule(ev)}</span>
-                {parentUmbrella && (
-                  <span className={styles.rowUmbrellaCaption}>🏙️ Onderdeel van {parentUmbrella.title}</span>
-                )}
+                <span className={styles.rowTitle}>{shop.name}</span>
+                <span className={styles.rowSubtitle}>{shop.address}</span>
               </span>
+              <span className={styles.pricePill}>{shop.price}</span>
             </button>
-          );
-        })}
-
-        {filteredShops.map((shop) => (
-          <button
-            key={shop.id}
-            type="button"
-            className={styles.row}
-            onClick={() => {
-              onSelectShop(shop.id);
-              onCloseMobile();
-            }}
-          >
-            <span className={styles.shopPill} style={{ background: ratingColor(shop.rating) }}>
-              {shop.rating.toFixed(1)}
-            </span>
-            <span className={styles.rowBody}>
-              <span className={styles.rowTitle}>{shop.name}</span>
-              <span className={styles.rowSubtitle}>{shop.address}</span>
-            </span>
-            <span className={styles.pricePill}>{shop.price}</span>
-          </button>
-        ))}
+          ))}
       </div>
     </aside>
   );

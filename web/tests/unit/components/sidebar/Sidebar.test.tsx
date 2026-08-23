@@ -67,7 +67,7 @@ function setup(overrides: Partial<Parameters<typeof Sidebar>[0]> = {}) {
   const onSelectShop = vi.fn();
   const onSelectEvent = vi.fn();
   const onCloseMobile = vi.fn();
-  render(
+  const { container } = render(
     <Sidebar
       shops={[shop, otherShop]}
       businessEvents={[businessEvent]}
@@ -79,7 +79,7 @@ function setup(overrides: Partial<Parameters<typeof Sidebar>[0]> = {}) {
       {...overrides}
     />,
   );
-  return { onSelectShop, onSelectEvent, onCloseMobile };
+  return { onSelectShop, onSelectEvent, onCloseMobile, container };
 }
 
 describe("Sidebar", () => {
@@ -233,6 +233,14 @@ describe("Sidebar", () => {
     setup({ businessEvents: [{ ...businessEvent, umbrellaEventId: undefined }], umbrellaEvents: [] });
     expect(screen.getByText("Kermis Rit")).toBeInTheDocument();
     expect(screen.queryByText(/Onderdeel van/)).not.toBeInTheDocument();
+  });
+
+  it("shows skeleton rows instead of the list while loading", () => {
+    const { container } = setup({ loading: true });
+    expect(screen.queryByText("Café Zuid")).not.toBeInTheDocument();
+    expect(screen.queryByText("Kermis Rit")).not.toBeInTheDocument();
+    expect(screen.queryByText("Geen resultaten gevonden 🥲")).not.toBeInTheDocument();
+    expect(container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(5);
   });
 
   it("falls back to the umbrella color when no photoUrl is set", () => {

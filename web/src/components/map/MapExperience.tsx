@@ -38,10 +38,18 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [requestConfirmationOpen, setRequestConfirmationOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [shopsLoaded, setShopsLoaded] = useState(false);
+  const [eventsLoaded, setEventsLoaded] = useState(false);
 
   useEffect(() => {
-    const unsubShops = subscribeShops(setShops);
-    const unsubEvents = subscribeApprovedBusinessEvents(setBusinessEvents);
+    const unsubShops = subscribeShops((next) => {
+      setShops(next);
+      setShopsLoaded(true);
+    });
+    const unsubEvents = subscribeApprovedBusinessEvents((next) => {
+      setBusinessEvents(next);
+      setEventsLoaded(true);
+    });
     const unsubUmbrellas = subscribeUmbrellaEvents(setUmbrellaEvents);
     return () => {
       unsubShops();
@@ -64,6 +72,7 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
         onSelectEvent={setSelectedEventId}
         mobileOpen={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
+        loading={!shopsLoaded || !eventsLoaded}
       />
 
       <div className={styles.mapArea}>
