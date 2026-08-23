@@ -84,6 +84,33 @@ describe("ShopFormModal create mode", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("pre-fills address/lat/lng from a long-press prefill", () => {
+    render(
+      <ShopFormModal
+        open
+        onClose={vi.fn()}
+        editingShop={null}
+        prefill={{ lat: 51.6, lng: 5.1, address: "Heuvelplein 1, Tilburg" }}
+      />,
+    );
+
+    expect(screen.getByDisplayValue("Heuvelplein 1, Tilburg")).toBeInTheDocument();
+    expect(screen.getByLabelText("Breedtegraad")).toHaveValue(51.6);
+    expect(screen.getByLabelText("Lengtegraad")).toHaveValue(5.1);
+  });
+
+  it("re-syncs to a new prefill when reopened for a different long-press location", () => {
+    const { rerender } = render(
+      <ShopFormModal open onClose={vi.fn()} editingShop={null} prefill={{ lat: 51.6, lng: 5.1, address: "Address A" }} />,
+    );
+    expect(screen.getByDisplayValue("Address A")).toBeInTheDocument();
+
+    rerender(
+      <ShopFormModal open onClose={vi.fn()} editingShop={null} prefill={{ lat: 51.7, lng: 5.2, address: "Address B" }} />,
+    );
+    expect(screen.getByDisplayValue("Address B")).toBeInTheDocument();
+  });
+
   it("extracts lat/lng from a Google Maps URL", async () => {
     const user = userEvent.setup();
     render(<ShopFormModal open onClose={vi.fn()} editingShop={null} />);

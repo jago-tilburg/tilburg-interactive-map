@@ -26,14 +26,17 @@ class FakeMarker {
 class FakeMap {
   zoomListener: (() => void) | null = null;
   currentZoom = 13;
+  listeners = new Map<string, (e?: unknown) => void>();
   constructor(
     public el: HTMLElement,
     public opts: Record<string, unknown>,
   ) {
     createdMaps.push(this);
   }
-  addListener(event: string, cb: () => void) {
+  addListener(event: string, cb: (e?: unknown) => void) {
     if (event === "zoom_changed") this.zoomListener = cb;
+    this.listeners.set(event, cb);
+    return { __event: event };
   }
   getZoom() {
     return this.currentZoom;
@@ -109,6 +112,7 @@ beforeEach(() => {
       Marker: FakeMarker,
       Size: FakeSize,
       Point: FakePoint,
+      event: { removeListener: vi.fn() },
     },
   } as never;
 });
@@ -328,6 +332,154 @@ describe("ShopMap", () => {
     await waitFor(() => {
       const latestIcon = createdMarkers[0].setIcon.mock.calls.at(-1)?.[0] as { scaledSize: FakeSize };
       expect(latestIcon.scaledSize.width).toBeGreaterThan(initialIcon.scaledSize.width);
+    });
+  });
+
+  describe("admin long-press-to-add", () => {
+    it("triggers onLongPressAdd after holding the map for the long-press duration", async () => {
+      vi.useFakeTimers();
+      const onLongPressAdd = vi.fn();
+      render(
+        <ShopMap
+          apiKey="test-key"
+          shops={[]}
+          businessEvents={[]}
+          onShopClick={vi.fn()}
+          onBusinessEventClick={vi.fn()}
+          isAdmin
+          onLongPressAdd={onLongPressAdd}
+        />,
+      );
+      await vi.waitFor(() => expect(createdMaps).toHaveLength(1));
+
+      const fakeLatLng = { lat: () => 51.5, lng: () => 5.09 };
+      createdMaps[0].listeners.get("mousedown")?.({ latLng: fakeLatLng });
+      vi.advanceTimersByTime(800);
+
+      expect(onLongPressAdd).toHaveBeenCalledWith(51.5, 5.09);
+      vi.useRealTimers();
+    });
+
+    it("does not trigger before the long-press duration elapses", async () => {
+      vi.useFakeTimers();
+      const onLongPressAdd = vi.fn();
+      render(
+        <ShopMap
+          apiKey="test-key"
+          shops={[]}
+          businessEvents={[]}
+          onShopClick={vi.fn()}
+          onBusinessEventClick={vi.fn()}
+          isAdmin
+          onLongPressAdd={onLongPressAdd}
+        />,
+      );
+      await vi.waitFor(() => expect(createdMaps).toHaveLength(1));
+
+      createdMaps[0].listeners.get("mousedown")?.({ latLng: { lat: () => 51.5, lng: () => 5.09 } });
+      vi.advanceTimersByTime(500);
+
+      expect(onLongPressAdd).not.toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("cancels the long-press on mouseup", async () => {
+      vi.useFakeTimers();
+      const onLongPressAdd = vi.fn();
+      render(
+        <ShopMap
+          apiKey="test-key"
+          shops={[]}
+          businessEvents={[]}
+          onShopClick={vi.fn()}
+          onBusinessEventClick={vi.fn()}
+          isAdmin
+          onLongPressAdd={onLongPressAdd}
+        />,
+      );
+      await vi.waitFor(() => expect(createdMaps).toHaveLength(1));
+
+      createdMaps[0].listeners.get("mousedown")?.({ latLng: { lat: () => 51.5, lng: () => 5.09 } });
+      createdMaps[0].listeners.get("mouseup")?.();
+      vi.advanceTimersByTime(800);
+
+      expect(onLongPressAdd).not.toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("cancels the long-press on dragstart", async () => {
+      vi.useFakeTimers();
+      const onLongPressAdd = vi.fn();
+      render(
+        <ShopMap
+          apiKey="test-key"
+          shops={[]}
+          businessEvents={[]}
+          onShopClick={vi.fn()}
+          onBusinessEventClick={vi.fn()}
+          isAdmin
+          onLongPressAdd={onLongPressAdd}
+        />,
+      );
+      await vi.waitFor(() => expect(createdMaps).toHaveLength(1));
+
+      createdMaps[0].listeners.get("mousedown")?.({ latLng: { lat: () => 51.5, lng: () => 5.09 } });
+      createdMaps[0].listeners.get("dragstart")?.();
+      vi.advanceTimersByTime(800);
+
+      expect(onLongPressAdd).not.toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("ignores a mousedown with no latLng", async () => {
+      vi.useFakeTimers();
+      const onLongPressAdd = vi.fn();
+      render(
+        <ShopMap
+          apiKey="test-key"
+          shops={[]}
+          businessEvents={[]}
+          onShopClick={vi.fn()}
+          onBusinessEventClick={vi.fn()}
+          isAdmin
+          onLongPressAdd={onLongPressAdd}
+        />,
+      );
+      await vi.waitFor(() => expect(createdMaps).toHaveLength(1));
+
+      createdMaps[0].listeners.get("mousedown")?.({});
+      vi.advanceTimersByTime(800);
+
+      expect(onLongPressAdd).not.toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("does not attach long-press listeners for a non-admin", async () => {
+      render(
+        <ShopMap apiKey="test-key" shops={[]} businessEvents={[]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+      );
+      await waitFor(() => expect(createdMaps).toHaveLength(1));
+
+      expect(createdMaps[0].listeners.has("mousedown")).toBe(false);
+    });
+
+    it("removes the long-press listeners on unmount", async () => {
+      const onLongPressAdd = vi.fn();
+      const { unmount } = render(
+        <ShopMap
+          apiKey="test-key"
+          shops={[]}
+          businessEvents={[]}
+          onShopClick={vi.fn()}
+          onBusinessEventClick={vi.fn()}
+          isAdmin
+          onLongPressAdd={onLongPressAdd}
+        />,
+      );
+      await waitFor(() => expect(createdMaps).toHaveLength(1));
+
+      unmount();
+      expect(window.google.maps.event.removeListener).toHaveBeenCalledTimes(3);
     });
   });
 });

@@ -13,15 +13,16 @@ interface ShopFormModalProps {
   open: boolean;
   onClose: () => void;
   editingShop: Shop | null;
+  prefill?: { lat: number; lng: number; address: string } | null;
 }
 
-function emptyForm() {
+function emptyForm(prefill?: { lat: number; lng: number; address: string } | null) {
   return {
     name: "",
-    address: "",
+    address: prefill?.address ?? "",
     mapUrl: "",
-    lat: "51.5555",
-    lng: "5.0913",
+    lat: prefill ? String(prefill.lat) : "51.5555",
+    lng: prefill ? String(prefill.lng) : "5.0913",
     rating: "8.0",
     price: "€€",
     photoUrl: "",
@@ -53,17 +54,19 @@ function formFromShop(shop: Shop) {
   };
 }
 
-export function ShopFormModal({ open, onClose, editingShop }: ShopFormModalProps) {
+export function ShopFormModal({ open, onClose, editingShop, prefill = null }: ShopFormModalProps) {
   const { showToast } = useToast();
-  const formIdentity = !open ? null : (editingShop?.id ?? "new");
+  const formIdentity = !open
+    ? null
+    : (editingShop?.id ?? (prefill ? `prefill-${prefill.lat}-${prefill.lng}` : "new"));
   const [renderedIdentity, setRenderedIdentity] = useState(formIdentity);
-  const [form, setForm] = useState(() => (editingShop ? formFromShop(editingShop) : emptyForm()));
+  const [form, setForm] = useState(() => (editingShop ? formFromShop(editingShop) : emptyForm(prefill)));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   if (open && formIdentity !== renderedIdentity) {
     setRenderedIdentity(formIdentity);
-    setForm(editingShop ? formFromShop(editingShop) : emptyForm());
+    setForm(editingShop ? formFromShop(editingShop) : emptyForm(prefill));
     setError(null);
   }
 

@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { subscribeShops } from "@/lib/firebase/shops";
 import { subscribeApprovedBusinessEvents } from "@/lib/firebase/businessEvents";
 import { subscribeUmbrellaEvents } from "@/lib/firebase/umbrellaEvents";
+import { reverseGeocode } from "@/lib/maps/reverseGeocode";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./MapExperience.module.css";
@@ -35,6 +36,7 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
   const [selectedUmbrellaId, setSelectedUmbrellaId] = useState<string | null>(null);
   const [shopFormMode, setShopFormMode] = useState<"closed" | "create" | "edit">("closed");
   const [shopBeingEdited, setShopBeingEdited] = useState<Shop | null>(null);
+  const [shopPrefill, setShopPrefill] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [requestConfirmationOpen, setRequestConfirmationOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -57,6 +59,13 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
       unsubUmbrellas();
     };
   }, []);
+
+  async function handleLongPressAdd(lat: number, lng: number) {
+    const address = await reverseGeocode(lat, lng);
+    setShopPrefill({ lat, lng, address });
+    setShopBeingEdited(null);
+    setShopFormMode("create");
+  }
 
   const selectedShop = shops.find((s) => s.id === selectedShopId) ?? null;
   const selectedEvent = businessEvents.find((e) => e.id === selectedEventId) ?? null;
@@ -83,6 +92,8 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
           umbrellaEvents={umbrellaEvents}
           onShopClick={setSelectedShopId}
           onBusinessEventClick={setSelectedEventId}
+          isAdmin={isAdmin}
+          onLongPressAdd={handleLongPressAdd}
         />
 
         <button
@@ -99,6 +110,7 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
             className={styles.addShopButton}
             onClick={() => {
               setShopBeingEdited(null);
+              setShopPrefill(null);
               setShopFormMode("create");
             }}
           >
@@ -118,14 +130,19 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
         onEditRequested={(shop) => {
           setSelectedShopId(null);
           setShopBeingEdited(shop);
+          setShopPrefill(null);
           setShopFormMode("edit");
         }}
       />
 
       <ShopFormModal
         open={shopFormMode !== "closed"}
-        onClose={() => setShopFormMode("closed")}
+        onClose={() => {
+          setShopFormMode("closed");
+          setShopPrefill(null);
+        }}
         editingShop={shopFormMode === "edit" ? shopBeingEdited : null}
+        prefill={shopFormMode === "create" ? shopPrefill : null}
       />
 
       <BusinessEventDetailModal

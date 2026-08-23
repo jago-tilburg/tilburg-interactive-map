@@ -31,6 +31,8 @@ const CUSTOM_MAP_STYLE: google.maps.MapTypeStyle[] = [
   { featureType: "water", elementType: "all", stylers: [{ visibility: "on" }, { color: "#acbcc9" }] },
 ];
 
+const LONG_PRESS_MS = 800;
+
 interface ShopMapProps {
   apiKey: string;
   shops: Shop[];
@@ -38,6 +40,8 @@ interface ShopMapProps {
   umbrellaEvents?: UmbrellaEvent[];
   onShopClick: (shopId: number) => void;
   onBusinessEventClick: (eventId: string) => void;
+  isAdmin?: boolean;
+  onLongPressAdd?: (lat: number, lng: number) => void;
 }
 
 export function ShopMap({
@@ -47,6 +51,8 @@ export function ShopMap({
   umbrellaEvents = [],
   onShopClick,
   onBusinessEventClick,
+  isAdmin = false,
+  onLongPressAdd,
 }: ShopMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -166,6 +172,40 @@ export function ShopMap({
       markers.set(event.id, marker);
     }
   }, [ready, businessEvents, umbrellaEvents, zoom, onBusinessEventClick]);
+
+  // Admin-only long-press-to-add: hold the map (not a marker) for 800ms to
+  // trigger onLongPressAdd at that point. Uses the Maps API's own mouse
+  // events (event.latLng is pre-resolved) rather than raw DOM + projection
+  // math. Cancelled by a drag (map pan) so it never fires mid-pan.
+  useEffect(() => {
+    if (!ready || !mapRef.current || !isAdmin || !onLongPressAdd) return;
+    const map = mapRef.current;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    function clear() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    }
+
+    const downListener = map.addListener("mousedown", (e: google.maps.MapMouseEvent) => {
+      if (!e.latLng) return;
+      const lat = e.latLng.lat();
+      const lng = e.latLng.lng();
+      clear();
+      timer = setTimeout(() => onLongPressAdd(lat, lng), LONG_PRESS_MS);
+    });
+    const upListener = map.addListener("mouseup", clear);
+    const dragListener = map.addListener("dragstart", clear);
+
+    return () => {
+      clear();
+      google.maps.event.removeListener(downListener);
+      google.maps.event.removeListener(upListener);
+      google.maps.event.removeListener(dragListener);
+    };
+  }, [ready, isAdmin, onLongPressAdd]);
 
   return (
     <div className={styles.wrapper}>

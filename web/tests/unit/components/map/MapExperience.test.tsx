@@ -17,15 +17,23 @@ vi.mock("@/components/map/ShopMap", () => ({
   ShopMap: ({
     onShopClick,
     onBusinessEventClick,
+    onLongPressAdd,
   }: {
     onShopClick: (id: number) => void;
     onBusinessEventClick: (id: string) => void;
+    onLongPressAdd?: (lat: number, lng: number) => void;
   }) => (
     <div>
       <button onClick={() => onShopClick(9001)}>click-shop</button>
       <button onClick={() => onBusinessEventClick("evt1")}>click-event</button>
+      <button onClick={() => onLongPressAdd?.(51.6, 5.1)}>trigger-long-press</button>
     </div>
   ),
+}));
+
+const reverseGeocode = vi.fn();
+vi.mock("@/lib/maps/reverseGeocode", () => ({
+  reverseGeocode: (...a: unknown[]) => reverseGeocode(...a),
 }));
 
 const shop: Shop = {
@@ -153,6 +161,7 @@ beforeEach(() => {
     return vi.fn();
   });
   submitRequest.mockResolvedValue(undefined);
+  reverseGeocode.mockResolvedValue("Heuvelplein 1, Tilburg");
 });
 
 describe("MapExperience", () => {
@@ -229,6 +238,32 @@ describe("MapExperience", () => {
   it("does not show the add-shop button for a non-admin", () => {
     render(<MapExperience apiKey="test-key" />);
     expect(screen.queryByText("+ Nieuwe Review Toevoegen")).not.toBeInTheDocument();
+  });
+
+  it("opens a pre-filled create-shop form after an admin long-presses the map", async () => {
+    mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: true });
+    const user = userEvent.setup();
+    render(<MapExperience apiKey="test-key" />);
+
+    await user.click(screen.getByText("trigger-long-press"));
+    expect(reverseGeocode).toHaveBeenCalledWith(51.6, 5.1);
+
+    expect(await screen.findByDisplayValue("Heuvelplein 1, Tilburg")).toBeInTheDocument();
+    expect(screen.getByLabelText("Breedtegraad")).toHaveValue(51.6);
+    expect(screen.getByLabelText("Lengtegraad")).toHaveValue(5.1);
+  });
+
+  it("clears the long-press prefill when the create-shop form is opened via the button instead", async () => {
+    mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: true });
+    const user = userEvent.setup();
+    render(<MapExperience apiKey="test-key" />);
+
+    await user.click(screen.getByText("trigger-long-press"));
+    expect(await screen.findByDisplayValue("Heuvelplein 1, Tilburg")).toBeInTheDocument();
+    await user.click(screen.getByText("Annuleren"));
+
+    await user.click(screen.getByText("+ Nieuwe Review Toevoegen"));
+    expect(screen.queryByDisplayValue("Heuvelplein 1, Tilburg")).not.toBeInTheDocument();
   });
 
   it("lets an admin open the create-shop form, and edit from the detail modal", async () => {
