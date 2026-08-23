@@ -2,8 +2,9 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   buildDropIconDataUrl,
   buildShopIconDataUrl,
-  computeEventCardWidth,
+  computeMarkerSize,
   buildEventCardIconDataUrl,
+  computeIconScaledSize,
   fetchEventPhotoDataUrl,
   shadeColor,
 } from "@/lib/maps/markerIcons";
@@ -39,32 +40,32 @@ describe("buildShopIconDataUrl", () => {
   });
 });
 
-describe("computeEventCardWidth", () => {
-  it("returns the base width at the base zoom", () => {
-    expect(computeEventCardWidth(14)).toBe(49);
+describe("computeMarkerSize", () => {
+  it("returns the base width/height at the base zoom", () => {
+    // aspectRatio 1.5 * baseWidth 49 = 73.5, rounded to 74
+    expect(computeMarkerSize(14)).toEqual({ w: 49, h: 74 });
   });
 
   it("grows with zoom", () => {
-    expect(computeEventCardWidth(16)).toBeGreaterThan(computeEventCardWidth(14));
+    expect(computeMarkerSize(16).w).toBeGreaterThan(computeMarkerSize(14).w);
   });
 
   it("shrinks with zoom", () => {
-    expect(computeEventCardWidth(10)).toBeLessThan(computeEventCardWidth(14));
+    expect(computeMarkerSize(10).w).toBeLessThan(computeMarkerSize(14).w);
   });
 
   it("clamps to the minimum width", () => {
-    expect(computeEventCardWidth(0)).toBe(28);
+    expect(computeMarkerSize(0)).toEqual({ w: 28, h: 42 });
   });
 
   it("clamps to the maximum width", () => {
-    expect(computeEventCardWidth(25)).toBe(200);
+    expect(computeMarkerSize(25)).toEqual({ w: 200, h: 300 });
   });
 });
 
 describe("buildEventCardIconDataUrl", () => {
   it("embeds the photo as a clipped <image> when a photoUrl is given", () => {
-    const { url, height } = buildEventCardIconDataUrl({
-      width: 49,
+    const { url, cardW, cardH } = buildEventCardIconDataUrl({
       photoUrl: "https://example.com/photo.jpg",
       categoryEmoji: "🍔",
       borderColors: ["#22c55e", "#ff6b35"],
@@ -74,12 +75,16 @@ describe("buildEventCardIconDataUrl", () => {
     expect(svg).toContain("https://example.com/photo.jpg");
     expect(svg).toContain("#22c55e");
     expect(svg).toContain("#ff6b35");
-    expect(height).toBeGreaterThan(0);
+    // cardW/cardH are the fixed internal coordinate-space size (60 wide,
+    // bodyBottom 66 + default pointerHeight 18 + a 4-unit buffer) — not
+    // derived from any per-call width, since the actual on-screen size is
+    // applied afterwards via computeIconScaledSize.
+    expect(cardW).toBe(60);
+    expect(cardH).toBe(88);
   });
 
   it("falls back to a category-emoji placeholder when there is no photoUrl", () => {
     const { url } = buildEventCardIconDataUrl({
-      width: 49,
       categoryEmoji: "🎵",
       borderColors: ["#22c55e", "#ff6b35"],
     });
@@ -88,49 +93,67 @@ describe("buildEventCardIconDataUrl", () => {
     expect(svg).toContain("🎵");
   });
 
-  it("animates the border gradient's rotation", () => {
+  it("splits the border gradient into two clustered stops around the prototype's midpoint/spread (48 ± 6.5)", () => {
     const { url } = buildEventCardIconDataUrl({
-      width: 49,
       categoryEmoji: "🍔",
       borderColors: ["#22c55e", "#ff6b35"],
     });
     const svg = decodeURIComponent(url);
-    expect(svg).toContain('<animateTransform attributeName="gradientTransform" type="rotate"');
+    expect(svg).toContain('offset="41.5%"');
+    expect(svg).toContain('offset="54.5%"');
   });
 
-  it("adds no glow when happeningNow is false or omitted", () => {
+  it("animates the border gradient's rotation at the prototype's 2.5s duration", () => {
     const { url } = buildEventCardIconDataUrl({
-      width: 49,
+      categoryEmoji: "🍔",
+      borderColors: ["#22c55e", "#ff6b35"],
+    });
+    const svg = decodeURIComponent(url);
+    expect(svg).toContain('<animateTransform attributeName="transform" type="rotate"');
+    expect(svg).toContain('dur="2.5s"');
+  });
+
+  it("adds no glow, and no extra canvas padding, when happeningNow is false or omitted", () => {
+    const { url, contentW, contentH, cardW, cardH } = buildEventCardIconDataUrl({
       categoryEmoji: "🍔",
       borderColors: ["#22c55e", "#ff6b35"],
       happeningNow: false,
     });
     const svg = decodeURIComponent(url);
-    expect(svg).not.toContain("cardGlow");
-    expect(svg).not.toContain("glowBlur");
+    expect(svg).not.toContain("feGaussianBlur");
+    expect(svg).not.toContain('<animate attributeName="opacity"');
+    expect(contentW).toBe(cardW);
+    expect(contentH).toBe(cardH);
   });
 
-  it("adds a pulsing glow when happeningNow is true", () => {
-    const { url } = buildEventCardIconDataUrl({
-      width: 49,
+  it("adds a pulsing glow, padded by glowPad (27) on every side, when happeningNow is true", () => {
+    const { url, contentW, contentH, cardW, cardH } = buildEventCardIconDataUrl({
       categoryEmoji: "🍔",
       borderColors: ["#22c55e", "#ff6b35"],
       happeningNow: true,
     });
     const svg = decodeURIComponent(url);
-    expect(svg).toContain("cardGlow");
-    expect(svg).toContain("glowBlur");
     expect(svg).toContain("feGaussianBlur");
-    expect(svg).toContain('<animate attributeName="opacity"');
+    expect(svg).toContain('stdDeviation="12"');
+    expect(svg).toContain('<animate attributeName="opacity" values="0;1;0"');
+    expect(contentW).toBe(cardW + 54);
+    expect(contentH).toBe(cardH + 54);
+  });
+});
+
+describe("computeIconScaledSize", () => {
+  it("scales content/card size proportionally and anchors at the pointer tip when there is no glow padding", () => {
+    const meta = { url: "", cardW: 60, cardH: 88, contentW: 60, contentH: 88 };
+    const { scaledSize, anchor } = computeIconScaledSize(meta, 49, 74);
+    expect(scaledSize).toEqual({ width: 49, height: 74 });
+    expect(anchor).toEqual({ x: 24.5, y: 74 });
   });
 
-  it("computes height from width using the prototype's 1.5 aspect ratio", () => {
-    const { height } = buildEventCardIconDataUrl({
-      width: 100,
-      categoryEmoji: "🍔",
-      borderColors: ["#22c55e", "#ff6b35"],
-    });
-    expect(height).toBe(150);
+  it("shifts the anchor up to account for glow padding above and below the card", () => {
+    const meta = { url: "", cardW: 60, cardH: 88, contentW: 114, contentH: 142 };
+    const { scaledSize, anchor } = computeIconScaledSize(meta, 60, 88);
+    expect(scaledSize).toEqual({ width: 114, height: 142 });
+    expect(anchor).toEqual({ x: 57, y: 115 });
   });
 });
 

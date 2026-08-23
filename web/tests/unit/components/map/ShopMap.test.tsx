@@ -322,7 +322,7 @@ describe("ShopMap", () => {
 
     await waitFor(() => expect(createdMarkers).toHaveLength(1));
     const icon = createdMarkers[0].opts.icon as { url: string };
-    expect(decodeURIComponent(icon.url)).toContain("cardGlow");
+    expect(decodeURIComponent(icon.url)).toContain("feGaussianBlur");
   });
 
   it("does not mark an event outside its date range as happening now", async () => {
@@ -333,7 +333,7 @@ describe("ShopMap", () => {
 
     await waitFor(() => expect(createdMarkers).toHaveLength(1));
     const icon = createdMarkers[0].opts.icon as { url: string };
-    expect(decodeURIComponent(icon.url)).not.toContain("cardGlow");
+    expect(decodeURIComponent(icon.url)).not.toContain("feGaussianBlur");
   });
 
   it("rebuilds event marker icons every 60s to reflect happening-now transitions", async () => {

@@ -6,8 +6,9 @@ import {
   buildShopIconDataUrl,
   DROP_ICON_SIZE,
   DROP_ICON_ANCHOR,
-  computeEventCardWidth,
+  computeMarkerSize,
   buildEventCardIconDataUrl,
+  computeIconScaledSize,
   fetchEventPhotoDataUrl,
   shadeColor,
   DEFAULT_CARD_BORDER,
@@ -143,7 +144,7 @@ export function ShopMap({
     const markers = eventMarkersRef.current;
     const photoDataCache = eventPhotoDataRef.current;
     const currentIds = new Set(businessEvents.map((e) => e.id));
-    const width = computeEventCardWidth(zoom);
+    const { w, h } = computeMarkerSize(zoom);
 
     for (const [id, marker] of markers) {
       if (!currentIds.has(id)) {
@@ -159,17 +160,17 @@ export function ShopMap({
       const borderColors: [string, string] = parentUmbrella
         ? [parentUmbrella.color, shadeColor(parentUmbrella.color, -30)]
         : DEFAULT_CARD_BORDER;
-      const { url, height } = buildEventCardIconDataUrl({
-        width,
+      const iconMeta = buildEventCardIconDataUrl({
         photoUrl,
         categoryEmoji: categoryOf(event.category).emoji,
         borderColors,
         happeningNow: isEventHappeningNow(event, now),
       });
+      const { scaledSize, anchor } = computeIconScaledSize(iconMeta, w, h);
       return {
-        url,
-        scaledSize: new google.maps.Size(width, height),
-        anchor: new google.maps.Point(width / 2, height),
+        url: iconMeta.url,
+        scaledSize: new google.maps.Size(scaledSize.width, scaledSize.height),
+        anchor: new google.maps.Point(anchor.x, anchor.y),
       };
     }
 
