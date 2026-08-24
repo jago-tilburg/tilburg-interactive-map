@@ -17,13 +17,16 @@ export function AccountChooserModal({
   onChooseBusiness,
 }: AccountChooserModalProps) {
   return (
-    <Modal open={open} onClose={onClose} title="Wie ben je?">
-      <button type="button" className={styles.choiceButton} onClick={onChooseVisitor}>
-        👤 Ik ben bezoeker
-      </button>
-      <button type="button" className={styles.choiceButton} onClick={onChooseBusiness}>
-        🎉 Ik ben Event Owner
-      </button>
+    <Modal open={open} onClose={onClose} title="👋 Account">
+      <p className={styles.subtitle}>Waarvoor wil je inloggen?</p>
+      <div className={styles.choices}>
+        <button type="button" className={`${styles.choiceButton} ${styles.visitorChoice}`} onClick={onChooseVisitor}>
+          👤 Ik ben bezoeker
+        </button>
+        <button type="button" className={`${styles.choiceButton} ${styles.businessChoice}`} onClick={onChooseBusiness}>
+          🎉 Ik ben Event Owner
+        </button>
+      </div>
       <button type="button" className={styles.cancelButton} onClick={onClose}>
         Annuleren
       </button>

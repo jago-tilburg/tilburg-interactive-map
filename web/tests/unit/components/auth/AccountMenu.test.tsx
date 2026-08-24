@@ -174,7 +174,7 @@ describe("AccountMenu label + entry point priority", () => {
     expect(screen.getByText("👤 Account")).toBeInTheDocument();
 
     await user.click(screen.getByText("👤 Account"));
-    expect(screen.getByRole("dialog", { name: "Wie ben je?" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "👋 Account" })).toBeInTheDocument();
   });
 
   it("closes the account chooser modal when cancelled", async () => {
@@ -183,7 +183,7 @@ describe("AccountMenu label + entry point priority", () => {
     render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("👤 Account"));
-    expect(screen.getByRole("dialog", { name: "Wie ben je?" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "👋 Account" })).toBeInTheDocument();
 
     await user.click(screen.getByText("Annuleren"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
