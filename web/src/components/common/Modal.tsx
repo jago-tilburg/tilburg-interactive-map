@@ -8,6 +8,12 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  // "detail" mirrors the prototype's #shopDetailModal treatment (shared by
+  // shop/business-event/umbrella-event detail views): full-screen,
+  // edge-to-edge on mobile instead of a small floating card, since tapping a
+  // map marker is the app's most common mobile interaction and merits it.
+  // Every other modal (forms, auth, menus) stays the plain floating card.
+  variant?: "default" | "detail";
 }
 
 const SWIPE_CLOSE_THRESHOLD_PX = 110;
@@ -17,7 +23,7 @@ const SWIPE_CLOSE_THRESHOLD_PX = 110;
 // mirroring the prototype's setupShopDetailSwipeToClose(). Scoped to the
 // header rather than the whole dialog so it never fights with scrolling a
 // long body (comment lists, forms, etc).
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({ open, onClose, title, children, variant = "default" }: ModalProps) {
   const [dragOffset, setDragOffset] = useState(0);
   const dragStartYRef = useRef<number | null>(null);
 
@@ -40,9 +46,13 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
   }
 
   return (
-    <div className={styles.overlay} role="presentation" onClick={onClose}>
+    <div
+      className={`${styles.overlay} ${variant === "detail" ? styles.detailOverlay : ""}`}
+      role="presentation"
+      onClick={onClose}
+    >
       <div
-        className={styles.dialog}
+        className={`${styles.dialog} ${variant === "detail" ? styles.detailDialog : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}

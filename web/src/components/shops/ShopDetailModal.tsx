@@ -206,7 +206,12 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
 
   return (
     <>
-      <Modal open={open && !pendingCommentText && !reviewModalOpen} onClose={onClose} title={shop.name}>
+      <Modal
+        open={open && !pendingCommentText && !reviewModalOpen}
+        onClose={onClose}
+        title={shop.name}
+        variant="detail"
+      >
         <button
           type="button"
           className={styles.address}

@@ -24,7 +24,7 @@ export function UmbrellaEventDetailModal({
   const children = approvedBusinessEvents.filter((ev) => ev.umbrellaEventId === umbrella.id);
 
   return (
-    <Modal open={open} onClose={onClose} title={`🎪 ${umbrella.title}`}>
+    <Modal open={open} onClose={onClose} title={`🎪 ${umbrella.title}`} variant="detail">
       <p className={styles.dates}>
         🗓️ {umbrella.startDate} t/m {umbrella.endDate}
       </p>

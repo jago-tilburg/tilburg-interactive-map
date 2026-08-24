@@ -29,3 +29,10 @@
   color: #78716c;
   font-size: 0.8125rem;
 }
+
+@media (max-width: 768px) {
+  .star {
+    font-size: 1.4rem !important;
+    padding: 0.15rem;
+  }
+}

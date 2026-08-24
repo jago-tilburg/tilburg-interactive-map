@@ -139,3 +139,30 @@
   color: #57534e;
   margin-top: 0.4rem;
 }
+
+@media (max-width: 768px) {
+  .photo,
+  .photoPlaceholder {
+    aspect-ratio: 16 / 9;
+  }
+
+  /* "sticky" proved unreliable inside the mobile sheet — Safari's dynamic
+     address bar (100dvh changing value while scrolling) sometimes stuck it
+     partway down instead of at the true end. position:fixed against the
+     (full-screen) viewport is stable regardless of scroll position; .shell
+     reserves space so the last bit of content doesn't hide behind it. */
+  .ctaBar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+    z-index: 5;
+  }
+
+  .shell {
+    padding-bottom: 5.5rem;
+  }
+}

@@ -109,4 +109,23 @@
     height: 44px;
     font-size: 1.4rem;
   }
+
+  /* Full-screen, edge-to-edge on mobile — mirrors #shopDetailModal in the
+     prototype (shop/business-event/umbrella-event detail views). */
+  .overlay.detailOverlay {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .dialog.detailDialog {
+    max-width: 100%;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    margin: 0;
+    padding: 1.25rem 1rem;
+    padding-top: calc(1.25rem + env(safe-area-inset-top, 0px));
+  }
 }

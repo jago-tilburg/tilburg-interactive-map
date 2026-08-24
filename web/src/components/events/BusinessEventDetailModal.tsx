@@ -90,7 +90,8 @@ export function BusinessEventDetailModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={`${cat.emoji} ${event.title}`}>
+    <Modal open={open} onClose={onClose} title={`${cat.emoji} ${event.title}`} variant="detail">
+      <div className={styles.shell}>
       {event.photoUrl ? (
         <img src={event.photoUrl} alt={event.title} className={styles.photo} />
       ) : (
@@ -136,6 +137,7 @@ export function BusinessEventDetailModal({
           ))}
         </div>
       )}
+      </div>
 
       <div className={styles.ctaBar}>
         <button type="button" className={saved ? styles.saveActive : styles.save} onClick={handleToggleSave}>
