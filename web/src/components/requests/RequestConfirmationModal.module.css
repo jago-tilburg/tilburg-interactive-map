@@ -14,10 +14,19 @@
 
 .closeButton {
   width: 100%;
-  background: #1a73e8;
-  color: #fff;
+  background: #ff6b35;
+  color: white;
   border: none;
-  border-radius: 6px;
-  padding: 10px;
+  border-radius: 10px;
+  padding: 0.875rem;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 1rem;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.closeButton:hover {
+  background: #e55a28;
+  transform: scale(1.02);
 }
