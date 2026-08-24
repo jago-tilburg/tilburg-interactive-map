@@ -12,8 +12,9 @@ vi.mock("@/lib/firebase/firestore", () => ({
 }));
 
 const suppressRef = { current: false };
+const refreshCurrentBusiness = vi.fn();
 vi.mock("@/hooks/useAuth", () => ({
-  useAuth: () => ({ suppressAutoProfileLoadRef: suppressRef }),
+  useAuth: () => ({ suppressAutoProfileLoadRef: suppressRef, refreshCurrentBusiness }),
 }));
 
 import { BusinessAuthModal } from "@/components/auth/BusinessAuthModal";
@@ -23,6 +24,7 @@ import { createBusinessProfile } from "@/lib/firebase/firestore";
 beforeEach(() => {
   vi.clearAllMocks();
   suppressRef.current = false;
+  refreshCurrentBusiness.mockResolvedValue(undefined);
 });
 
 describe("BusinessAuthModal login step", () => {
@@ -158,5 +160,10 @@ describe("BusinessAuthModal register step", () => {
     expect(createBusinessProfile).toHaveBeenCalledWith("new-uid", "My Shop", "biz@example.com");
     expect(suppressRef.current).toBe(false);
     expect(onClose).toHaveBeenCalled();
+    // Regression: without this, currentBusiness stayed null for the rest
+    // of the session after a real registration — nothing else re-triggers
+    // a profile fetch once suppressAutoProfileLoadRef goes back to false,
+    // since the auth-state listener only reacts to actual auth changes.
+    expect(refreshCurrentBusiness).toHaveBeenCalledWith("new-uid");
   });
 });

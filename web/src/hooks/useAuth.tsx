@@ -35,7 +35,7 @@ interface AuthState {
   // Re-fetches the signed-in business's own profile doc — currentBusiness is
   // a one-time read (not a live subscription), so a Settings-tab save needs
   // this to make the update visible without a full re-login.
-  refreshCurrentBusiness: () => Promise<void>;
+  refreshCurrentBusiness: (uid?: string) => Promise<void>;
   loading: boolean;
   // Registration flows set this before writing their own profile doc, and
   // reset it in `finally`, so the auth-state listener below doesn't race a
@@ -133,9 +133,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsub();
   }, [showToast]);
 
-  async function refreshCurrentBusiness() {
-    if (!currentUser) return;
-    const biz = await getBusinessProfile(currentUser.uid);
+  // Accepts an explicit uid so callers right after registration (where
+  // `currentUser` in this context may not have propagated from the
+  // auth-state listener yet — that's an async React state update racing
+  // this call) don't silently no-op. Settings-tab-style callers (already
+  // fully signed in, currentUser definitely set) can omit it.
+  async function refreshCurrentBusiness(uid?: string) {
+    const targetUid = uid ?? currentUser?.uid;
+    if (!targetUid) return;
+    const biz = await getBusinessProfile(targetUid);
     setCurrentBusiness(biz);
   }
 

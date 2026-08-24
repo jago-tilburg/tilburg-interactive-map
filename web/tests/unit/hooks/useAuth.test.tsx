@@ -66,6 +66,7 @@ function TestConsumer() {
       <span data-testid="business">{currentBusiness?.businessName ?? "none"}</span>
       <button onClick={() => { suppressAutoProfileLoadRef.current = true; }}>suppress</button>
       <button onClick={() => refreshCurrentBusiness()}>refresh-business</button>
+      <button onClick={() => refreshCurrentBusiness("fresh-uid")}>refresh-business-with-uid</button>
     </div>
   );
 }
@@ -313,11 +314,33 @@ describe("refreshCurrentBusiness", () => {
     expect(getBusinessProfile).toHaveBeenLastCalledWith("uid-1");
   });
 
-  it("does nothing when there is no signed-in user", async () => {
+  it("does nothing when there is no signed-in user and no uid argument is given", async () => {
     const user = userEvent.setup();
     captureAuthCallback();
     await user.click(screen.getByText("refresh-business"));
     expect(getBusinessProfile).not.toHaveBeenCalled();
+  });
+
+  // Regression test for a real bug found live via a pen-test: right after
+  // registration, currentUser in this context may not have propagated from
+  // the auth-state listener yet (an async React state update racing the
+  // caller) — BusinessAuthModal used to call refreshCurrentBusiness() with
+  // no argument, which silently no-op'd via the branch above, leaving
+  // currentBusiness null even though registration fully succeeded. Passing
+  // the uid explicitly (now what BusinessAuthModal does) must work
+  // regardless of whether currentUser has been set yet.
+  it("works with an explicit uid even when currentUser hasn't propagated yet", async () => {
+    vi.mocked(getBusinessProfile).mockResolvedValue({
+      uid: "fresh-uid",
+      businessName: "Brand New Business",
+      email: "new@example.com",
+      createdAt: null as never,
+    });
+    const user = userEvent.setup();
+    captureAuthCallback(); // no fire() — simulates currentUser still null
+    await user.click(screen.getByText("refresh-business-with-uid"));
+    await waitFor(() => expect(screen.getByTestId("business")).toHaveTextContent("Brand New Business"));
+    expect(getBusinessProfile).toHaveBeenCalledWith("fresh-uid");
   });
 });
 

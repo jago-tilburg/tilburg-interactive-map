@@ -36,7 +36,7 @@ function businessAuthErrorMessage(error: unknown): string {
 }
 
 export function BusinessAuthModal({ open, onClose }: BusinessAuthModalProps) {
-  const { suppressAutoProfileLoadRef } = useAuth();
+  const { suppressAutoProfileLoadRef, refreshCurrentBusiness } = useAuth();
   const [step, setStep] = useState<Step>("login");
   const [businessName, setBusinessName] = useState("");
   const [email, setEmail] = useState("");
@@ -87,6 +87,16 @@ export function BusinessAuthModal({ open, onClose }: BusinessAuthModalProps) {
     try {
       const cred = await registerBusiness(email, password);
       await createBusinessProfile(cred.user.uid, businessName, email);
+      // Suppressing the auth-state listener's own auto-load above (so it
+      // doesn't race this profile creation) means nothing else re-fetches
+      // it afterward — the listener only runs again on the NEXT auth-state
+      // change, which for a fresh registration doesn't happen until a
+      // later sign-out/sign-in or page reload. Without this, currentBusiness
+      // stayed null for the rest of the session even though registration
+      // fully succeeded (confirmed live: real account created in both
+      // Firebase Auth and Firestore, but the header kept showing "Account"
+      // instead of the business name until a manual reload).
+      await refreshCurrentBusiness(cred.user.uid);
       handleClose();
     } catch (err) {
       setError(businessAuthErrorMessage(err));
