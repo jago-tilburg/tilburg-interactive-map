@@ -120,15 +120,17 @@ describe("MapFilterPanel", () => {
     expect(screen.getByText("3 resultaten")).toBeInTheDocument();
   });
 
-  it("filters by the umbrella pill, excluding events not linked to it", async () => {
+  it("filters by the umbrella pill, excluding events not linked to it and hiding shops entirely", async () => {
     const unrelatedEvent: BusinessEvent = { ...businessEvent, id: "evt2", umbrellaEventId: undefined };
     const user = userEvent.setup();
     setup({ businessEvents: [businessEvent, unrelatedEvent] });
 
     expect(screen.getByText("4 resultaten")).toBeInTheDocument();
 
+    // A groot event never contains shops, so selecting one hides both the
+    // 2 shops and the unrelated event, leaving just the 1 linked event.
     await user.click(screen.getByText("Kermis"));
-    expect(screen.getByText("3 resultaten")).toBeInTheDocument();
+    expect(screen.getByText("1 resultaten")).toBeInTheDocument();
 
     await user.click(screen.getByText("Kermis"));
     expect(screen.getByText("4 resultaten")).toBeInTheDocument();
@@ -162,18 +164,20 @@ describe("MapFilterPanel", () => {
   });
 
   it("filters events by a category checkbox, excluding non-matching categories", async () => {
+    // A zero-result category checkbox is hidden (matches the prototype), so
+    // add an "eten" event to give that checkbox something to show/hide.
+    const foodEvent: BusinessEvent = { ...businessEvent, id: "evt2", category: "eten", umbrellaEventId: undefined };
     const user = userEvent.setup();
-    setup();
+    setup({ businessEvents: [businessEvent, foodEvent] });
 
     await user.click(screen.getByText("Meer filters"));
     await user.click(screen.getByLabelText(/🍔 Eten & Drinken/));
 
-    // The only event is category "anders", so filtering to "eten" excludes it,
-    // leaving just the 2 shops.
-    expect(screen.getByText("2 resultaten")).toBeInTheDocument();
+    // "anders" (businessEvent) is excluded, leaving the 2 shops + foodEvent.
+    expect(screen.getByText("3 resultaten")).toBeInTheDocument();
 
     await user.click(screen.getByLabelText(/🍔 Eten & Drinken/));
-    expect(screen.getByText("3 resultaten")).toBeInTheDocument();
+    expect(screen.getByText("4 resultaten")).toBeInTheDocument();
   });
 
   it("filters events to 'Vandaag'", async () => {
@@ -182,23 +186,28 @@ describe("MapFilterPanel", () => {
     setup({ businessEvents: [{ ...businessEvent, startDate: today, endDate: today }] });
 
     await user.click(screen.getByText("Meer filters"));
-    await user.click(screen.getByLabelText("Vandaag"));
+    await user.click(screen.getByLabelText(/Vandaag/));
     expect(screen.getByText("3 resultaten")).toBeInTheDocument();
 
-    await user.click(screen.getByLabelText("Vandaag"));
+    await user.click(screen.getByLabelText(/Vandaag/));
     expect(screen.getByText("3 resultaten")).toBeInTheDocument();
   });
 
   it("toggles 'Morgen' on and off", async () => {
+    // A zero-result "Morgen" checkbox is hidden (matches the prototype), so
+    // give it an event that actually occurs tomorrow.
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
     const user = userEvent.setup();
-    setup();
+    setup({ businessEvents: [{ ...businessEvent, startDate: tomorrowStr, endDate: tomorrowStr }] });
 
     await user.click(screen.getByText("Meer filters"));
-    await user.click(screen.getByLabelText("Morgen"));
-    expect(screen.getByLabelText("Morgen")).toBeChecked();
+    await user.click(screen.getByLabelText(/Morgen/));
+    expect(screen.getByLabelText(/Morgen/)).toBeChecked();
 
-    await user.click(screen.getByLabelText("Morgen"));
-    expect(screen.getByLabelText("Morgen")).not.toBeChecked();
+    await user.click(screen.getByLabelText(/Morgen/));
+    expect(screen.getByLabelText(/Morgen/)).not.toBeChecked();
   });
 
   it("opens the calendar popover and picks a specific date", async () => {

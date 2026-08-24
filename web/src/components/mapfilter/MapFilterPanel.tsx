@@ -51,22 +51,25 @@ export function MapFilterPanel({
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
-  const showShops = contentType !== "events";
+  // A groot event (umbrella) never contains shops, so filtering on one hides
+  // shops entirely, regardless of the Broodjes/Events toggle — mirrors the
+  // prototype's showsBroodjes().
+  const showShops = contentType !== "events" && !umbrellaFilter;
   const showEvents = contentType !== "broodjes";
   const today = new Date().toISOString().slice(0, 10);
   const isCustomDate = dateFilter !== null && dateFilter !== "today" && dateFilter !== "tomorrow";
 
-  const filteredShops = useMemo(
-    () => (showShops ? filterShops(shops, { query, dietary }) : []),
-    [showShops, shops, query, dietary],
+  // Search+dietary-filtered shops / fully-filtered events, computed
+  // independent of the Broodjes/Events toggle so button badges and
+  // zero-result hiding below stay accurate even while a type is hidden.
+  const shopsFinal = useMemo(() => filterShops(shops, { query, dietary }), [shops, query, dietary]);
+  const eventsFinal = useMemo(
+    () => filterEvents(businessEvents, { query, categories, umbrellaEventId: umbrellaFilter, dateFilter, today }),
+    [businessEvents, query, categories, umbrellaFilter, dateFilter, today],
   );
-  const filteredEvents = useMemo(
-    () =>
-      showEvents
-        ? filterEvents(businessEvents, { query, categories, umbrellaEventId: umbrellaFilter, dateFilter, today })
-        : [],
-    [showEvents, businessEvents, query, categories, umbrellaFilter, dateFilter, today],
-  );
+
+  const filteredShops = showShops ? shopsFinal : [];
+  const filteredEvents = showEvents ? eventsFinal : [];
 
   useEffect(() => {
     onFilteredResultsChange(filteredShops, filteredEvents);
@@ -85,19 +88,55 @@ export function MapFilterPanel({
     setDateFilter(null);
   }
 
+  const shopsMatchingSearch = useMemo(() => filterShops(shops, { query, dietary: [] }), [shops, query]);
   const dietaryCounts = Object.fromEntries(
-    DIETARY_BADGES.map((b) => [
-      b.key,
-      filterShops(shops, { query, dietary: [] }).filter((s) => s.dietaryOptions?.[b.key]).length,
-    ]),
+    DIETARY_BADGES.map((b) => [b.key, shopsMatchingSearch.filter((s) => s.dietaryOptions?.[b.key]).length]),
   );
+  // Category counts respect the currently active date filter (matching the
+  // prototype's matchesEventDateFilter check on categoryRows) — only the
+  // category being counted itself is left unconstrained.
   const categoryCounts = Object.fromEntries(
     (Object.keys(EVENT_CATEGORIES) as EventCategory[]).map((key) => [
       key,
-      filterEvents(businessEvents, { query, categories: [], umbrellaEventId: umbrellaFilter, dateFilter: null, today })
-        .filter((e) => e.category === key).length,
+      filterEvents(businessEvents, { query, categories: [], umbrellaEventId: umbrellaFilter, dateFilter, today }).filter(
+        (e) => e.category === key,
+      ).length,
     ]),
   );
+  const vandaagCount = filterEvents(businessEvents, {
+    query,
+    categories,
+    umbrellaEventId: umbrellaFilter,
+    dateFilter: "today",
+    today,
+  }).length;
+  const morgenCount = filterEvents(businessEvents, {
+    query,
+    categories,
+    umbrellaEventId: umbrellaFilter,
+    dateFilter: "tomorrow",
+    today,
+  }).length;
+
+  // Hide a filter option once it would yield zero results, unless it's the
+  // one currently active (otherwise you couldn't turn it back off) — mirrors
+  // the prototype's renderMapFilterPanel() visibility rules throughout.
+  const showBroodjesBtn = shopsFinal.length > 0 || contentType === "broodjes";
+  const showEventsBtn = eventsFinal.length > 0 || contentType === "events";
+  const visibleDietaryBadges = DIETARY_BADGES.filter((b) => dietaryCounts[b.key] > 0 || dietary.includes(b.key));
+  const visibleCategories = (Object.keys(EVENT_CATEGORIES) as EventCategory[]).filter(
+    (key) => categoryCounts[key] > 0 || categories.includes(key),
+  );
+  const showVandaag = vandaagCount > 0 || dateFilter === "today";
+  const showMorgen = morgenCount > 0 || dateFilter === "tomorrow";
+
+  const visibleUmbrellas = umbrellaEvents
+    .filter((u) => u.endDate >= today)
+    .map((u) => ({
+      u,
+      count: filterEvents(businessEvents, { query, categories, umbrellaEventId: u.id, dateFilter, today }).length,
+    }))
+    .filter(({ count, u }) => count > 0 || umbrellaFilter === u.id);
 
   return (
     <Fragment>
@@ -117,28 +156,29 @@ export function MapFilterPanel({
       </div>
 
       <div className={styles.typeRow}>
-        <button
-          type="button"
-          className={contentType === "broodjes" ? styles.typeBtnActive : styles.typeBtn}
-          onClick={() => setContentType((c) => (c === "broodjes" ? "alles" : "broodjes"))}
-        >
-          🥪 Broodjes <span className={styles.count}>({filterShops(shops, { query, dietary: [] }).length})</span>
-        </button>
-        <button
-          type="button"
-          className={contentType === "events" ? styles.typeBtnActive : styles.typeBtn}
-          onClick={() => setContentType((c) => (c === "events" ? "alles" : "events"))}
-        >
-          🎉 Events{" "}
-          <span className={styles.count}>
-            ({filterEvents(businessEvents, { query, categories: [], umbrellaEventId: null, dateFilter: null, today }).length})
-          </span>
-        </button>
+        {showBroodjesBtn && (
+          <button
+            type="button"
+            className={contentType === "broodjes" ? styles.typeBtnActive : styles.typeBtn}
+            onClick={() => setContentType((c) => (c === "broodjes" ? "alles" : "broodjes"))}
+          >
+            🥪 Broodjes <span className={styles.count}>({shopsFinal.length})</span>
+          </button>
+        )}
+        {showEventsBtn && (
+          <button
+            type="button"
+            className={contentType === "events" ? styles.typeBtnActive : styles.typeBtn}
+            onClick={() => setContentType((c) => (c === "events" ? "alles" : "events"))}
+          >
+            🎉 Events <span className={styles.count}>({eventsFinal.length})</span>
+          </button>
+        )}
       </div>
 
-      {showEvents && umbrellaEvents.length > 0 && (
+      {showEvents && visibleUmbrellas.length > 0 && (
         <div className={styles.umbrellaPills}>
-          {umbrellaEvents.map((u) => (
+          {visibleUmbrellas.map(({ u }) => (
             <button
               key={u.id}
               type="button"
@@ -191,7 +231,7 @@ export function MapFilterPanel({
             <>
               <div className={styles.groupLabel}>Dieetwensen</div>
               <div className={styles.checkboxList}>
-                {DIETARY_BADGES.map((b) => (
+                {visibleDietaryBadges.map((b) => (
                   <label key={b.key} className={styles.checkboxItem}>
                     <input
                       type="checkbox"
@@ -212,7 +252,7 @@ export function MapFilterPanel({
             <>
               <div className={styles.groupLabel}>Soort event</div>
               <div className={styles.checkboxList}>
-                {(Object.keys(EVENT_CATEGORIES) as EventCategory[]).map((key) => (
+                {visibleCategories.map((key) => (
                   <label key={key} className={styles.checkboxItem}>
                     <input
                       type="checkbox"
@@ -229,22 +269,28 @@ export function MapFilterPanel({
 
               <div className={styles.groupLabel}>Wanneer</div>
               <div className={styles.checkboxList}>
-                <label className={styles.checkboxItem}>
-                  <input
-                    type="checkbox"
-                    checked={dateFilter === "today"}
-                    onChange={() => setDateFilter((cur) => (cur === "today" ? null : "today"))}
-                  />
-                  <span>Vandaag</span>
-                </label>
-                <label className={styles.checkboxItem}>
-                  <input
-                    type="checkbox"
-                    checked={dateFilter === "tomorrow"}
-                    onChange={() => setDateFilter((cur) => (cur === "tomorrow" ? null : "tomorrow"))}
-                  />
-                  <span>Morgen</span>
-                </label>
+                {showVandaag && (
+                  <label className={styles.checkboxItem}>
+                    <input
+                      type="checkbox"
+                      checked={dateFilter === "today"}
+                      onChange={() => setDateFilter((cur) => (cur === "today" ? null : "today"))}
+                    />
+                    <span>Vandaag</span>
+                    <span className={styles.checkboxCount}>({vandaagCount})</span>
+                  </label>
+                )}
+                {showMorgen && (
+                  <label className={styles.checkboxItem}>
+                    <input
+                      type="checkbox"
+                      checked={dateFilter === "tomorrow"}
+                      onChange={() => setDateFilter((cur) => (cur === "tomorrow" ? null : "tomorrow"))}
+                    />
+                    <span>Morgen</span>
+                    <span className={styles.checkboxCount}>({morgenCount})</span>
+                  </label>
+                )}
               </div>
               <div className={styles.datePickerAnchor}>
                 <button

@@ -41,7 +41,10 @@ export function matchesQuery(haystacks: (string | undefined)[], query: string): 
 export function filterShops(shops: Shop[], filters: ShopFilterState): Shop[] {
   return shops.filter((shop) => {
     if (!matchesQuery([shop.name, shop.address], filters.query)) return false;
-    return filters.dietary.every((key) => shop.dietaryOptions?.[key]);
+    if (filters.dietary.length === 0) return true;
+    // OR, not AND — mirrors matchesDietaryFilter()'s .some(): checking both
+    // "Halal" and "Vega" shows shops that are either, not shops that are both.
+    return filters.dietary.some((key) => shop.dietaryOptions?.[key]);
   });
 }
 
