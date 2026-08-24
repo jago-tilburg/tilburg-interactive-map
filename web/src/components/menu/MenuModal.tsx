@@ -33,9 +33,16 @@ const SORT_LABELS: Record<SortOption, string> = {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-// Full "ALLE 2 HAPPIES" list — mirrors the prototype's #menuOverlay exactly.
-// A separate, independent filter surface from the map's floating filter
-// panel (different DOM ids/handlers in the source, not shared state).
+// Full "ALLE 2 HAPPIES" list — mirrors the prototype's #menuOverlay.
+// NOTE: in the prototype, setMenuType()/setDietaryFilter() write directly
+// into the map filter panel's own activeContentTypes/activeDietaryFilters
+// sets (renderMenuReviews() also reads the map's live search query, active
+// event categories, active date filter, and active groot-event filter) — the
+// hamburger menu list and the map's floating filter panel share ONE global
+// filter state there, not two independent ones. This component still keeps
+// its own local state, unsynced with MapFilterPanel — a real, known
+// divergence from the prototype, not fixed in this pass (it needs lifting
+// the map panel's filter state up to a shared ancestor).
 export function MenuModal({
   open,
   onClose,
@@ -65,9 +72,15 @@ export function MenuModal({
       )
     : [];
   const filteredEvents = showEvents
-    ? filterEvents(businessEvents, { query: "", categories: [], umbrellaEventId: null, dateFilter: null, today: today() })
+    ? filterEvents(businessEvents, { query: "", categories: [], umbrellaEventId: null, dateFilter: null, today: today() }).sort(
+        (a, b) => `${a.startDate}T${a.startTime}`.localeCompare(`${b.startDate}T${b.startTime}`),
+      )
     : [];
-  const visibleUmbrellas = showEvents ? umbrellaEvents : [];
+  // Only non-expired umbrellas, chronological — matches renderEventMenuHtml's
+  // visibleUmbrellas (`u.endDate >= today`, sorted by startDate).
+  const visibleUmbrellas = showEvents
+    ? umbrellaEvents.filter((u) => u.endDate >= today()).sort((a, b) => a.startDate.localeCompare(b.startDate))
+    : [];
 
   const resultsEmpty = filteredShops.length === 0 && filteredEvents.length === 0 && visibleUmbrellas.length === 0;
 
@@ -94,29 +107,33 @@ export function MenuModal({
           ))}
         </div>
 
-        <div className={styles.sortRow}>
-          <label htmlFor="menu-sort">Sorteer op:</label>
-          <select id="menu-sort" value={sort} onChange={(e) => setSort(e.target.value as SortOption)}>
-            {Object.entries(SORT_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {showShops && (
+          <div className={styles.sortRow}>
+            <label htmlFor="menu-sort">Sorteer op:</label>
+            <select id="menu-sort" value={sort} onChange={(e) => setSort(e.target.value as SortOption)}>
+              {Object.entries(SORT_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
-        <div className={styles.filterRow}>
-          {(["all", "glutenvrij", "halal", "vega"] as DietaryFilter[]).map((key) => (
-            <button
-              key={key}
-              type="button"
-              className={dietaryFilter === key ? styles.filterBtnActive : styles.filterBtn}
-              onClick={() => setDietaryFilter(key)}
-            >
-              {key === "all" ? "Alles" : key === "glutenvrij" ? "🌾 Glutenvrij" : key === "halal" ? "☪️ Halal" : "🌿 Vega"}
-            </button>
-          ))}
-        </div>
+        {showShops && (
+          <div className={styles.filterRow}>
+            {(["all", "glutenvrij", "halal", "vega"] as DietaryFilter[]).map((key) => (
+              <button
+                key={key}
+                type="button"
+                className={dietaryFilter === key ? styles.filterBtnActive : styles.filterBtn}
+                onClick={() => setDietaryFilter(key)}
+              >
+                {key === "all" ? "Alles" : key === "glutenvrij" ? "🌾 Glutenvrij" : key === "halal" ? "☪️ Halal" : "🌿 Vega"}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className={styles.list}>
           {loading &&

@@ -195,6 +195,47 @@ describe("MenuModal", () => {
     expect(screen.getByText("Nog geen reviews beschikbaar")).toBeInTheDocument();
   });
 
+  it("hides an expired umbrella event", () => {
+    setup({ umbrellaEvents: [{ ...umbrella, endDate: "2020-01-01" }] });
+    expect(screen.queryByText("Kermis")).not.toBeInTheDocument();
+  });
+
+  it("lists events chronologically, not in prop order", () => {
+    const laterEvent: BusinessEvent = {
+      ...businessEvent,
+      id: "evt2",
+      title: "Later Event",
+      startDate: "2026-09-02",
+      umbrellaEventId: undefined,
+    };
+    const earlierEvent: BusinessEvent = {
+      ...businessEvent,
+      id: "evt3",
+      title: "Earlier Event",
+      startDate: "2026-08-30",
+      umbrellaEventId: undefined,
+    };
+    setup({ businessEvents: [laterEvent, earlierEvent, businessEvent] });
+
+    const names = screen
+      .getAllByRole("button")
+      .map((b) => b.textContent)
+      .filter((t): t is string => !!t && /Event|Kermis Rit/.test(t));
+    const earlierIdx = names.findIndex((t) => t.includes("Earlier Event"));
+    const kermisIdx = names.findIndex((t) => t.includes("Kermis Rit"));
+    const laterIdx = names.findIndex((t) => t.includes("Later Event"));
+    expect(earlierIdx).toBeLessThan(kermisIdx);
+    expect(kermisIdx).toBeLessThan(laterIdx);
+  });
+
+  it("hides the sort dropdown and dietary pills when only Events is selected", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByText("🎉 Events"));
+    expect(screen.queryByLabelText("Sorteer op:")).not.toBeInTheDocument();
+    expect(screen.queryByText("🌾 Glutenvrij")).not.toBeInTheDocument();
+  });
+
   it("shows skeleton rows instead of the list while loading", () => {
     const { container } = setup({ loading: true });
     expect(screen.queryByText("Café Zuid")).not.toBeInTheDocument();
