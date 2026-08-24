@@ -28,9 +28,15 @@ import type { NextConfig } from "next";
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://maps.googleapis.com https://www.instagram.com",
-  "style-src 'self' 'unsafe-inline'",
+  // fonts.googleapis.com: NOT this app's own fonts (those are self-hosted
+  // via next/font/google at build time) — the rendered Maps widget itself
+  // loads its own UI-chrome stylesheets (map control icons/labels) from
+  // there once a real map actually renders. Only found by testing against
+  // an authorized domain — the Maps key's own referrer restriction (see
+  // the pen-test report) meant local dev never got far enough to load them.
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' https: data: blob:",
-  "font-src 'self' data:",
+  "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self' https: wss://*.firebasedatabase.app",
   "frame-src 'self' https://www.instagram.com",
   "base-uri 'self'",
