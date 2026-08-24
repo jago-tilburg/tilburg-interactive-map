@@ -1,9 +1,14 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { setGlobalOptions } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
+// Modular admin SDK (firebase-admin v13+ removed the old admin.firestore()
+// namespace call — `admin.firestore` is now the /firestore submodule
+// itself, not a callable getter — same modular-SDK direction the web/
+// client already moved to).
+const { initializeApp } = require('firebase-admin/app');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
-admin.initializeApp();
-const db = admin.firestore();
+initializeApp();
+const db = getFirestore();
 
 setGlobalOptions({ region: 'europe-west1' });
 
@@ -31,7 +36,7 @@ exports.approveEvent = onCall(async (request) => {
   if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
   await db.collection('businessEvents').doc(eventId).update({
     status: 'approved',
-    reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+    reviewedAt: FieldValue.serverTimestamp(),
     reviewedBy: request.auth.uid,
   });
   return { ok: true };
@@ -43,7 +48,7 @@ exports.rejectEvent = onCall(async (request) => {
   if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
   const update = {
     status: 'rejected',
-    reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+    reviewedAt: FieldValue.serverTimestamp(),
     reviewedBy: request.auth.uid,
   };
   // Optional — an admin can still reject without typing one.
@@ -67,7 +72,7 @@ exports.confirmEventPaymentStub = onCall(async (request) => {
   }
   await ref.update({
     paid: true,
-    paidAt: admin.firestore.FieldValue.serverTimestamp(),
+    paidAt: FieldValue.serverTimestamp(),
   });
   return { ok: true };
 });

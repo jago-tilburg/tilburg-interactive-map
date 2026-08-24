@@ -1,15 +1,19 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createRequire } from "module";
 
-// index.js is plain CommonJS (`require('firebase-admin')`), which Vitest's
-// module graph does not intercept via vi.mock — that mechanism only covers
-// modules reached through the ESM import graph. Instead we pre-seed Node's
-// own require.cache for 'firebase-admin' with a fake module before dynamically
-// importing index.js, so its internal require() call resolves to the fake
-// without ever loading the real @google-cloud/firestore client.
+// index.js is plain CommonJS (`require('firebase-admin/app')` /
+// `require('firebase-admin/firestore')`, the modular admin SDK), which
+// Vitest's module graph does not intercept via vi.mock — that mechanism
+// only covers modules reached through the ESM import graph. Instead we
+// pre-seed Node's own require.cache for those two submodule paths with fake
+// modules before dynamically importing index.js, so its internal require()
+// calls resolve to the fakes without ever loading the real
+// @google-cloud/firestore client.
 const require = createRequire(import.meta.url);
-const adminPath = require.resolve("firebase-admin");
-const realCacheEntry = require.cache[adminPath];
+const appPath = require.resolve("firebase-admin/app");
+const firestorePath = require.resolve("firebase-admin/firestore");
+const realAppCacheEntry = require.cache[appPath];
+const realFirestoreCacheEntry = require.cache[firestorePath];
 
 const store = new Map();
 
@@ -33,24 +37,34 @@ const fakeDb = {
   }),
 };
 
-const firestoreFn = Object.assign(() => fakeDb, {
-  FieldValue: { serverTimestamp: () => "SERVER_TIMESTAMP" },
-});
-
-require.cache[adminPath] = {
-  id: adminPath,
-  filename: adminPath,
+require.cache[appPath] = {
+  id: appPath,
+  filename: appPath,
   loaded: true,
-  exports: { initializeApp: () => {}, firestore: firestoreFn },
+  exports: { initializeApp: () => {} },
+};
+require.cache[firestorePath] = {
+  id: firestorePath,
+  filename: firestorePath,
+  loaded: true,
+  exports: {
+    getFirestore: () => fakeDb,
+    FieldValue: { serverTimestamp: () => "SERVER_TIMESTAMP" },
+  },
 };
 
 const { approveEvent, rejectEvent, confirmEventPaymentStub } = await import("../index.js");
 
 afterAll(() => {
-  if (realCacheEntry) {
-    require.cache[adminPath] = realCacheEntry;
+  if (realAppCacheEntry) {
+    require.cache[appPath] = realAppCacheEntry;
   } else {
-    delete require.cache[adminPath];
+    delete require.cache[appPath];
+  }
+  if (realFirestoreCacheEntry) {
+    require.cache[firestorePath] = realFirestoreCacheEntry;
+  } else {
+    delete require.cache[firestorePath];
   }
 });
 
