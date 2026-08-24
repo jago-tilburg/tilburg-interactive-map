@@ -5,6 +5,7 @@ import { AccountMenu } from "@/components/auth/AccountMenu";
 import { MenuModal } from "@/components/menu/MenuModal";
 import { RequestModal } from "@/components/requests/RequestModal";
 import { RequestConfirmationModal } from "@/components/requests/RequestConfirmationModal";
+import type { MapFilterState, MapFilterActions } from "@/hooks/useMapFilterState";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./Header.module.css";
@@ -16,6 +17,7 @@ interface HeaderProps {
   onSelectShop: (shopId: number) => void;
   onSelectEvent: (eventId: string) => void;
   loading?: boolean;
+  filterState: MapFilterState & MapFilterActions;
 }
 
 // Mirrors the prototype's .header exactly: gradient bar, always-visible
@@ -29,6 +31,7 @@ export function Header({
   onSelectShop,
   onSelectEvent,
   loading = false,
+  filterState,
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
@@ -69,6 +72,7 @@ export function Header({
           onSelectEvent(id);
           setMenuOpen(false);
         }}
+        filterState={filterState}
       />
 
       <RequestModal

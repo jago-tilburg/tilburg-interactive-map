@@ -57,19 +57,29 @@ export function addDaysToIsoDate(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function filterEvents(events: BusinessEvent[], filters: EventFilterState): BusinessEvent[] {
+// Resolves "today"/"tomorrow" to an actual date and checks it falls within
+// [startDate, endDate] — shared by filterEvents() below and by the
+// hamburger menu's groot-event pills, which apply this same date check to
+// an umbrella's own start/end range (a pseudo-event, in the prototype's
+// terms), not just to individual business events.
+export function dateFilterMatchesRange(
+  startDate: string,
+  endDate: string,
+  dateFilter: DateQuickFilter,
+  today: string,
+): boolean {
   const targetDate =
-    filters.dateFilter === "today"
-      ? filters.today
-      : filters.dateFilter === "tomorrow"
-        ? addDaysToIsoDate(filters.today, 1)
-        : (filters.dateFilter ?? null);
+    dateFilter === "today" ? today : dateFilter === "tomorrow" ? addDaysToIsoDate(today, 1) : (dateFilter ?? null);
+  if (!targetDate) return true;
+  return startDate <= targetDate && targetDate <= endDate;
+}
 
+export function filterEvents(events: BusinessEvent[], filters: EventFilterState): BusinessEvent[] {
   return events.filter((event) => {
     if (!matchesQuery([event.title, event.address], filters.query)) return false;
     if (filters.categories.length > 0 && !filters.categories.includes(event.category)) return false;
     if (filters.umbrellaEventId && event.umbrellaEventId !== filters.umbrellaEventId) return false;
-    if (targetDate && !(event.startDate <= targetDate && targetDate <= event.endDate)) return false;
+    if (!dateFilterMatchesRange(event.startDate, event.endDate, filters.dateFilter, filters.today)) return false;
     return true;
   });
 }

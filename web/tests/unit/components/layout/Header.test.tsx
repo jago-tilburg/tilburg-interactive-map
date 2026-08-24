@@ -57,12 +57,22 @@ vi.mock("@/lib/firebase/functions", () => ({
 }));
 
 import { Header } from "@/components/layout/Header";
+import { useMapFilterState } from "@/hooks/useMapFilterState";
+
+// Header's filter state is now lifted (shared between MapFilterPanel and the
+// hamburger menu it renders) — this harness owns a real, live
+// useMapFilterState() so Header doesn't need a filterState prop supplied
+// manually in every test.
+function Harness(props: Omit<Parameters<typeof Header>[0], "filterState">) {
+  const filterState = useMapFilterState();
+  return <Header {...props} filterState={filterState} />;
+}
 
 function setup(props: Partial<Parameters<typeof Header>[0]> = {}) {
   const onSelectShop = vi.fn();
   const onSelectEvent = vi.fn();
   render(
-    <Header
+    <Harness
       shops={[]}
       businessEvents={[]}
       umbrellaEvents={[]}

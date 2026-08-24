@@ -9,6 +9,7 @@ import { ShopFormModal } from "@/components/shops/ShopFormModal";
 import { BusinessEventDetailModal } from "@/components/events/BusinessEventDetailModal";
 import { UmbrellaEventDetailModal } from "@/components/events/UmbrellaEventDetailModal";
 import { useAuth } from "@/hooks/useAuth";
+import { useMapFilterState } from "@/hooks/useMapFilterState";
 import { subscribeShops } from "@/lib/firebase/shops";
 import { subscribeApprovedBusinessEvents } from "@/lib/firebase/businessEvents";
 import { subscribeUmbrellaEvents } from "@/lib/firebase/umbrellaEvents";
@@ -27,6 +28,9 @@ interface MapExperienceProps {
 // of freezing on a stale snapshot from the moment the marker was clicked.
 export function MapExperience({ apiKey }: MapExperienceProps) {
   const { isAdmin } = useAuth();
+  // Shared with MenuModal (via Header) — see useMapFilterState's doc comment
+  // for why this is one lifted state, not two independent copies.
+  const filterState = useMapFilterState();
   const [shops, setShops] = useState<Shop[]>([]);
   const [businessEvents, setBusinessEvents] = useState<BusinessEvent[]>([]);
   const [umbrellaEvents, setUmbrellaEvents] = useState<UmbrellaEvent[]>([]);
@@ -81,6 +85,7 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
         onSelectShop={setSelectedShopId}
         onSelectEvent={setSelectedEventId}
         loading={!shopsLoaded || !eventsLoaded}
+        filterState={filterState}
       />
 
       <div className={styles.mainContent}>
@@ -106,6 +111,7 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
             setVisibleShops(nextShops);
             setVisibleEvents(nextEvents);
           }}
+          filterState={filterState}
         />
       </div>
 

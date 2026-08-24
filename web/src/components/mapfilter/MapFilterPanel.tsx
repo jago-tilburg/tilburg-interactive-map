@@ -4,17 +4,23 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { DIETARY_BADGES } from "@/lib/shops/socialAndDietary";
 import { EVENT_CATEGORIES } from "@/lib/events/eventHelpers";
 import { DatePickerPopover } from "./DatePickerPopover";
-import {
-  filterShops,
-  filterEvents,
-  toggleInList,
-  type ContentTypeFilter,
-  type DietaryKey,
-  type DateQuickFilter,
-} from "@/lib/filters/filterHelpers";
+import { filterShops, filterEvents, toggleInList } from "@/lib/filters/filterHelpers";
+import type { MapFilterState, MapFilterActions } from "@/hooks/useMapFilterState";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, EventCategory, UmbrellaEvent } from "@/types/events";
 import styles from "./MapFilterPanel.module.css";
+
+// Stable references (not fresh `[]` literals on every render) — feeding a
+// new array identity into onFilteredResultsChange's effect below on every
+// render, while its parent's state setter always sees a "changed" value and
+// re-renders in response, is a real infinite render loop, not just wasted
+// work: every render recomputes a new [] when a side is hidden, the effect's
+// dependency array sees that as changed and fires, the parent's setState
+// gets a new (if empty) array reference and re-renders, and the cycle never
+// settles. Confirmed via MapExperience.test.tsx hanging/OOMing whenever a
+// scenario hides shops or events (Events-only, or a groot event selected).
+const EMPTY_SHOPS: Shop[] = [];
+const EMPTY_EVENTS: BusinessEvent[] = [];
 
 interface MapFilterPanelProps {
   shops: Shop[];
@@ -27,6 +33,11 @@ interface MapFilterPanelProps {
   // filters as this panel — the prototype's dietary/category/date filters
   // narrow both the list *and* the map markers, not just one or the other.
   onFilteredResultsChange: (shops: Shop[], events: BusinessEvent[]) => void;
+  // Shared with the hamburger menu (MenuModal) via a single lifted hook in
+  // MapExperience — the prototype's activeContentTypes/activeDietaryFilters/
+  // etc. sets are ONE shared state read by both surfaces, not two
+  // independent copies. See useMapFilterState's own doc comment.
+  filterState: MapFilterState & MapFilterActions;
 }
 
 // Floating card over the map (top-left), not a docked sidebar — mirrors the
@@ -41,13 +52,23 @@ export function MapFilterPanel({
   onCloseMobile,
   onOpenMobile,
   onFilteredResultsChange,
+  filterState,
 }: MapFilterPanelProps) {
-  const [contentType, setContentType] = useState<ContentTypeFilter>("alles");
-  const [query, setQuery] = useState("");
-  const [dietary, setDietary] = useState<DietaryKey[]>([]);
-  const [categories, setCategories] = useState<EventCategory[]>([]);
-  const [umbrellaFilter, setUmbrellaFilter] = useState<string | null>(null);
-  const [dateFilter, setDateFilter] = useState<DateQuickFilter>(null);
+  const {
+    contentType,
+    setContentType,
+    query,
+    setQuery,
+    dietary,
+    setDietary,
+    categories,
+    setCategories,
+    umbrellaFilter,
+    setUmbrellaFilter,
+    dateFilter,
+    setDateFilter,
+    clearAll,
+  } = filterState;
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
@@ -68,8 +89,8 @@ export function MapFilterPanel({
     [businessEvents, query, categories, umbrellaFilter, dateFilter, today],
   );
 
-  const filteredShops = showShops ? shopsFinal : [];
-  const filteredEvents = showEvents ? eventsFinal : [];
+  const filteredShops = showShops ? shopsFinal : EMPTY_SHOPS;
+  const filteredEvents = showEvents ? eventsFinal : EMPTY_EVENTS;
 
   useEffect(() => {
     onFilteredResultsChange(filteredShops, filteredEvents);
@@ -88,13 +109,6 @@ export function MapFilterPanel({
     (dateFilter ? 1 : 0) +
     (query.trim() ? 1 : 0);
 
-  function clearAllFilters() {
-    setQuery("");
-    setDietary([]);
-    setCategories([]);
-    setUmbrellaFilter(null);
-    setDateFilter(null);
-  }
 
   const shopsMatchingSearch = useMemo(() => filterShops(shops, { query, dietary: [] }), [shops, query]);
   const dietaryCounts = Object.fromEntries(
@@ -203,7 +217,7 @@ export function MapFilterPanel({
       <div className={styles.resultsRow}>
         <span>{resultsCount} resultaten</span>
         {activeFilterCount > 0 && (
-          <button type="button" className={styles.clearBtn} onClick={clearAllFilters}>
+          <button type="button" className={styles.clearBtn} onClick={clearAll}>
             Wis filters
           </button>
         )}

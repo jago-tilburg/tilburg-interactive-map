@@ -6,12 +6,19 @@ import { PrivacyModal } from "@/components/common/PrivacyModal";
 import { AdminLoginModal } from "@/components/auth/AdminLoginModal";
 import { ratingColor } from "@/lib/shops/shopHelpers";
 import { categoryOf, formatBusinessEventSchedule } from "@/lib/events/eventHelpers";
-import { filterShops, filterEvents, sortShops, type ContentTypeFilter, type SortOption } from "@/lib/filters/filterHelpers";
+import {
+  filterShops,
+  filterEvents,
+  sortShops,
+  dateFilterMatchesRange,
+  type ContentTypeFilter,
+  type DietaryKey,
+  type SortOption,
+} from "@/lib/filters/filterHelpers";
+import type { MapFilterState, MapFilterActions } from "@/hooks/useMapFilterState";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./MenuModal.module.css";
-
-type DietaryFilter = "all" | "glutenvrij" | "halal" | "vega";
 
 interface MenuModalProps {
   open: boolean;
@@ -22,6 +29,13 @@ interface MenuModalProps {
   onSelectShop: (shopId: number) => void;
   onSelectEvent: (eventId: string) => void;
   loading?: boolean;
+  // Shared with the map's floating filter panel — see useMapFilterState's
+  // doc comment. Content-type/dietary pills here are "preset" entry points
+  // into that same shared state (mirrors the prototype's setMenuType() /
+  // setDietaryFilter()), and the rendered list also respects whatever
+  // category/date/groot-event filter is active on the map panel, exactly
+  // like the prototype's renderMenuReviews().
+  filterState: MapFilterState & MapFilterActions;
 }
 
 const SORT_LABELS: Record<SortOption, string> = {
@@ -33,16 +47,12 @@ const SORT_LABELS: Record<SortOption, string> = {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-// Full "ALLE 2 HAPPIES" list — mirrors the prototype's #menuOverlay.
-// NOTE: in the prototype, setMenuType()/setDietaryFilter() write directly
-// into the map filter panel's own activeContentTypes/activeDietaryFilters
-// sets (renderMenuReviews() also reads the map's live search query, active
-// event categories, active date filter, and active groot-event filter) — the
-// hamburger menu list and the map's floating filter panel share ONE global
-// filter state there, not two independent ones. This component still keeps
-// its own local state, unsynced with MapFilterPanel — a real, known
-// divergence from the prototype, not fixed in this pass (it needs lifting
-// the map panel's filter state up to a shared ancestor).
+// Full "ALLE 2 HAPPIES" list — mirrors the prototype's #menuOverlay. The
+// content-type/dietary pills and the rendered list all read/write the SAME
+// filter state as the map's floating filter panel (via `filterState`,
+// lifted in MapExperience) — matches the prototype's renderMenuReviews(),
+// which reads the map's live search query, active event categories, active
+// date filter, and active groot-event filter, not just its own two pills.
 export function MenuModal({
   open,
   onClose,
@@ -52,34 +62,43 @@ export function MenuModal({
   onSelectShop,
   onSelectEvent,
   loading = false,
+  filterState,
 }: MenuModalProps) {
   const { isAdmin } = useAuth();
-  const [contentType, setContentType] = useState<ContentTypeFilter>("alles");
+  const { contentType, setContentType, query, dietary, categories, umbrellaFilter, dateFilter, setDietaryPreset } =
+    filterState;
   const [sort, setSort] = useState<SortOption>("rating-desc");
-  const [dietaryFilter, setDietaryFilter] = useState<DietaryFilter>("all");
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [adminLoginOpen, setAdminLoginOpen] = useState(false);
 
   if (!open) return null;
 
-  const showShops = contentType !== "events";
+  // A groot event never contains shops — mirrors MapFilterPanel's showShops.
+  const showShops = contentType !== "events" && !umbrellaFilter;
   const showEvents = contentType !== "broodjes";
+  const todayStr = today();
 
-  const filteredShops = showShops
-    ? sortShops(
-        filterShops(shops, { query: "", dietary: dietaryFilter === "all" ? [] : [dietaryFilter] }),
-        sort,
-      )
-    : [];
+  // syncDietaryMenuPills(): a single pill reads as "active" only when
+  // exactly one dietary key is selected — 2+ (only reachable via the map
+  // panel's checkboxes) leaves every menu pill including "Alles" unhighlighted.
+  const activeDietaryPreset = dietary.length === 1 ? dietary[0] : "all";
+
+  const filteredShops = showShops ? sortShops(filterShops(shops, { query, dietary }), sort) : [];
   const filteredEvents = showEvents
-    ? filterEvents(businessEvents, { query: "", categories: [], umbrellaEventId: null, dateFilter: null, today: today() }).sort(
+    ? filterEvents(businessEvents, { query, categories, umbrellaEventId: umbrellaFilter, dateFilter, today: todayStr }).sort(
         (a, b) => `${a.startDate}T${a.startTime}`.localeCompare(`${b.startDate}T${b.startTime}`),
       )
     : [];
-  // Only non-expired umbrellas, chronological — matches renderEventMenuHtml's
-  // visibleUmbrellas (`u.endDate >= today`, sorted by startDate).
+  // Non-expired umbrellas, also narrowed by the active date filter (treating
+  // the umbrella's own start/end range like renderEventMenuHtml does) and by
+  // the active groot-event selection — matches that function's
+  // visibleUmbrellas exactly, not just the `endDate >= today` half of it.
   const visibleUmbrellas = showEvents
-    ? umbrellaEvents.filter((u) => u.endDate >= today()).sort((a, b) => a.startDate.localeCompare(b.startDate))
+    ? umbrellaEvents
+        .filter((u) => u.endDate >= todayStr)
+        .filter((u) => dateFilterMatchesRange(u.startDate, u.endDate, dateFilter, todayStr))
+        .filter((u) => !umbrellaFilter || u.id === umbrellaFilter)
+        .sort((a, b) => a.startDate.localeCompare(b.startDate))
     : [];
 
   const resultsEmpty = filteredShops.length === 0 && filteredEvents.length === 0 && visibleUmbrellas.length === 0;
@@ -122,12 +141,12 @@ export function MenuModal({
 
         {showShops && (
           <div className={styles.filterRow}>
-            {(["all", "glutenvrij", "halal", "vega"] as DietaryFilter[]).map((key) => (
+            {(["all", "glutenvrij", "halal", "vega"] as (DietaryKey | "all")[]).map((key) => (
               <button
                 key={key}
                 type="button"
-                className={dietaryFilter === key ? styles.filterBtnActive : styles.filterBtn}
-                onClick={() => setDietaryFilter(key)}
+                className={activeDietaryPreset === key ? styles.filterBtnActive : styles.filterBtn}
+                onClick={() => setDietaryPreset(key)}
               >
                 {key === "all" ? "Alles" : key === "glutenvrij" ? "🌾 Glutenvrij" : key === "halal" ? "☪️ Halal" : "🌿 Vega"}
               </button>

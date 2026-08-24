@@ -2,8 +2,18 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MapFilterPanel } from "@/components/mapfilter/MapFilterPanel";
+import { useMapFilterState } from "@/hooks/useMapFilterState";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
+
+// MapFilterPanel's filter state is now lifted (shared with MenuModal) — this
+// harness owns a real, live useMapFilterState() so interactive tests
+// (clicking a pill, typing a search) still re-render like a real ancestor
+// component would.
+function Harness(props: Omit<Parameters<typeof MapFilterPanel>[0], "filterState">) {
+  const filterState = useMapFilterState();
+  return <MapFilterPanel {...props} filterState={filterState} />;
+}
 
 const shop: Shop = {
   id: 9001,
@@ -68,7 +78,7 @@ function setup(overrides: Partial<Parameters<typeof MapFilterPanel>[0]> = {}) {
   const onOpenMobile = vi.fn();
   const onFilteredResultsChange = vi.fn();
   const utils = render(
-    <MapFilterPanel
+    <Harness
       shops={[shop, otherShop]}
       businessEvents={[businessEvent]}
       umbrellaEvents={[umbrella]}

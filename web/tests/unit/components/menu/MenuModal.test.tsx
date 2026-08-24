@@ -13,8 +13,17 @@ vi.mock("@/lib/firebase/auth", () => ({
 }));
 
 import { MenuModal } from "@/components/menu/MenuModal";
+import { useMapFilterState } from "@/hooks/useMapFilterState";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
+
+// MenuModal's filter state is now lifted (shared with MapFilterPanel) — this
+// harness owns a real, live useMapFilterState() so interactive tests still
+// re-render like a real ancestor component would.
+function Harness(props: Omit<Parameters<typeof MenuModal>[0], "filterState">) {
+  const filterState = useMapFilterState();
+  return <MenuModal {...props} filterState={filterState} />;
+}
 
 const shop: Shop = {
   id: 9001,
@@ -79,7 +88,7 @@ function setup(overrides: Partial<Parameters<typeof MenuModal>[0]> = {}) {
   const onSelectShop = vi.fn();
   const onSelectEvent = vi.fn();
   const { container, rerender } = render(
-    <MenuModal
+    <Harness
       open
       onClose={onClose}
       shops={[shop, otherShop]}
@@ -102,7 +111,7 @@ describe("MenuModal", () => {
 
   it("renders nothing when closed", () => {
     const { container } = render(
-      <MenuModal
+      <Harness
         open={false}
         onClose={vi.fn()}
         shops={[]}
@@ -261,7 +270,7 @@ describe("MenuModal", () => {
 
     mockUseAuth.mockReturnValue({ isAdmin: true });
     rerender(
-      <MenuModal
+      <Harness
         open
         onClose={vi.fn()}
         shops={[]}
