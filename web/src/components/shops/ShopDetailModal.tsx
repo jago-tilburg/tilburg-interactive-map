@@ -234,37 +234,52 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
 
         {error && <p className={styles.error}>{error}</p>}
 
-        {shop.photoUrl && <img src={shop.photoUrl} alt={shop.name} className={styles.photo} />}
+        {/* Two columns on desktop (photo/review/rating/interactions/admin
+            left, Instagram embed right, sticky) — collapses to one stacked
+            column under 968px. Comments/reviews stay full-width below,
+            outside this grid, matching the prototype's shop-detail-columns
+            scope. */}
+        <div className={styles.columns}>
+          <div className={styles.left}>
+            {shop.photoUrl && <img src={shop.photoUrl} alt={shop.name} className={styles.photo} />}
 
-        <InstagramEmbed instagramUrl={shop.instagramUrl} />
+            <div className={styles.reviewSection}>
+              <div className={styles.reviewLabel}>Review van Bastiaan</div>
+              <p className={styles.reviewText}>{shop.review}</p>
+            </div>
 
-        <div className={styles.reviewSection}>
-          <div className={styles.reviewLabel}>Review van Bastiaan</div>
-          <p className={styles.reviewText}>{shop.review}</p>
-        </div>
+            <div className={styles.reviewSection}>
+              <div className={styles.reviewLabel}>Geef je beoordeling</div>
+              <StarRating currentUserRating={userRating} onRate={handleRate} />
+            </div>
 
-        <div className={styles.reviewSection}>
-          <div className={styles.reviewLabel}>Geef je beoordeling</div>
-          <StarRating currentUserRating={userRating} onRate={handleRate} />
-        </div>
+            <div className={styles.interactionBar}>
+              <button
+                type="button"
+                className={hasLiked ? styles.likedButton : styles.likeButton}
+                onClick={handleToggleLike}
+              >
+                👍 {likes.length}
+              </button>
+              {viewCount !== null && <span className={styles.viewCount}>👁️ {viewCount}</span>}
+            </div>
 
-        <div className={styles.interactionBar}>
-          <button type="button" className={hasLiked ? styles.likedButton : styles.likeButton} onClick={handleToggleLike}>
-            👍 {likes.length}
-          </button>
-          {viewCount !== null && <span className={styles.viewCount}>👁️ {viewCount}</span>}
-        </div>
-
-        {isAdmin && (
-          <div className={styles.adminActions}>
-            <button type="button" className={styles.btnEdit} onClick={() => onEditRequested?.(shop)}>
-              ✏️ Bewerken
-            </button>
-            <button type="button" className={styles.btnDelete} onClick={handleDeleteShop}>
-              🗑️ Verwijderen
-            </button>
+            {isAdmin && (
+              <div className={styles.adminActions}>
+                <button type="button" className={styles.btnEdit} onClick={() => onEditRequested?.(shop)}>
+                  ✏️ Bewerken
+                </button>
+                <button type="button" className={styles.btnDelete} onClick={handleDeleteShop}>
+                  🗑️ Verwijderen
+                </button>
+              </div>
+            )}
           </div>
-        )}
+
+          <div className={styles.right}>
+            <InstagramEmbed instagramUrl={shop.instagramUrl} />
+          </div>
+        </div>
 
         <div className={styles.reviewSection}>
           <div className={styles.reviewLabel}>Reacties</div>
