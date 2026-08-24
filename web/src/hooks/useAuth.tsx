@@ -89,7 +89,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const admin = await isUidAdmin(user.uid);
+      // Never let a failed admin check block sign-in for everyone else —
+      // this exact `await` with no guard is what silently broke the whole
+      // sign-in flow before isUidAdmin() was fixed to read a source it can
+      // actually access (see admin.ts's comment for the full story).
+      const admin = await isUidAdmin(user.uid).catch(() => false);
       setIsAdmin(admin);
 
       if (admin) {

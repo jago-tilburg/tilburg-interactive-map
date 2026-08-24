@@ -108,6 +108,32 @@ describe("AuthProvider account-type resolution priority", () => {
     expect(getVisitorProfile).not.toHaveBeenCalled();
   });
 
+  // Regression test for a real bug found via a live pen-test: isUidAdmin()
+  // used to read Firestore admins/{uid} directly, a collection that's
+  // `allow read, write: if false` for EVERYONE (by design — see admin.ts).
+  // That read could never succeed, and the unguarded `await` in this
+  // component's auth-state callback meant a rejection there silently broke
+  // sign-in resolution for every account type, not just admins. Confirmed
+  // live: a real business registration completed in Firebase Auth but the
+  // app never showed the dashboard. isUidAdmin() itself is now fixed to
+  // read an actually-accessible source, but this test guards the
+  // independent defense-in-depth fix (.catch(() => false) in useAuth) in
+  // case any future admin check can fail for some other reason.
+  it("still resolves a business/visitor profile even if isUidAdmin() itself rejects", async () => {
+    vi.mocked(isUidAdmin).mockRejectedValue(new Error("permission-denied"));
+    vi.mocked(getBusinessProfile).mockResolvedValue({
+      uid: "uid-1",
+      businessName: "My Shop",
+      email: "user@example.com",
+      createdAt: null as never,
+    });
+    const fire = captureAuthCallback();
+    fire(fakeUser);
+
+    await waitFor(() => expect(screen.getByTestId("business")).toHaveTextContent("My Shop"));
+    expect(screen.getByTestId("admin")).toHaveTextContent("false");
+  });
+
   it("falls back to business when not admin but a businesses/{uid} doc exists", async () => {
     vi.mocked(isUidAdmin).mockResolvedValue(false);
     vi.mocked(getBusinessProfile).mockResolvedValue({
