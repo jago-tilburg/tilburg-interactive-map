@@ -32,6 +32,10 @@ interface AuthState {
   isAdmin: boolean;
   currentVisitor: Visitor | null;
   currentBusiness: Business | null;
+  // Re-fetches the signed-in business's own profile doc — currentBusiness is
+  // a one-time read (not a live subscription), so a Settings-tab save needs
+  // this to make the update visible without a full re-login.
+  refreshCurrentBusiness: () => Promise<void>;
   loading: boolean;
   // Registration flows set this before writing their own profile doc, and
   // reset it in `finally`, so the auth-state listener below doesn't race a
@@ -125,6 +129,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsub();
   }, [showToast]);
 
+  async function refreshCurrentBusiness() {
+    if (!currentUser) return;
+    const biz = await getBusinessProfile(currentUser.uid);
+    setCurrentBusiness(biz);
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -132,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin,
         currentVisitor,
         currentBusiness,
+        refreshCurrentBusiness,
         loading,
         suppressAutoProfileLoadRef,
       }}

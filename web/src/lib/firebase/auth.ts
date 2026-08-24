@@ -8,6 +8,9 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   deleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
   type User,
   type Auth,
 } from "firebase/auth";
@@ -68,4 +71,15 @@ export async function signOutCurrentUser() {
 // should surface that to the user rather than swallow it.
 export async function deleteCurrentUser(user: User) {
   return deleteUser(user);
+}
+
+// Firebase Auth requires a recent login for a sensitive change like a
+// password update — reauthenticate with the current password first (throws
+// `auth/wrong-password`/`auth/invalid-credential` if it's wrong), same
+// pattern deleteCurrentUser's callers already work around for its own
+// requires-recent-login case.
+export async function changeBusinessPassword(user: User, currentPassword: string, newPassword: string) {
+  const credential = EmailAuthProvider.credential(user.email ?? "", currentPassword);
+  await reauthenticateWithCredential(user, credential);
+  return updatePassword(user, newPassword);
 }

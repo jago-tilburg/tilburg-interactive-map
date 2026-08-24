@@ -87,6 +87,15 @@ export async function createBusinessProfile(
   return { uid, ...profile } as Business;
 }
 
+// Settings-tab self-update — the businesses/{uid} rule already allows a
+// business to update any field on its own doc, so no rules change is needed.
+export async function updateBusinessProfile(
+  uid: string,
+  updates: Partial<Pick<Business, "businessName" | "defaultAddress" | "defaultLat" | "defaultLng">>,
+) {
+  return updateDoc(doc(getDb(), "businesses", uid), updates);
+}
+
 // Batch-deletes the business's businessEvents via a query rather than relying
 // on an already-subscribed listener (as the monolith did) — more correct,
 // doesn't silently miss events the listener hadn't loaded yet.

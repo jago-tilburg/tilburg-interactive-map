@@ -48,7 +48,15 @@ import { getAnonUserId } from "@/lib/shops/anonUserId";
 type AuthCallback = (user: User | null) => void;
 
 function TestConsumer() {
-  const { currentUser, isAdmin, currentVisitor, currentBusiness, loading, suppressAutoProfileLoadRef } = useAuth();
+  const {
+    currentUser,
+    isAdmin,
+    currentVisitor,
+    currentBusiness,
+    refreshCurrentBusiness,
+    loading,
+    suppressAutoProfileLoadRef,
+  } = useAuth();
   return (
     <div>
       <span data-testid="loading">{String(loading)}</span>
@@ -57,6 +65,7 @@ function TestConsumer() {
       <span data-testid="visitor">{currentVisitor?.displayName ?? "none"}</span>
       <span data-testid="business">{currentBusiness?.businessName ?? "none"}</span>
       <button onClick={() => { suppressAutoProfileLoadRef.current = true; }}>suppress</button>
+      <button onClick={() => refreshCurrentBusiness()}>refresh-business</button>
     </div>
   );
 }
@@ -249,6 +258,40 @@ describe("AuthProvider account-type resolution priority", () => {
     await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
     expect(getBusinessProfile).not.toHaveBeenCalled();
     expect(getVisitorProfile).not.toHaveBeenCalled();
+  });
+});
+
+describe("refreshCurrentBusiness", () => {
+  it("re-fetches the signed-in business's profile and updates state", async () => {
+    vi.mocked(isUidAdmin).mockResolvedValue(false);
+    vi.mocked(getBusinessProfile).mockResolvedValue({
+      uid: "uid-1",
+      businessName: "My Shop",
+      email: "user@example.com",
+      createdAt: null as never,
+    });
+    const user = userEvent.setup();
+    const fire = captureAuthCallback();
+    fire(fakeUser);
+    await waitFor(() => expect(screen.getByTestId("business")).toHaveTextContent("My Shop"));
+
+    vi.mocked(getBusinessProfile).mockResolvedValue({
+      uid: "uid-1",
+      businessName: "Renamed Shop",
+      email: "user@example.com",
+      createdAt: null as never,
+    });
+    await user.click(screen.getByText("refresh-business"));
+
+    await waitFor(() => expect(screen.getByTestId("business")).toHaveTextContent("Renamed Shop"));
+    expect(getBusinessProfile).toHaveBeenLastCalledWith("uid-1");
+  });
+
+  it("does nothing when there is no signed-in user", async () => {
+    const user = userEvent.setup();
+    captureAuthCallback();
+    await user.click(screen.getByText("refresh-business"));
+    expect(getBusinessProfile).not.toHaveBeenCalled();
   });
 });
 

@@ -36,6 +36,7 @@ import {
   deleteVisitorProfile,
   getBusinessProfile,
   createBusinessProfile,
+  updateBusinessProfile,
   deleteBusinessAccountCascade,
   setEventSaved,
   subscribeVisitorProfile,
@@ -129,6 +130,16 @@ describe("getBusinessProfile / createBusinessProfile", () => {
       docRef("businesses/uid1"),
       { businessName: "My Shop", email: "shop@example.com", createdAt: "SERVER_TIMESTAMP" },
     );
+  });
+});
+
+describe("updateBusinessProfile", () => {
+  it("updates only the given fields on the business's own doc", async () => {
+    await updateBusinessProfile("uid1", { businessName: "New Name", defaultAddress: "Heuvel 1" });
+    expect(updateDoc).toHaveBeenCalledWith(docRef("businesses/uid1"), {
+      businessName: "New Name",
+      defaultAddress: "Heuvel 1",
+    });
   });
 });
 

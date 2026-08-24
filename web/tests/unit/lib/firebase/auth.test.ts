@@ -12,6 +12,9 @@ vi.mock("firebase/auth", () => ({
   createUserWithEmailAndPassword: vi.fn(),
   signOut: vi.fn(),
   deleteUser: vi.fn(),
+  EmailAuthProvider: { credential: vi.fn((email, password) => ({ email, password })) },
+  reauthenticateWithCredential: vi.fn(),
+  updatePassword: vi.fn(),
 }));
 
 vi.mock("@/lib/firebase/app", () => ({
@@ -30,6 +33,7 @@ import {
   loginAdmin,
   signOutCurrentUser,
   deleteCurrentUser,
+  changeBusinessPassword,
 } from "@/lib/firebase/auth";
 import {
   onAuthStateChanged,
@@ -40,6 +44,9 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   deleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
 } from "firebase/auth";
 
 beforeEach(() => {
@@ -129,5 +136,28 @@ describe("deleteCurrentUser", () => {
     const user = { uid: "u1" };
     await deleteCurrentUser(user as never);
     expect(deleteUser).toHaveBeenCalledWith(user);
+  });
+});
+
+describe("changeBusinessPassword", () => {
+  it("reauthenticates with the current password, then updates to the new one", async () => {
+    const user = { uid: "u1", email: "biz@example.com" };
+    vi.mocked(reauthenticateWithCredential).mockResolvedValue(undefined as never);
+    vi.mocked(updatePassword).mockResolvedValue(undefined as never);
+
+    await changeBusinessPassword(user as never, "oldpw123", "newpw123");
+
+    expect(EmailAuthProvider.credential).toHaveBeenCalledWith("biz@example.com", "oldpw123");
+    expect(reauthenticateWithCredential).toHaveBeenCalledWith(user, { email: "biz@example.com", password: "oldpw123" });
+    expect(updatePassword).toHaveBeenCalledWith(user, "newpw123");
+  });
+
+  it("propagates a reauthentication failure without calling updatePassword", async () => {
+    const user = { uid: "u1", email: "biz@example.com" };
+    const err = new Error("auth/wrong-password");
+    vi.mocked(reauthenticateWithCredential).mockRejectedValue(err);
+
+    await expect(changeBusinessPassword(user as never, "wrong", "newpw123")).rejects.toThrow(err);
+    expect(updatePassword).not.toHaveBeenCalled();
   });
 });
