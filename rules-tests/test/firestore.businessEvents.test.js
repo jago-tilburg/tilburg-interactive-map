@@ -77,6 +77,27 @@ describe("businessEvents/{eventId} create", () => {
     await assertFails(setDoc(doc(db, "businessEvents", EVENT_ID), missingAddress));
   });
 
+  // SECURITY FINDING (2026-08-24): unlike visitors/businesses (which
+  // type-check email/displayName/businessName as strings), businessEvents'
+  // create rule only checks field PRESENCE via hasAll() — no `is string` /
+  // `is number` checks on any field. lat/lng can be non-numeric, title can
+  // be an object/array/huge string, etc. hasAll() being satisfied says
+  // nothing about what the values actually are. Not yet remediated.
+  it("SECURITY FINDING: create is allowed with wrong-typed fields (lat/lng as strings, title as an object)", async () => {
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertSucceeds(
+      setDoc(
+        doc(db, "businessEvents", EVENT_ID),
+        validEvent({ lat: "not-a-number", lng: "not-a-number", title: { nested: "object, not a string" } }),
+      ),
+    );
+  });
+
+  it("SECURITY FINDING: create is allowed with an unbounded-length title (no size limit enforced)", async () => {
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertSucceeds(setDoc(doc(db, "businessEvents", EVENT_ID), validEvent({ title: "x".repeat(50000) })));
+  });
+
   it("allows the owner to create a pending, unpaid event with all required fields", async () => {
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
     await assertSucceeds(setDoc(doc(db, "businessEvents", EVENT_ID), validEvent()));
@@ -86,6 +107,20 @@ describe("businessEvents/{eventId} create", () => {
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
     await assertSucceeds(
       setDoc(doc(db, "businessEvents", EVENT_ID), validEvent({ multiDay: true, dailyTimes: [], umbrellaEventId: "u1" })),
+    );
+  });
+
+  // SECURITY FINDING (2026-08-24): umbrellaEventId is never validated
+  // against a real umbrellaEvents/{id} doc (no exists() check, unlike the
+  // admin-membership check umbrellaEvents' own write rule uses). A business
+  // can tag their event under a nonexistent id, or a real festival they
+  // have no actual affiliation with — the UI then shows a "🎪 Onderdeel van
+  // [festival]" badge with no admin-approved association behind it. Not
+  // yet remediated.
+  it("SECURITY FINDING: create is allowed with a nonexistent umbrellaEventId (no existence/ownership check)", async () => {
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertSucceeds(
+      setDoc(doc(db, "businessEvents", EVENT_ID), validEvent({ umbrellaEventId: "totally-made-up-festival-id" })),
     );
   });
 });
@@ -158,6 +193,23 @@ describe("businessEvents/{eventId} update", () => {
     await seedEvent({ status: "pending" });
     const db = testEnv.authenticatedContext(OTHER_UID).firestore();
     await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "hijacked" }));
+  });
+
+  // SECURITY FINDING (2026-08-24): the "allows the owner to edit
+  // non-restricted fields" test above only seeds a PENDING event. The rule
+  // itself allows status to stay unchanged OR go approved->pending — it
+  // never forces approved->pending on a content edit, so an owner can
+  // directly write to Firestore (bypassing the app's own UI, which happens
+  // to always reset status when editing) and change an already-APPROVED
+  // event's title/price/description/date while it stays visibly
+  // "approved," with no re-review. The app's UI isn't a security boundary;
+  // the rule is, and the rule doesn't require it. Not yet remediated.
+  it("SECURITY FINDING: owner can edit an APPROVED event's content while it stays approved, no re-review forced", async () => {
+    await seedEvent({ status: "approved", title: "Original, admin-approved title" });
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "Silently changed after approval, still shows approved" }),
+    );
   });
 });
 
