@@ -46,4 +46,30 @@ describe("SocialLinks", () => {
       platform: "tiktok",
     });
   });
+
+  // Regression test for a pen-test finding: these fields are free-text on
+  // the shop record, writable by any admin editing a shop, with no scheme
+  // restriction at write time — a javascript: URI would execute in a
+  // visitor's browser on click if rendered as a plain href.
+  it("does not render a link for a javascript: URI", () => {
+    render(<SocialLinks shopName="Test Shop" tiktokUrl="javascript:alert(document.cookie)" />);
+    expect(screen.queryByTitle("TikTok")).not.toBeInTheDocument();
+  });
+
+  it("renders the safe link but not the unsafe one when only one is malicious", () => {
+    render(
+      <SocialLinks
+        shopName="Test Shop"
+        tiktokUrl="javascript:alert(1)"
+        instagramUrl="https://instagram.com/test"
+      />,
+    );
+    expect(screen.queryByTitle("TikTok")).not.toBeInTheDocument();
+    expect(screen.getByTitle("Instagram")).toBeInTheDocument();
+  });
+
+  it("renders nothing when the only url set is unsafe", () => {
+    const { container } = render(<SocialLinks shopName="Test Shop" instagramUrl="data:text/html,<script>alert(1)</script>" />);
+    expect(container).toBeEmptyDOMElement();
+  });
 });

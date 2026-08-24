@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { categoryOf, formatBusinessEventSchedule } from "@/lib/events/eventHelpers";
 import { trackEventView, incrementEventInterest, incrementEventClicks } from "@/lib/firebase/businessEvents";
 import { setEventSaved } from "@/lib/firebase/firestore";
+import { isSafeHttpUrl } from "@/lib/safeUrl";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./BusinessEventDetailModal.module.css";
 
@@ -85,6 +86,7 @@ export function BusinessEventDetailModal({
   }
 
   function handleWebsiteClick() {
+    if (!isSafeHttpUrl(event!.websiteUrl)) return;
     incrementEventClicks(event!.id).catch(() => {});
     window.open(event!.websiteUrl, "_blank", "noopener,noreferrer");
   }
@@ -156,7 +158,7 @@ export function BusinessEventDetailModal({
         <button type="button" className={styles.interest} onClick={handleInterest}>
           👍 {interest}
         </button>
-        {event.websiteUrl && (
+        {isSafeHttpUrl(event.websiteUrl) && (
           <button type="button" className={styles.website} onClick={handleWebsiteClick}>
             🎟️ Ik wil hierheen!
           </button>

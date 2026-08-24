@@ -242,6 +242,22 @@ describe("BusinessEventDetailModal", () => {
     expect(screen.queryByText("🎟️ Ik wil hierheen!")).not.toBeInTheDocument();
   });
 
+  // Regression test for a pen-test finding: websiteUrl is free-text on the
+  // event record, writable by any business on their own event with no
+  // scheme restriction at write time — a javascript: URI would execute in
+  // a visitor's browser via window.open() if not guarded at the point of use.
+  it("does not show the website CTA when websiteUrl is a javascript: URI", () => {
+    render(
+      <BusinessEventDetailModal
+        open
+        onClose={vi.fn()}
+        event={makeEvent({ websiteUrl: "javascript:alert(document.cookie)" })}
+        umbrellaEvents={[]}
+      />,
+    );
+    expect(screen.queryByText("🎟️ Ik wil hierheen!")).not.toBeInTheDocument();
+  });
+
   it("tracks a click and opens the website in a new tab", async () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     const user = userEvent.setup();

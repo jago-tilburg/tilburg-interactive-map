@@ -1,6 +1,7 @@
 "use client";
 
 import { trackEvent } from "@/lib/analytics/trackEvent";
+import { isSafeHttpUrl } from "@/lib/safeUrl";
 import styles from "./SocialLinks.module.css";
 
 interface SocialLinksProps {
@@ -10,14 +11,16 @@ interface SocialLinksProps {
 }
 
 export function SocialLinks({ shopName, tiktokUrl, instagramUrl }: SocialLinksProps) {
-  if (!tiktokUrl && !instagramUrl) return null;
+  const safeTiktokUrl = isSafeHttpUrl(tiktokUrl) ? tiktokUrl : undefined;
+  const safeInstagramUrl = isSafeHttpUrl(instagramUrl) ? instagramUrl : undefined;
+  if (!safeTiktokUrl && !safeInstagramUrl) return null;
 
   return (
     <div className={styles.wrapper}>
       <span className={styles.label}>Zie mijn review op:</span>
-      {tiktokUrl && (
+      {safeTiktokUrl && (
         <a
-          href={tiktokUrl}
+          href={safeTiktokUrl}
           target="_blank"
           rel="noopener"
           className={styles.tiktok}
@@ -27,9 +30,9 @@ export function SocialLinks({ shopName, tiktokUrl, instagramUrl }: SocialLinksPr
           🎵
         </a>
       )}
-      {instagramUrl && (
+      {safeInstagramUrl && (
         <a
-          href={instagramUrl}
+          href={safeInstagramUrl}
           target="_blank"
           rel="noopener"
           className={styles.instagram}
