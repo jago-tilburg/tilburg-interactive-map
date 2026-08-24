@@ -276,6 +276,23 @@ describe("MapFilterPanel", () => {
     expect(onCloseMobile).toHaveBeenCalled();
   });
 
+  it("shows the full filter body in the open mobile sheet without needing 'Meer filters'", () => {
+    // On mobile the "Meer filters" toggle is CSS-hidden entirely (see
+    // MapFilterPanel.module.css) — the open sheet must show the body
+    // unconditionally, not stay gated behind the desktop collapse state.
+    setup({ mobileOpen: true });
+    expect(screen.getByLabelText("Zoeken")).toBeInTheDocument();
+  });
+
+  it("counts the Broodjes/Events toggle itself as an active filter", async () => {
+    const user = userEvent.setup();
+    setup();
+
+    expect(screen.queryByText("Wis filters")).not.toBeInTheDocument();
+    await user.click(screen.getByText(/🎉 Events/));
+    expect(screen.getByText("Wis filters")).toBeInTheDocument();
+  });
+
   it("closes the mobile sheet via the 'Toon resultaten' button", async () => {
     const user = userEvent.setup();
     const { onCloseMobile } = setup({ mobileOpen: true });

@@ -77,8 +77,16 @@ export function MapFilterPanel({
   }, [filteredShops, filteredEvents]);
 
   const resultsCount = filteredShops.length + filteredEvents.length;
+  // Matches the prototype's activeFilterCount, which counts the
+  // Broodjes/Events toggle itself as an active filter, not just the "Meer
+  // filters" body's own selections.
   const activeFilterCount =
-    dietary.length + categories.length + (umbrellaFilter ? 1 : 0) + (dateFilter ? 1 : 0) + (query.trim() ? 1 : 0);
+    (contentType !== "alles" ? 1 : 0) +
+    dietary.length +
+    categories.length +
+    (umbrellaFilter ? 1 : 0) +
+    (dateFilter ? 1 : 0) +
+    (query.trim() ? 1 : 0);
 
   function clearAllFilters() {
     setQuery("");
@@ -215,7 +223,12 @@ export function MapFilterPanel({
         </button>
       </div>
 
-      {filtersExpanded && (
+      {/* On mobile the "Meer filters" header/toggle is hidden entirely (see
+          MapFilterPanel.module.css) — the open full-screen sheet always shows
+          the body, ignoring the desktop collapse state, mirroring the
+          prototype's #mapFilterPanelBody forced `display:block!important`
+          under `.mobile-open`. */}
+      {(filtersExpanded || mobileOpen) && (
         <div className={styles.panelBody}>
           <div className={styles.searchRow}>
             <input
