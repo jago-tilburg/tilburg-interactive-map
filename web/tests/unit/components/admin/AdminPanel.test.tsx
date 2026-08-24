@@ -51,11 +51,13 @@ const subscribeAllBusinessEventsForAdmin = vi.fn(
   },
 );
 const createBusinessEvent = vi.fn();
+const deleteBusinessEvent = vi.fn();
 vi.mock("@/lib/firebase/businessEvents", () => ({
   subscribeAllBusinessEventsForAdmin: (...a: [(e: BusinessEvent[]) => void, ((err: Error) => void)?]) =>
     subscribeAllBusinessEventsForAdmin(...a),
   createBusinessEvent: (...a: unknown[]) => createBusinessEvent(...a),
   updateBusinessEvent: vi.fn(),
+  deleteBusinessEvent: (...a: [string]) => deleteBusinessEvent(...a),
 }));
 
 const subscribeUmbrellaEvents = vi.fn(
@@ -417,6 +419,49 @@ describe("AdminPanel businessEvents tab", () => {
     await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
     expect(screen.queryByText("Goedkeuren")).not.toBeInTheDocument();
   });
+
+  it("deletes an approved event instead of approve/reject, matching the prototype's admin tab", async () => {
+    emittedEvents = [makeEvent({ status: "approved" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("Verwijderen"));
+    expect(deleteBusinessEvent).toHaveBeenCalledWith("evt1");
+    expect(showToast).toHaveBeenCalledWith("Evenement verwijderd.", "success");
+  });
+
+  it("deletes a rejected event", async () => {
+    emittedEvents = [makeEvent({ status: "rejected" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("Verwijderen"));
+    expect(deleteBusinessEvent).toHaveBeenCalledWith("evt1");
+  });
+
+  it("shows an error when deleting an event fails", async () => {
+    emittedEvents = [makeEvent({ status: "approved" })];
+    deleteBusinessEvent.mockRejectedValue(new Error("network down"));
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("Verwijderen"));
+    expect(await screen.findByText("network down")).toBeInTheDocument();
+  });
+
+  it("shows a generic error when deleting an event fails with a non-Error", async () => {
+    emittedEvents = [makeEvent({ status: "approved" })];
+    deleteBusinessEvent.mockRejectedValue("not an Error instance");
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("Verwijderen"));
+    expect(await screen.findByText("Verwijderen mislukt.")).toBeInTheDocument();
+  });
 });
 
 describe("AdminPanel umbrellaEvents tab", () => {
@@ -460,6 +505,21 @@ describe("AdminPanel umbrellaEvents tab", () => {
     await user.click(screen.getByText("🎪 Grote evenementen (1)"));
     await user.click(screen.getByText("Verwijderen"));
     expect(await screen.findByText("Verwijderen mislukt.")).toBeInTheDocument();
+  });
+
+  it("lists umbrellas chronologically by startDate, not subscription order", async () => {
+    const later: UmbrellaEvent = { ...umbrella, id: "u-later", title: "Kermis", startDate: "2026-12-01" };
+    const earlier: UmbrellaEvent = { ...umbrella, id: "u-earlier", title: "Carnaval", startDate: "2026-02-01" };
+    emittedUmbrellas = [later, earlier];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎪 Grote evenementen (2)"));
+    const titles = screen
+      .getAllByText(/^🎪 /)
+      .filter((el) => el.tagName !== "BUTTON")
+      .map((el) => el.textContent);
+    expect(titles).toEqual(["🎪 Carnaval", "🎪 Kermis"]);
   });
 });
 

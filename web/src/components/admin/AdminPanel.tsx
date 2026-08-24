@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { subscribeShops, deleteShop, getShopViews } from "@/lib/firebase/shops";
 import { subscribeRequests, deleteRequest } from "@/lib/firebase/requests";
-import { subscribeAllBusinessEventsForAdmin } from "@/lib/firebase/businessEvents";
+import { subscribeAllBusinessEventsForAdmin, deleteBusinessEvent } from "@/lib/firebase/businessEvents";
 import { subscribeUmbrellaEvents, deleteUmbrellaEvent } from "@/lib/firebase/umbrellaEvents";
 import { approveEvent, rejectEvent } from "@/lib/firebase/functions";
 import { categoryOf, formatBusinessEventSchedule, businessEventStatusLabel } from "@/lib/events/eventHelpers";
@@ -115,6 +115,16 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
     }
   }
 
+  async function handleDeleteEvent(eventId: string) {
+    setError(null);
+    try {
+      await deleteBusinessEvent(eventId);
+      showToast("Evenement verwijderd.", "success");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verwijderen mislukt.");
+    }
+  }
+
   async function handleDeleteUmbrella(umbrellaId: string) {
     setError(null);
     try {
@@ -132,6 +142,7 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
   const sortedRequests = [...requests].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
+  const sortedUmbrellas = [...umbrellas].sort((a, b) => a.startDate.localeCompare(b.startDate));
 
   return (
     <>
@@ -277,16 +288,24 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
                         {formatBusinessEventSchedule(ev)} · {ev.address}
                       </div>
                     </div>
-                    {ev.status === "pending" && (
-                      <div className={styles.rowActions}>
-                        <button type="button" disabled={busyEventId === ev.id} onClick={() => handleApprove(ev.id)}>
-                          Goedkeuren
+                    <div className={styles.rowActions}>
+                      {ev.status === "pending" ? (
+                        <>
+                          <button type="button" disabled={busyEventId === ev.id} onClick={() => handleApprove(ev.id)}>
+                            Goedkeuren
+                          </button>
+                          <button type="button" disabled={busyEventId === ev.id} onClick={() => handleReject(ev.id)}>
+                            Afwijzen
+                          </button>
+                        </>
+                      ) : (
+                        // Matches the prototype's admin events tab, where approved/rejected
+                        // events still get a delete action (only pending gets approve/reject).
+                        <button type="button" onClick={() => handleDeleteEvent(ev.id)}>
+                          Verwijderen
                         </button>
-                        <button type="button" disabled={busyEventId === ev.id} onClick={() => handleReject(ev.id)}>
-                          Afwijzen
-                        </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 );
               })
@@ -306,7 +325,7 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
             >
               + Groot evenement toevoegen
             </button>
-            {umbrellas.map((u) => (
+            {sortedUmbrellas.map((u) => (
               <div key={u.id} className={styles.row}>
                 <div>
                   <div className={styles.rowTitle}>🎪 {u.title}</div>
