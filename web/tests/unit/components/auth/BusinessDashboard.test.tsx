@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { BusinessEvent } from "@/types/events";
 
 const deleteCurrentUser = vi.fn();
+const changeBusinessPassword = vi.fn();
 vi.mock("@/lib/firebase/auth", () => ({
   signOutCurrentUser: vi.fn(),
   deleteCurrentUser: (...a: unknown[]) => deleteCurrentUser(...a),
+  changeBusinessPassword: (...a: unknown[]) => changeBusinessPassword(...a),
 }));
 
 const mockUseAuth = vi.fn();
@@ -38,9 +40,11 @@ vi.mock("@/lib/firebase/businessEvents", () => ({
 }));
 
 const deleteBusinessAccountCascade = vi.fn();
+const updateBusinessProfile = vi.fn();
 vi.mock("@/lib/firebase/firestore", () => ({
   setEventSaved: vi.fn().mockResolvedValue(undefined),
   deleteBusinessAccountCascade: (...a: unknown[]) => deleteBusinessAccountCascade(...a),
+  updateBusinessProfile: (...a: unknown[]) => updateBusinessProfile(...a),
 }));
 
 vi.mock("@/lib/firebase/umbrellaEvents", () => ({
@@ -80,6 +84,8 @@ function makeEvent(overrides: Partial<BusinessEvent> = {}): BusinessEvent {
   };
 }
 
+const refreshCurrentBusiness = vi.fn();
+
 beforeEach(() => {
   vi.clearAllMocks();
   emittedEvents = [];
@@ -87,6 +93,9 @@ beforeEach(() => {
   deleteBusinessEvent.mockResolvedValue(undefined);
   deleteBusinessAccountCascade.mockResolvedValue(undefined);
   deleteCurrentUser.mockResolvedValue(undefined);
+  updateBusinessProfile.mockResolvedValue(undefined);
+  changeBusinessPassword.mockResolvedValue(undefined);
+  refreshCurrentBusiness.mockResolvedValue(undefined);
 });
 
 describe("BusinessDashboard", () => {
@@ -411,5 +420,115 @@ describe("BusinessDashboard", () => {
     await user.click(screen.getByText("Account verwijderen"));
 
     expect(await screen.findByText("Account verwijderen mislukt.")).toBeInTheDocument();
+  });
+
+  describe("Settings tab", () => {
+    function setupSettings() {
+      mockUseAuth.mockReturnValue({
+        currentUser: { uid: "u1", email: "biz@example.com" },
+        currentBusiness: business,
+        refreshCurrentBusiness,
+      });
+      const user = userEvent.setup();
+      render(<BusinessDashboard open onClose={vi.fn()} />);
+      return user;
+    }
+
+    it("switches to the Settings tab, pre-filled from the current profile", async () => {
+      const user = await setupSettings();
+      await user.click(screen.getByText("Instellingen"));
+
+      expect(screen.getByDisplayValue("My Shop")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("biz@example.com")).toBeInTheDocument();
+      expect(screen.getByLabelText("E-mail")).toBeDisabled();
+    });
+
+    it("rejects an empty business name without saving", async () => {
+      const user = await setupSettings();
+      await user.click(screen.getByText("Instellingen"));
+
+      await user.clear(screen.getByLabelText("Bedrijfsnaam"));
+      await user.click(screen.getByText("Instellingen opslaan"));
+
+      expect(await screen.findByText("Bedrijfsnaam mag niet leeg zijn")).toBeInTheDocument();
+      expect(updateBusinessProfile).not.toHaveBeenCalled();
+    });
+
+    it("saves the business name and default address, then refreshes the profile", async () => {
+      const user = await setupSettings();
+      await user.click(screen.getByText("Instellingen"));
+
+      await user.clear(screen.getByLabelText("Bedrijfsnaam"));
+      await user.type(screen.getByLabelText("Bedrijfsnaam"), "Renamed Shop");
+      await user.type(screen.getByLabelText("Standaardadres"), "Heuvelstraat 1");
+      await user.click(screen.getByText("Instellingen opslaan"));
+
+      await waitFor(() =>
+        expect(updateBusinessProfile).toHaveBeenCalledWith(
+          "u1",
+          expect.objectContaining({ businessName: "Renamed Shop", defaultAddress: "Heuvelstraat 1" }),
+        ),
+      );
+      expect(changeBusinessPassword).not.toHaveBeenCalled();
+      expect(refreshCurrentBusiness).toHaveBeenCalled();
+      expect(showToast).toHaveBeenCalledWith("Instellingen opgeslagen", "success");
+    });
+
+    it("changes the password when a new one is entered", async () => {
+      const user = await setupSettings();
+      await user.click(screen.getByText("Instellingen"));
+
+      await user.type(screen.getByLabelText("Huidig wachtwoord"), "oldpw123");
+      await user.type(screen.getByLabelText("Nieuw wachtwoord"), "newpw123");
+      await user.click(screen.getByText("Instellingen opslaan"));
+
+      await waitFor(() =>
+        expect(changeBusinessPassword).toHaveBeenCalledWith(
+          { uid: "u1", email: "biz@example.com" },
+          "oldpw123",
+          "newpw123",
+        ),
+      );
+    });
+
+    it("shows an error and does not refresh when saving fails", async () => {
+      updateBusinessProfile.mockRejectedValue(new Error("offline"));
+      const user = await setupSettings();
+      await user.click(screen.getByText("Instellingen"));
+      await user.click(screen.getByText("Instellingen opslaan"));
+
+      expect(await screen.findByText("offline")).toBeInTheDocument();
+      expect(refreshCurrentBusiness).not.toHaveBeenCalled();
+    });
+
+    it("extracts lat/lng from a pasted Google Maps URL", async () => {
+      const user = await setupSettings();
+      await user.click(screen.getByText("Instellingen"));
+
+      await user.type(
+        screen.getByPlaceholderText("Google Maps URL"),
+        "https://www.google.com/maps/@51.5555,5.0913,17z",
+      );
+      await user.click(screen.getByText("Extract"));
+      await user.click(screen.getByText("Instellingen opslaan"));
+
+      await waitFor(() =>
+        expect(updateBusinessProfile).toHaveBeenCalledWith(
+          "u1",
+          expect.objectContaining({ defaultLat: 51.5555, defaultLng: 5.0913 }),
+        ),
+      );
+    });
+
+    it("shows an error when the Maps URL has no extractable coordinates", async () => {
+      const user = await setupSettings();
+      await user.click(screen.getByText("Instellingen"));
+
+      await user.type(screen.getByPlaceholderText("Google Maps URL"), "not a maps url");
+      await user.click(screen.getByText("Extract"));
+
+      expect(await screen.findByText("Coördinaten niet gevonden")).toBeInTheDocument();
+      expect(updateBusinessProfile).not.toHaveBeenCalled();
+    });
   });
 });
