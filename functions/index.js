@@ -39,13 +39,16 @@ exports.approveEvent = onCall(async (request) => {
 
 exports.rejectEvent = onCall(async (request) => {
   await requireAdmin(request.auth);
-  const { eventId } = request.data;
+  const { eventId, reason } = request.data;
   if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
-  await db.collection('businessEvents').doc(eventId).update({
+  const update = {
     status: 'rejected',
     reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
     reviewedBy: request.auth.uid,
-  });
+  };
+  // Optional — an admin can still reject without typing one.
+  if (reason && reason.trim()) update.rejectionReason = reason.trim();
+  await db.collection('businessEvents').doc(eventId).update(update);
   return { ok: true };
 });
 

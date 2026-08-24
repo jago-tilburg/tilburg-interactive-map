@@ -132,6 +132,32 @@ describe("rejectEvent", () => {
       reviewedAt: "SERVER_TIMESTAMP",
       reviewedBy: ADMIN_UID,
     });
+    expect(store.get("businessEvents/evt1").rejectionReason).toBeUndefined();
+  });
+
+  it("stores a trimmed rejectionReason when one is given", async () => {
+    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID });
+
+    await rejectEvent.run({
+      data: { eventId: "evt1", reason: "  Adres komt niet overeen met KVK-registratie.  " },
+      auth: { uid: ADMIN_UID },
+    });
+
+    expect(store.get("businessEvents/evt1")).toMatchObject({
+      status: "rejected",
+      rejectionReason: "Adres komt niet overeen met KVK-registratie.",
+    });
+  });
+
+  it("omits rejectionReason when only whitespace is given", async () => {
+    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID });
+
+    await rejectEvent.run({
+      data: { eventId: "evt1", reason: "   " },
+      auth: { uid: ADMIN_UID },
+    });
+
+    expect(store.get("businessEvents/evt1").rejectionReason).toBeUndefined();
   });
 });
 
