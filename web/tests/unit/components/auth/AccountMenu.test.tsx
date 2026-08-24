@@ -59,6 +59,7 @@ vi.mock("@/lib/firebase/functions", () => ({
 }));
 
 import { AccountMenu } from "@/components/auth/AccountMenu";
+import { subscribeShops } from "@/lib/firebase/shops";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -78,14 +79,14 @@ function baseAuth(overrides: Partial<ReturnType<typeof mockUseAuth>> = {}) {
 describe("AccountMenu label + entry point priority", () => {
   it("shows the admin label when isAdmin is true", () => {
     mockUseAuth.mockReturnValue(baseAuth({ isAdmin: true, currentUser: { uid: "u1" } }));
-    render(<AccountMenu />);
+    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
     expect(screen.getByText("🛠️ Admin")).toBeInTheDocument();
   });
 
   it("opens and closes the admin events panel when isAdmin is true", async () => {
     mockUseAuth.mockReturnValue(baseAuth({ isAdmin: true, currentUser: { uid: "u1" } }));
     const user = userEvent.setup();
-    render(<AccountMenu />);
+    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("🛠️ Admin"));
     expect(screen.getByRole("dialog", { name: "Beheerpaneel" })).toBeInTheDocument();
@@ -102,7 +103,7 @@ describe("AccountMenu label + entry point priority", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<AccountMenu />);
+    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
     expect(screen.getByText("🎉 My Shop")).toBeInTheDocument();
 
     await user.click(screen.getByText("🎉 My Shop"));
@@ -117,17 +118,59 @@ describe("AccountMenu label + entry point priority", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<AccountMenu />);
+    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
     expect(screen.getByText("👤 v")).toBeInTheDocument();
 
     await user.click(screen.getByText("👤 v"));
     expect(screen.getByRole("dialog", { name: "Mijn account" })).toBeInTheDocument();
   });
 
+  it("closes the visitor dashboard and forwards the shop id when a liked shop is clicked", async () => {
+    mockUseAuth.mockReturnValue(
+      baseAuth({
+        currentUser: { uid: "u1" },
+        currentVisitor: { uid: "u1", email: "v@example.com", displayName: "v", createdAt: null },
+      }),
+    );
+    vi.mocked(subscribeShops).mockImplementation((onChange) => {
+      onChange([
+        {
+          id: 42,
+          name: "Liked Shop",
+          address: "",
+          lat: 0,
+          lng: 0,
+          rating: 8,
+          price: "€",
+          photoUrl: "",
+          review: "",
+          tiktokUrl: "",
+          instagramUrl: "",
+          dietaryOptions: { glutenvrij: false, halal: false, vega: false },
+          createdAt: "2026-01-01",
+          likes: ["u1"],
+          comments: [],
+          userReviews: [],
+          userRatings: [],
+        },
+      ]);
+      return vi.fn();
+    });
+    const onOpenShop = vi.fn();
+    const user = userEvent.setup();
+    render(<AccountMenu onOpenShop={onOpenShop} onOpenEvent={vi.fn()} />);
+
+    await user.click(screen.getByText("👤 v"));
+    await user.click(screen.getByText("Liked Shop"));
+
+    expect(onOpenShop).toHaveBeenCalledWith(42);
+    expect(screen.queryByRole("dialog", { name: "Mijn account" })).not.toBeInTheDocument();
+  });
+
   it("opens the account chooser when signed out", async () => {
     mockUseAuth.mockReturnValue(baseAuth());
     const user = userEvent.setup();
-    render(<AccountMenu />);
+    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
     expect(screen.getByText("👤 Account")).toBeInTheDocument();
 
     await user.click(screen.getByText("👤 Account"));
@@ -137,7 +180,7 @@ describe("AccountMenu label + entry point priority", () => {
   it("closes the account chooser modal when cancelled", async () => {
     mockUseAuth.mockReturnValue(baseAuth());
     const user = userEvent.setup();
-    render(<AccountMenu />);
+    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("👤 Account"));
     expect(screen.getByRole("dialog", { name: "Wie ben je?" })).toBeInTheDocument();
@@ -154,7 +197,7 @@ describe("AccountMenu label + entry point priority", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<AccountMenu />);
+    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("🎉 My Shop"));
     await user.click(screen.getByText("Sluiten"));
@@ -164,7 +207,7 @@ describe("AccountMenu label + entry point priority", () => {
   it("closes the visitor auth modal reached via the chooser", async () => {
     mockUseAuth.mockReturnValue(baseAuth());
     const user = userEvent.setup();
-    render(<AccountMenu />);
+    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("👤 Account"));
     await user.click(screen.getByText("👤 Ik ben bezoeker"));
@@ -177,7 +220,7 @@ describe("AccountMenu label + entry point priority", () => {
   it("opens and closes the business auth modal reached via the chooser", async () => {
     mockUseAuth.mockReturnValue(baseAuth());
     const user = userEvent.setup();
-    render(<AccountMenu />);
+    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("👤 Account"));
     await user.click(screen.getByText("🎉 Ik ben Event Owner"));
@@ -198,7 +241,7 @@ describe("AccountMenu label + entry point priority", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<AccountMenu />);
+    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("👤 v"));
     await user.click(screen.getByText("Sluiten"));

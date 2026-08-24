@@ -111,7 +111,7 @@ beforeEach(() => {
 describe("VisitorDashboard", () => {
   it("renders nothing when there is no current visitor", () => {
     mockUseAuth.mockReturnValue({ currentVisitor: null });
-    const { container } = render(<VisitorDashboard open onClose={vi.fn()} />);
+    const { container } = render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -119,7 +119,7 @@ describe("VisitorDashboard", () => {
     vi.mocked(signOutCurrentUser).mockResolvedValue(undefined as never);
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={onClose} />);
+    render(<VisitorDashboard open onClose={onClose} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     expect(screen.getByText("visitor@example.com")).toBeInTheDocument();
     await user.click(screen.getByText("Uitloggen"));
@@ -128,12 +128,29 @@ describe("VisitorDashboard", () => {
   });
 
   it("shows liked shops, ratings given, and saved events for the visitor only", () => {
-    render(<VisitorDashboard open onClose={vi.fn()} />);
+    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     expect(screen.getByText("Café Zuid")).toBeInTheDocument();
     expect(screen.queryByText("Unrelated Shop")).not.toBeInTheDocument();
     expect(screen.getByText(/Café Zuid — 7.5 ⭐/)).toBeInTheDocument();
     expect(screen.getByText(/Kermis/)).toBeInTheDocument();
+  });
+
+  it("opens the shop/event detail and closes the dashboard when a list item is clicked", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onOpenShop = vi.fn();
+    const onOpenEvent = vi.fn();
+    render(<VisitorDashboard open onClose={onClose} onOpenShop={onOpenShop} onOpenEvent={onOpenEvent} />);
+
+    await user.click(screen.getByText("Café Zuid"));
+    expect(onOpenShop).toHaveBeenCalledWith(9001);
+
+    await user.click(screen.getByText(/Café Zuid — 7.5 ⭐/));
+    expect(onOpenShop).toHaveBeenCalledWith(9001);
+
+    await user.click(screen.getByText(/Kermis/));
+    expect(onOpenEvent).toHaveBeenCalledWith("evt1");
   });
 
   it("shows empty states when the visitor has no likes, ratings, or saved events", () => {
@@ -146,7 +163,7 @@ describe("VisitorDashboard", () => {
       onChange([otherShop]);
       return vi.fn();
     });
-    render(<VisitorDashboard open onClose={vi.fn()} />);
+    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     expect(screen.getByText("Nog geen shops geliked.")).toBeInTheDocument();
     expect(screen.getByText("Nog geen ratings gegeven.")).toBeInTheDocument();
@@ -155,19 +172,19 @@ describe("VisitorDashboard", () => {
 
   it("falls back to the cached savedEventIds before the live profile subscription resolves", () => {
     subscribeVisitorProfile.mockImplementation(() => vi.fn());
-    render(<VisitorDashboard open onClose={vi.fn()} />);
+    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
     expect(screen.getByText(/Kermis/)).toBeInTheDocument();
   });
 
   it("does not subscribe when closed", () => {
-    render(<VisitorDashboard open={false} onClose={vi.fn()} />);
+    render(<VisitorDashboard open={false} onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
     expect(subscribeShops).not.toHaveBeenCalled();
   });
 
   it("no-ops when there is no current auth user", async () => {
     mockUseAuth.mockReturnValue({ currentUser: null, currentVisitor: visitor });
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={vi.fn()} />);
+    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("Account verwijderen"));
 
@@ -177,7 +194,7 @@ describe("VisitorDashboard", () => {
   it("deletes the profile and the auth user, then closes", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={onClose} />);
+    render(<VisitorDashboard open onClose={onClose} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("Account verwijderen"));
 
@@ -189,7 +206,7 @@ describe("VisitorDashboard", () => {
   it("shows an error when deleting the account fails", async () => {
     deleteVisitorProfile.mockRejectedValue(new Error("requires recent login"));
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={vi.fn()} />);
+    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("Account verwijderen"));
 
@@ -199,7 +216,7 @@ describe("VisitorDashboard", () => {
   it("shows a generic error when deletion fails with a non-Error", async () => {
     deleteVisitorProfile.mockRejectedValue("nope");
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={vi.fn()} />);
+    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("Account verwijderen"));
 

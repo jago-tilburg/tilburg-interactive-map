@@ -17,9 +17,11 @@ import styles from "./VisitorDashboard.module.css";
 interface VisitorDashboardProps {
   open: boolean;
   onClose: () => void;
+  onOpenShop: (shopId: number) => void;
+  onOpenEvent: (eventId: string) => void;
 }
 
-export function VisitorDashboard({ open, onClose }: VisitorDashboardProps) {
+export function VisitorDashboard({ open, onClose, onOpenShop, onOpenEvent }: VisitorDashboardProps) {
   const { currentUser, currentVisitor } = useAuth();
   const { showToast } = useToast();
   const [liveVisitor, setLiveVisitor] = useState<Visitor | null>(null);
@@ -79,7 +81,9 @@ export function VisitorDashboard({ open, onClose }: VisitorDashboardProps) {
           <ul className={styles.list}>
             {savedEvents.map((e) => (
               <li key={e.id}>
-                {categoryOf(e.category).emoji} {e.title} — {formatBusinessEventSchedule(e)}
+                <button type="button" className={styles.listItem} onClick={() => onOpenEvent(e.id)}>
+                  {categoryOf(e.category).emoji} {e.title} — {formatBusinessEventSchedule(e)}
+                </button>
               </li>
             ))}
           </ul>
@@ -93,7 +97,11 @@ export function VisitorDashboard({ open, onClose }: VisitorDashboardProps) {
         ) : (
           <ul className={styles.list}>
             {likedShops.map((s) => (
-              <li key={s.id}>{s.name}</li>
+              <li key={s.id}>
+                <button type="button" className={styles.listItem} onClick={() => onOpenShop(s.id)}>
+                  {s.name}
+                </button>
+              </li>
             ))}
           </ul>
         )}
@@ -107,7 +115,9 @@ export function VisitorDashboard({ open, onClose }: VisitorDashboardProps) {
           <ul className={styles.list}>
             {ratedShops.map(({ shop, rating }) => (
               <li key={shop.id}>
-                {shop.name} — {rating.toFixed(1)} ⭐
+                <button type="button" className={styles.listItem} onClick={() => onOpenShop(shop.id)}>
+                  {shop.name} — {rating.toFixed(1)} ⭐
+                </button>
               </li>
             ))}
           </ul>
