@@ -8,23 +8,27 @@
       "$shopId": {
         "userReviews": {
           ".write": true,
+          ".validate": "!newData.exists() || newData.hasChildren()",
           "$reviewId": {
             ".write": true
           }
         },
         "userRatings": {
           ".read": true,
-          ".write": true
+          ".write": true,
+          ".validate": "!newData.exists() || newData.hasChildren()"
         },
         "comments": {
           ".write": true,
+          ".validate": "!newData.exists() || newData.hasChildren()",
           "$commentId": {
             ".write": true
           }
         },
         "likes": {
           ".read": true,
-          ".write": true
+          ".write": true,
+          ".validate": "!newData.exists() || newData.hasChildren()"
         }
       }
     },

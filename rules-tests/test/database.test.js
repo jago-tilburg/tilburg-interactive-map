@@ -109,17 +109,53 @@ describe("shops", () => {
 });
 
 describe("data shape / type validation", () => {
-  // SECURITY FINDING (2026-08-24): database.rules.json has zero `.validate`
-  // clauses anywhere — RTDB rules here are pure access control, no shape or
-  // type enforcement at all. Every client-side consumer of these paths
-  // assumes an object shape (e.g. Object.values(comments) to render a
-  // list); nothing stops a caller from replacing that object with a raw
-  // string/number/array, which would throw when real client code iterates
-  // it — a crash/DoS vector against anyone who then views that shop, not
-  // just the attacker. Not yet remediated.
-  it("SECURITY FINDING: comments can be overwritten with a raw string instead of an object of comment entries", async () => {
+  // FIXED (2026-08-25): comments/likes/userRatings/userReviews had zero
+  // `.validate` clauses — pure access control, no shape enforcement at
+  // all. Every client-side consumer assumes an object shape (e.g.
+  // Object.values(comments) to render a list); nothing stopped a caller
+  // from replacing that object with a raw string/number, which would
+  // throw when real client code iterates it — a crash vector against
+  // anyone who then views that shop. Added `.validate:
+  // "!newData.exists() || newData.hasChildren()"` to all four — requires
+  // any non-delete write to be a real container (object/array with at
+  // least one entry), same shape the app itself always writes. Doesn't
+  // touch the parent-write-grants-whole-subtree issue (still deferred,
+  // see the commit that fixed requests/shopViews) — this only closes the
+  // "wrong shape entirely" crash vector, independent of that.
+  it("denies overwriting comments with a raw string", async () => {
     const db = testEnv.unauthenticatedContext().database();
-    await assertSucceeds(set(ref(db, "shops/shop1/comments"), "not an object, breaks Object.values(comments) client-side"));
+    await assertFails(set(ref(db, "shops/shop1/comments"), "not an object, breaks Object.values(comments) client-side"));
+  });
+
+  it("denies overwriting likes with a number", async () => {
+    const db = testEnv.unauthenticatedContext().database();
+    await assertFails(set(ref(db, "shops/shop1/likes"), 12345));
+  });
+
+  it("denies overwriting userRatings with a boolean", async () => {
+    const db = testEnv.unauthenticatedContext().database();
+    await assertFails(set(ref(db, "shops/shop1/userRatings"), true));
+  });
+
+  it("denies overwriting userReviews with a raw string", async () => {
+    const db = testEnv.unauthenticatedContext().database();
+    await assertFails(set(ref(db, "shops/shop1/userReviews"), "not an object"));
+  });
+
+  it("still allows a legitimate object write to comments (the app's real write pattern)", async () => {
+    const db = testEnv.unauthenticatedContext().database();
+    await assertSucceeds(set(ref(db, "shops/shop1/comments"), { c1: { userId: "u1", text: "Nice" } }));
+  });
+
+  it("still allows deleting (setting to null/empty, which RTDB treats as delete)", async () => {
+    await seed("shops/shop1/comments", { c1: { userId: "u1", text: "Nice" } });
+    const db = testEnv.unauthenticatedContext().database();
+    await assertSucceeds(remove(ref(db, "shops/shop1/comments")));
+  });
+
+  it("still allows adding a single comment by key (the app's other real write path)", async () => {
+    const db = testEnv.unauthenticatedContext().database();
+    await assertSucceeds(set(ref(db, "shops/shop1/comments/c1"), { userId: "u1", text: "Nice" }));
   });
 });
 
