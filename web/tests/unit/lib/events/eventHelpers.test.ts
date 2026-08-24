@@ -9,6 +9,7 @@ import {
   activeUmbrellaEvents,
   businessEventStatusLabel,
   isEventHappeningNow,
+  isBusinessEventLive,
 } from "@/lib/events/eventHelpers";
 
 describe("categoryOf", () => {
@@ -158,6 +159,21 @@ describe("businessEventStatusLabel", () => {
     expect(businessEventStatusLabel("approved")).toBe("Goedgekeurd");
     expect(businessEventStatusLabel("rejected")).toBe("Afgewezen");
     expect(businessEventStatusLabel("pending")).toBe("In afwachting");
+  });
+});
+
+describe("isBusinessEventLive", () => {
+  it("is true only when approved AND paid", () => {
+    expect(isBusinessEventLive({ status: "approved", paid: true })).toBe(true);
+  });
+
+  it("is false when approved but not yet paid", () => {
+    expect(isBusinessEventLive({ status: "approved", paid: false })).toBe(false);
+  });
+
+  it("is false for pending or rejected events even if marked paid", () => {
+    expect(isBusinessEventLive({ status: "pending", paid: true })).toBe(false);
+    expect(isBusinessEventLive({ status: "rejected", paid: true })).toBe(false);
   });
 });
 

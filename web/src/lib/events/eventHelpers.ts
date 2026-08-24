@@ -63,6 +63,14 @@ export function activeUmbrellaEvents<T extends { endDate: string }>(umbrellaEven
   return umbrellaEvents.filter((u) => u.endDate >= today);
 }
 
+// Publicly visible on the map = approved AND paid (payment happens after
+// approval, not before) — mirrors the prototype's isEventLive(). An
+// approved-but-unpaid event still needs the business to complete payment
+// before it actually goes live.
+export function isBusinessEventLive(ev: Pick<BusinessEvent, "status" | "paid">): boolean {
+  return ev.status === "approved" && !!ev.paid;
+}
+
 export function businessEventStatusLabel(status: BusinessEvent["status"]): string {
   if (status === "approved") return "Goedgekeurd";
   if (status === "rejected") return "Afgewezen";

@@ -9,7 +9,12 @@ import { deleteBusinessAccountCascade } from "@/lib/firebase/firestore";
 import { subscribeMyBusinessEvents, deleteBusinessEvent } from "@/lib/firebase/businessEvents";
 import { subscribeUmbrellaEvents } from "@/lib/firebase/umbrellaEvents";
 import { confirmEventPaymentStub } from "@/lib/firebase/functions";
-import { categoryOf, formatBusinessEventSchedule, businessEventStatusLabel } from "@/lib/events/eventHelpers";
+import {
+  categoryOf,
+  formatBusinessEventSchedule,
+  businessEventStatusLabel,
+  isBusinessEventLive,
+} from "@/lib/events/eventHelpers";
 import { BusinessEventFormModal } from "@/components/events/BusinessEventFormModal";
 import { BusinessEventDetailModal } from "@/components/events/BusinessEventDetailModal";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
@@ -30,6 +35,7 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
   const [editingEvent, setEditingEvent] = useState<BusinessEvent | null>(null);
   const [duplicateFrom, setDuplicateFrom] = useState<BusinessEvent | null>(null);
   const [detailEvent, setDetailEvent] = useState<BusinessEvent | null>(null);
+  const [eventFilter, setEventFilter] = useState<"all" | "live" | "pending" | "rejected">("all");
 
   useEffect(() => {
     if (!open || !currentBusiness) return;
@@ -101,9 +107,27 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
 
   if (!currentBusiness) return null;
 
-  const liveEventsCount = events.filter((e) => e.status === "approved").length;
-  const totalViews = events.reduce((sum, e) => sum + (e.views ?? 0), 0);
-  const totalClicks = events.reduce((sum, e) => sum + (e.clicks ?? 0), 0);
+  // Newest first, matching the prototype's getMyDashboardEvents() — Firestore's
+  // onSnapshot order is otherwise unspecified without an explicit orderBy.
+  const sortedEvents = [...events].sort(
+    (a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0),
+  );
+  const liveEventsCount = sortedEvents.filter(isBusinessEventLive).length;
+  const totalViews = sortedEvents.reduce((sum, e) => sum + (e.views ?? 0), 0);
+  const totalClicks = sortedEvents.reduce((sum, e) => sum + (e.clicks ?? 0), 0);
+
+  const filterChips: { key: typeof eventFilter; label: string }[] = [
+    { key: "all", label: `Alles (${sortedEvents.length})` },
+    { key: "live", label: `Live (${sortedEvents.filter(isBusinessEventLive).length})` },
+    { key: "pending", label: `In afwachting (${sortedEvents.filter((e) => e.status === "pending").length})` },
+    { key: "rejected", label: `Afgewezen (${sortedEvents.filter((e) => e.status === "rejected").length})` },
+  ];
+  const visibleEvents = sortedEvents.filter((e) => {
+    if (eventFilter === "live") return isBusinessEventLive(e);
+    if (eventFilter === "pending") return e.status === "pending";
+    if (eventFilter === "rejected") return e.status === "rejected";
+    return true;
+  });
 
   return (
     <>
@@ -131,11 +155,28 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
 
         {error && <p className={styles.error}>{error}</p>}
 
+        {sortedEvents.length > 0 && (
+          <div className={styles.filterChips}>
+            {filterChips.map((chip) => (
+              <button
+                type="button"
+                key={chip.key}
+                className={eventFilter === chip.key ? styles.filterChipActive : styles.filterChip}
+                onClick={() => setEventFilter(chip.key)}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className={styles.events}>
-          {events.length === 0 ? (
+          {sortedEvents.length === 0 ? (
             <p className={styles.empty}>Nog geen evenementen. Klik op &quot;Nieuw evenement&quot; om te beginnen.</p>
+          ) : visibleEvents.length === 0 ? (
+            <p className={styles.empty}>Geen events in dit filter.</p>
           ) : (
-            events.map((ev) => {
+            visibleEvents.map((ev) => {
               const cat = categoryOf(ev.category);
               return (
                 <div key={ev.id} className={styles.eventItem}>
