@@ -56,19 +56,62 @@ service cloud.firestore {
           'title', 'category', 'description', 'startDate', 'endDate',
           'startTime', 'endTime', 'lat', 'lng', 'address', 'ownerId',
           'status', 'paid', 'createdAt'
-        ]);
-        // multiDay, dailyTimes, umbrellaEventId are optional extra fields —
-        // no hasAll() requirement for them, same pattern as the required set
-        // above but not mandatory on every event.
+        ])
+        // Field-presence via hasAll() alone says nothing about the actual
+        // values — without this, lat/lng could be non-numeric, title could
+        // be an object, and there was no length bound at all (found via a
+        // pen-test). Bounds chosen generously (well above any real content)
+        // specifically to never reject a legitimate submission.
+        && request.resource.data.title is string && request.resource.data.title.size() <= 200
+        && request.resource.data.category is string
+        && request.resource.data.description is string && request.resource.data.description.size() <= 5000
+        && request.resource.data.startDate is string && request.resource.data.endDate is string
+        && request.resource.data.startTime is string && request.resource.data.endTime is string
+        && request.resource.data.address is string && request.resource.data.address.size() <= 500
+        && request.resource.data.lat is number && request.resource.data.lng is number
+        // umbrellaEventId is optional, but when present must reference a
+        // real umbrella — otherwise a business could tag their event under
+        // a nonexistent or unaffiliated festival with no admin involvement
+        // at all (found via a pen-test; the UI badge just trusts this id).
+        && (!('umbrellaEventId' in request.resource.data)
+          || request.resource.data.umbrellaEventId == null
+          || exists(/databases/$(database)/documents/umbrellaEvents/$(request.resource.data.umbrellaEventId)));
+        // multiDay, dailyTimes are optional extra fields — no hasAll()
+        // requirement for them, same pattern as the required set above but
+        // not mandatory on every event.
 
       allow update: if (request.auth != null
         && request.auth.uid == resource.data.ownerId
         && request.resource.data.ownerId == resource.data.ownerId
         && request.resource.data.paid == resource.data.paid
+        && request.resource.data.title is string && request.resource.data.title.size() <= 200
         && (
           request.resource.data.status == resource.data.status
           || (resource.data.status == 'approved' && request.resource.data.status == 'pending')
-        ))
+        )
+        // An approved event's "significant" fields (title/dates/location)
+        // can only change alongside a pull-back to pending — mirrors
+        // BusinessEventFormModal's own significantChange check client-side.
+        // Without this, a direct write bypassing that UI could silently
+        // keep an approved event's headline details live with no
+        // re-review — found via a pen-test. Non-significant fields
+        // (description/prices/photoUrl/websiteUrl/etc.) can still be
+        // edited freely while staying approved, matching the app's actual,
+        // intentional policy — this only closes the gap between that
+        // policy and what the rule previously actually enforced.
+        && (resource.data.status != 'approved'
+          || request.resource.data.status == 'pending'
+          || (request.resource.data.title == resource.data.title
+            && request.resource.data.startDate == resource.data.startDate
+            && request.resource.data.endDate == resource.data.endDate
+            && request.resource.data.lat == resource.data.lat
+            && request.resource.data.lng == resource.data.lng))
+        // Same existence check as create — an edit can also introduce or
+        // change umbrellaEventId.
+        && (!('umbrellaEventId' in request.resource.data)
+          || request.resource.data.umbrellaEventId == null
+          || request.resource.data.umbrellaEventId == resource.data.umbrellaEventId
+          || exists(/databases/$(database)/documents/umbrellaEvents/$(request.resource.data.umbrellaEventId))))
         // Public engagement counters (views/interest/clicks) — open to
         // anyone, including unauthenticated visitors, on an approved event,
         // mirroring the RTDB shops' openly-writable likes/views. Every

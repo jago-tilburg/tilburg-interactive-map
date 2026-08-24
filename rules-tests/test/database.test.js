@@ -124,14 +124,52 @@ describe("data shape / type validation", () => {
 });
 
 describe("shopViews", () => {
-  // SECURITY FINDING (2026-08-24): no auth check at all, and no value
-  // constraint — any unauthenticated caller can set a shop's view count to
-  // an arbitrary number (including negative/huge), not just increment it.
-  it("allows public read and public write (unauthenticated, unconstrained value)", async () => {
+  // FIXED (2026-08-25): no auth check at all is intentional and stays (view
+  // tracking is anonymous-friendly by design, matching likes/comments) —
+  // but there used to be no value constraint either, so any caller could
+  // set a shop's view count to an arbitrary/negative/huge number instead
+  // of incrementing it. Added a .validate requiring newData to be exactly
+  // one more than the current value (or 1 if unset), matching exactly what
+  // trackShopView() in shops.ts already does (read current, write
+  // current+1) — legitimate behavior is unaffected, only a raw/forged
+  // value is now rejected.
+  it("allows public read", async () => {
+    await seed("shopViews/shop1", 5);
+    const db = testEnv.unauthenticatedContext().database();
+    await assertSucceeds(get(ref(db, "shopViews/shop1")));
+  });
+
+  it("allows an unauthenticated caller to set the first view (1) when none exists yet", async () => {
     const db = testEnv.unauthenticatedContext().database();
     await assertSucceeds(set(ref(db, "shopViews/shop1"), 1));
-    await assertSucceeds(set(ref(db, "shopViews/shop1"), -999999));
-    await assertSucceeds(get(ref(db, "shopViews/shop1")));
+  });
+
+  it("allows incrementing by exactly one from the current value", async () => {
+    await seed("shopViews/shop1", 5);
+    const db = testEnv.unauthenticatedContext().database();
+    await assertSucceeds(set(ref(db, "shopViews/shop1"), 6));
+  });
+
+  it("denies setting an arbitrary/non-incremented value", async () => {
+    await seed("shopViews/shop1", 5);
+    const db = testEnv.unauthenticatedContext().database();
+    await assertFails(set(ref(db, "shopViews/shop1"), 999999));
+  });
+
+  it("denies setting a negative value", async () => {
+    const db = testEnv.unauthenticatedContext().database();
+    await assertFails(set(ref(db, "shopViews/shop1"), -999999));
+  });
+
+  it("denies skipping ahead by more than one", async () => {
+    await seed("shopViews/shop1", 5);
+    const db = testEnv.unauthenticatedContext().database();
+    await assertFails(set(ref(db, "shopViews/shop1"), 7));
+  });
+
+  it("denies a non-numeric value", async () => {
+    const db = testEnv.unauthenticatedContext().database();
+    await assertFails(set(ref(db, "shopViews/shop1"), "not-a-number"));
   });
 });
 
@@ -177,16 +215,41 @@ describe("requests", () => {
     await assertSucceeds(set(ref(db, "requests/req1"), { text: "please add my shop" }));
   });
 
-  // SECURITY FINDING (2026-08-24): `.write:true` at the requests/ parent
-  // node grants write to the whole node, not just to a caller's own new
-  // child. An unauthenticated user can wipe every OTHER pending request in
-  // one call, not just submit their own. Not yet remediated — flip to
-  // assertFails once requests get per-submission ownership scoping (or a
-  // Cloud Function write path instead of a direct client write).
-  it("SECURITY FINDING: an unauthenticated user can wipe the entire requests node, not just add one", async () => {
+  // FIXED (2026-08-25): `.write:true` used to also sit at the requests/
+  // parent node itself, which grants write to the WHOLE node, not just to
+  // a caller's own new child — an unauthenticated user could wipe every
+  // other pending request in one call. The app only ever wrote through
+  // push()-generated child keys anyway (confirmed in requests.ts before
+  // touching this), so removing the parent-level grant closes the gap
+  // with zero change to real app behavior.
+  it("denies an unauthenticated user from wiping the entire requests node", async () => {
     await seed("requests/someone-elses-request", { text: "a real pending request from someone else" });
     const db = testEnv.unauthenticatedContext().database();
-    await assertSucceeds(remove(ref(db, "requests")));
+    await assertFails(remove(ref(db, "requests")));
+  });
+
+  // ALSO FIXED (2026-08-25): $requestId's own write grant used to be
+  // unconditional `true` too, meaning anyone who knew (or, low-probability,
+  // guessed) an existing request's push-generated key could delete it —
+  // `deleteRequest()` is only ever called from AdminPanel.tsx, never from
+  // any visitor-facing flow, so it should have been admin-only all along.
+  // Creating a NEW request (the actual public flow, via push()) stays open
+  // to everyone — this only closes deleting/overwriting an EXISTING one.
+  it("denies a non-admin (even unauthenticated) from deleting an existing request by key", async () => {
+    await seed("requests/req1", { text: "please add my shop" });
+    const db = testEnv.unauthenticatedContext().database();
+    await assertFails(remove(ref(db, "requests/req1")));
+  });
+
+  it("allows the admin uid to delete an existing request by key", async () => {
+    await seed("requests/req1", { text: "please add my shop" });
+    const db = testEnv.authenticatedContext(ADMIN_UID).database();
+    await assertSucceeds(remove(ref(db, "requests/req1")));
+  });
+
+  it("still allows anyone, even unauthenticated, to create a NEW request by a not-yet-existing key", async () => {
+    const db = testEnv.unauthenticatedContext().database();
+    await assertSucceeds(set(ref(db, "requests/brand-new-key"), { text: "please add my shop" }));
   });
 });
 

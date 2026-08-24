@@ -32,7 +32,8 @@
       ".read": true,
       "$shopId": {
         ".read": true,
-        ".write": true
+        ".write": true,
+        ".validate": "newData.isNumber() && newData.val() === (data.exists() ? data.val() + 1 : 1)"
       }
     },
     "events": {
@@ -42,10 +43,9 @@
     },
     "requests": {
       ".read": "auth != null && auth.uid === 'd6JhdOvQt0TYmnEwhhRTF1yRDxa2'",
-      ".write": true,
       ".indexOn": ["timestamp"],
       "$requestId": {
-        ".write": true
+        ".write": "!data.exists() || (auth != null && auth.uid === 'd6JhdOvQt0TYmnEwhhRTF1yRDxa2')"
       }
     },
     "appTexts": {

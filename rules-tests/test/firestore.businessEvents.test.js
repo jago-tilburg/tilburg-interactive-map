@@ -77,15 +77,14 @@ describe("businessEvents/{eventId} create", () => {
     await assertFails(setDoc(doc(db, "businessEvents", EVENT_ID), missingAddress));
   });
 
-  // SECURITY FINDING (2026-08-24): unlike visitors/businesses (which
-  // type-check email/displayName/businessName as strings), businessEvents'
-  // create rule only checks field PRESENCE via hasAll() — no `is string` /
-  // `is number` checks on any field. lat/lng can be non-numeric, title can
-  // be an object/array/huge string, etc. hasAll() being satisfied says
-  // nothing about what the values actually are. Not yet remediated.
-  it("SECURITY FINDING: create is allowed with wrong-typed fields (lat/lng as strings, title as an object)", async () => {
+  // FIXED (2026-08-25): unlike visitors/businesses (which type-check
+  // email/displayName/businessName as strings), businessEvents' create
+  // rule used to only check field PRESENCE via hasAll() — no `is string` /
+  // `is number` checks on any field, and no length bound. Now rejects
+  // wrong-typed and oversized values explicitly.
+  it("denies create with wrong-typed fields (lat/lng as strings, title as an object)", async () => {
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await assertSucceeds(
+    await assertFails(
       setDoc(
         doc(db, "businessEvents", EVENT_ID),
         validEvent({ lat: "not-a-number", lng: "not-a-number", title: { nested: "object, not a string" } }),
@@ -93,9 +92,9 @@ describe("businessEvents/{eventId} create", () => {
     );
   });
 
-  it("SECURITY FINDING: create is allowed with an unbounded-length title (no size limit enforced)", async () => {
+  it("denies create with an unbounded-length title", async () => {
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await assertSucceeds(setDoc(doc(db, "businessEvents", EVENT_ID), validEvent({ title: "x".repeat(50000) })));
+    await assertFails(setDoc(doc(db, "businessEvents", EVENT_ID), validEvent({ title: "x".repeat(50000) })));
   });
 
   it("allows the owner to create a pending, unpaid event with all required fields", async () => {
@@ -104,24 +103,35 @@ describe("businessEvents/{eventId} create", () => {
   });
 
   it("allows optional fields (multiDay, dailyTimes, umbrellaEventId) without requiring them", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "umbrellaEvents", "u1"), { title: "Real Festival" });
+    });
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
     await assertSucceeds(
       setDoc(doc(db, "businessEvents", EVENT_ID), validEvent({ multiDay: true, dailyTimes: [], umbrellaEventId: "u1" })),
     );
   });
 
-  // SECURITY FINDING (2026-08-24): umbrellaEventId is never validated
-  // against a real umbrellaEvents/{id} doc (no exists() check, unlike the
-  // admin-membership check umbrellaEvents' own write rule uses). A business
-  // can tag their event under a nonexistent id, or a real festival they
-  // have no actual affiliation with — the UI then shows a "🎪 Onderdeel van
-  // [festival]" badge with no admin-approved association behind it. Not
-  // yet remediated.
-  it("SECURITY FINDING: create is allowed with a nonexistent umbrellaEventId (no existence/ownership check)", async () => {
+  it("allows create with no umbrellaEventId at all (the common case)", async () => {
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await assertSucceeds(
+    await assertSucceeds(setDoc(doc(db, "businessEvents", EVENT_ID), validEvent()));
+  });
+
+  // FIXED (2026-08-25): umbrellaEventId used to never be validated against
+  // a real umbrellaEvents/{id} doc. A business could tag their event under
+  // a nonexistent id, or a real festival they have no actual affiliation
+  // with — the UI then shows a "🎪 Onderdeel van [festival]" badge with no
+  // admin-approved association behind it. Now requires the id to exist.
+  it("denies create with a nonexistent umbrellaEventId", async () => {
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertFails(
       setDoc(doc(db, "businessEvents", EVENT_ID), validEvent({ umbrellaEventId: "totally-made-up-festival-id" })),
     );
+  });
+
+  it("allows create with an explicit null umbrellaEventId, same as omitting it", async () => {
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertSucceeds(setDoc(doc(db, "businessEvents", EVENT_ID), validEvent({ umbrellaEventId: null })));
   });
 });
 
@@ -195,21 +205,79 @@ describe("businessEvents/{eventId} update", () => {
     await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "hijacked" }));
   });
 
-  // SECURITY FINDING (2026-08-24): the "allows the owner to edit
-  // non-restricted fields" test above only seeds a PENDING event. The rule
-  // itself allows status to stay unchanged OR go approved->pending — it
-  // never forces approved->pending on a content edit, so an owner can
-  // directly write to Firestore (bypassing the app's own UI, which happens
-  // to always reset status when editing) and change an already-APPROVED
-  // event's title/price/description/date while it stays visibly
-  // "approved," with no re-review. The app's UI isn't a security boundary;
-  // the rule is, and the rule doesn't require it. Not yet remediated.
-  it("SECURITY FINDING: owner can edit an APPROVED event's content while it stays approved, no re-review forced", async () => {
+  // FIXED (2026-08-25): the "allows the owner to edit non-restricted
+  // fields" test above only seeds a PENDING event. The rule used to allow
+  // status to stay unchanged OR go approved->pending on ANY edit — it
+  // never forced approved->pending specifically on a "significant" content
+  // edit (title/dates/location — mirroring BusinessEventFormModal's own
+  // significantChange check), so a direct write bypassing that UI could
+  // change an already-approved event's headline details while it stayed
+  // visibly "approved," with no re-review. Now mirrors the same
+  // significant-fields list the client already uses.
+  it("denies changing an APPROVED event's title while status stays approved", async () => {
     await seedEvent({ status: "approved", title: "Original, admin-approved title" });
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "Silently changed after approval, still shows approved" }),
     );
+  });
+
+  it("denies changing an APPROVED event's startDate/endDate/lat/lng while status stays approved", async () => {
+    await seedEvent({ status: "approved" });
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { startDate: "2026-10-01" }));
+    await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { lat: 52.0 }));
+  });
+
+  it("allows changing a significant field on an APPROVED event IF status is pulled back to pending in the same write", async () => {
+    await seedEvent({ status: "approved", title: "Original title" });
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "New title", status: "pending" }),
+    );
+  });
+
+  // Matches the app's actual, intentional policy (BusinessEventFormModal's
+  // significantChange list) — description/prices/photoUrl/websiteUrl/etc.
+  // are NOT "significant," so editing them shouldn't force re-review. This
+  // fix must not break that legitimate, deliberate behavior.
+  it("allows changing a NON-significant field (description) on an APPROVED event without touching status", async () => {
+    await seedEvent({ status: "approved" });
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertSucceeds(updateDoc(doc(db, "businessEvents", EVENT_ID), { description: "Updated description" }));
+  });
+
+  it("still allows editing any field freely on a PENDING (not yet approved) event", async () => {
+    await seedEvent({ status: "pending", title: "Draft title" });
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertSucceeds(updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "Revised draft title" }));
+  });
+
+  it("denies updating with an unbounded-length title", async () => {
+    await seedEvent({ status: "pending" });
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "x".repeat(50000) }));
+  });
+
+  it("denies updating umbrellaEventId to a nonexistent umbrella", async () => {
+    await seedEvent({ status: "pending" });
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { umbrellaEventId: "made-up-id" }));
+  });
+
+  it("allows updating umbrellaEventId to a real umbrella", async () => {
+    await seedEvent({ status: "pending" });
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "umbrellaEvents", "u1"), { title: "Real Festival" });
+    });
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertSucceeds(updateDoc(doc(db, "businessEvents", EVENT_ID), { umbrellaEventId: "u1" }));
+  });
+
+  it("allows clearing umbrellaEventId back to null", async () => {
+    await seedEvent({ status: "pending", umbrellaEventId: "u1" });
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertSucceeds(updateDoc(doc(db, "businessEvents", EVENT_ID), { umbrellaEventId: null }));
   });
 });
 
