@@ -109,6 +109,37 @@
   color: #22c55e;
 }
 
+.rejectionReason {
+  font-size: 0.8rem;
+  color: #dc2626;
+  margin-top: 0.2rem;
+}
+
+.rejectPrompt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  width: 220px;
+}
+
+.rejectPrompt textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem;
+  border: 1px solid #d2d2d7;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  resize: vertical;
+  min-height: 44px;
+}
+
+.rejectPrompt textarea:focus {
+  outline: none;
+  border-color: #22c55e;
+}
+
 .addButton {
   padding: 0.875rem;
   border: none;

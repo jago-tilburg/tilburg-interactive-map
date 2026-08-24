@@ -317,6 +317,24 @@ describe("BusinessDashboard", () => {
     expect(screen.queryByText(/Live One/)).not.toBeInTheDocument();
   });
 
+  it("shows the rejection reason on a rejected event, when the admin gave one", () => {
+    emittedEvents = [
+      makeEvent({ id: "evt1", status: "rejected", rejectionReason: "Adres onvindbaar" }),
+      makeEvent({ id: "evt2", status: "rejected" }),
+    ];
+    subscribeMyBusinessEvents.mockImplementation(
+      (_uid: string, onChange: (events: BusinessEvent[]) => void) => {
+        onChange(emittedEvents);
+        return vi.fn();
+      },
+    );
+    mockUseAuth.mockReturnValue({ currentBusiness: business });
+    render(<BusinessDashboard open onClose={vi.fn()} />);
+
+    expect(screen.getByText("Reden voor afwijzing: Adres onvindbaar")).toBeInTheDocument();
+    expect(screen.queryAllByText(/^Reden voor afwijzing:/)).toHaveLength(1);
+  });
+
   it("sorts events newest-first by createdAt", () => {
     const older = { toMillis: () => 1000 } as unknown as BusinessEvent["createdAt"];
     const newer = { toMillis: () => 2000 } as unknown as BusinessEvent["createdAt"];

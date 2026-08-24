@@ -34,10 +34,15 @@ describe("approveEvent / rejectEvent / confirmEventPaymentStub", () => {
     expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1" });
   });
 
-  it("rejectEvent calls the rejectEvent callable with the eventId", async () => {
+  it("rejectEvent calls the rejectEvent callable with the eventId and no reason", async () => {
     await rejectEvent("evt1");
     expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "rejectEvent");
-    expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1" });
+    expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1", reason: undefined });
+  });
+
+  it("rejectEvent passes a reason through to the callable when given", async () => {
+    await rejectEvent("evt1", "Adres onvindbaar");
+    expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1", reason: "Adres onvindbaar" });
   });
 
   it("confirmEventPaymentStub calls the confirmEventPaymentStub callable with the eventId", async () => {

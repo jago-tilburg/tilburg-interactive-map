@@ -35,6 +35,8 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
   const [umbrellas, setUmbrellas] = useState<UmbrellaEvent[]>([]);
   const [viewCounts, setViewCounts] = useState<Record<number, number>>({});
   const [busyEventId, setBusyEventId] = useState<string | null>(null);
+  const [rejectingEventId, setRejectingEventId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [shopFormOpen, setShopFormOpen] = useState(false);
   const [editingShop, setEditingShop] = useState<Shop | null>(null);
@@ -102,12 +104,14 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
     }
   }
 
-  async function handleReject(eventId: string) {
+  async function handleReject(eventId: string, reason: string) {
     setBusyEventId(eventId);
     setError(null);
     try {
-      await rejectEvent(eventId);
+      await rejectEvent(eventId, reason.trim() || undefined);
       showToast("Evenement afgewezen.", "success");
+      setRejectingEventId(null);
+      setRejectReason("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Afwijzen mislukt.");
     } finally {
@@ -287,25 +291,61 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
                       <div className={styles.rowMeta}>
                         {formatBusinessEventSchedule(ev)} · {ev.address}
                       </div>
-                    </div>
-                    <div className={styles.rowActions}>
-                      {ev.status === "pending" ? (
-                        <>
-                          <button type="button" disabled={busyEventId === ev.id} onClick={() => handleApprove(ev.id)}>
-                            Goedkeuren
-                          </button>
-                          <button type="button" disabled={busyEventId === ev.id} onClick={() => handleReject(ev.id)}>
-                            Afwijzen
-                          </button>
-                        </>
-                      ) : (
-                        // Matches the prototype's admin events tab, where approved/rejected
-                        // events still get a delete action (only pending gets approve/reject).
-                        <button type="button" onClick={() => handleDeleteEvent(ev.id)}>
-                          Verwijderen
-                        </button>
+                      {ev.status === "rejected" && ev.rejectionReason && (
+                        <div className={styles.rejectionReason}>Reden: {ev.rejectionReason}</div>
                       )}
                     </div>
+                    {rejectingEventId === ev.id ? (
+                      <div className={styles.rejectPrompt}>
+                        <textarea
+                          aria-label="Reden voor afwijzing"
+                          placeholder="Reden voor afwijzing (optioneel)"
+                          value={rejectReason}
+                          onChange={(e) => setRejectReason(e.target.value)}
+                        />
+                        <div className={styles.rowActions}>
+                          <button
+                            type="button"
+                            disabled={busyEventId === ev.id}
+                            onClick={() => handleReject(ev.id, rejectReason)}
+                          >
+                            Afwijzing bevestigen
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRejectingEventId(null);
+                              setRejectReason("");
+                            }}
+                          >
+                            Annuleren
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={styles.rowActions}>
+                        {ev.status === "pending" ? (
+                          <>
+                            <button type="button" disabled={busyEventId === ev.id} onClick={() => handleApprove(ev.id)}>
+                              Goedkeuren
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busyEventId === ev.id}
+                              onClick={() => setRejectingEventId(ev.id)}
+                            >
+                              Afwijzen
+                            </button>
+                          </>
+                        ) : (
+                          // Matches the prototype's admin events tab, where approved/rejected
+                          // events still get a delete action (only pending gets approve/reject).
+                          <button type="button" onClick={() => handleDeleteEvent(ev.id)}>
+                            Verwijderen
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })

@@ -79,7 +79,7 @@ const approveEvent = vi.fn();
 const rejectEvent = vi.fn();
 vi.mock("@/lib/firebase/functions", () => ({
   approveEvent: (...a: [string]) => approveEvent(...a),
-  rejectEvent: (...a: [string]) => rejectEvent(...a),
+  rejectEvent: (...a: [string, string?]) => rejectEvent(...a),
 }));
 
 import { AdminPanel } from "@/components/admin/AdminPanel";
@@ -364,7 +364,25 @@ describe("AdminPanel businessEvents tab", () => {
     expect(approveEvent).toHaveBeenCalledWith("evt1");
 
     await user.click(screen.getByText("Afwijzen"));
-    expect(rejectEvent).toHaveBeenCalledWith("evt1");
+    await user.click(screen.getByText("Afwijzing bevestigen"));
+    expect(rejectEvent).toHaveBeenCalledWith("evt1", undefined);
+  });
+
+  it("rejects with a typed reason, and cancelling closes the prompt without calling rejectEvent", async () => {
+    emittedEvents = [makeEvent({ status: "pending" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
+    await user.click(screen.getByText("Afwijzen"));
+    await user.click(screen.getByText("Annuleren"));
+    expect(rejectEvent).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Reden voor afwijzing")).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("Afwijzen"));
+    await user.type(screen.getByLabelText("Reden voor afwijzing"), "Adres onvindbaar");
+    await user.click(screen.getByText("Afwijzing bevestigen"));
+    expect(rejectEvent).toHaveBeenCalledWith("evt1", "Adres onvindbaar");
   });
 
   it("shows an error when approving fails", async () => {
@@ -386,6 +404,7 @@ describe("AdminPanel businessEvents tab", () => {
 
     await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Afwijzen"));
+    await user.click(screen.getByText("Afwijzing bevestigen"));
     expect(await screen.findByText("network down")).toBeInTheDocument();
   });
 
@@ -408,6 +427,7 @@ describe("AdminPanel businessEvents tab", () => {
 
     await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Afwijzen"));
+    await user.click(screen.getByText("Afwijzing bevestigen"));
     expect(await screen.findByText("Afwijzen mislukt.")).toBeInTheDocument();
   });
 
@@ -418,6 +438,24 @@ describe("AdminPanel businessEvents tab", () => {
 
     await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
     expect(screen.queryByText("Goedkeuren")).not.toBeInTheDocument();
+  });
+
+  it("shows the rejection reason on a rejected event, when present", async () => {
+    emittedEvents = [makeEvent({ status: "rejected", rejectionReason: "Adres onvindbaar" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    expect(screen.getByText("Reden: Adres onvindbaar")).toBeInTheDocument();
+  });
+
+  it("shows no reason line on a rejected event without one", async () => {
+    emittedEvents = [makeEvent({ status: "rejected" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    expect(screen.queryByText(/^Reden:/)).not.toBeInTheDocument();
   });
 
   it("deletes an approved event instead of approve/reject, matching the prototype's admin tab", async () => {

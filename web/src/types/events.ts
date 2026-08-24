@@ -32,6 +32,7 @@ export interface BusinessEvent {
   createdAt: Timestamp;
   reviewedAt?: Timestamp;
   reviewedBy?: string;
+  rejectionReason?: string;
   paidAt?: Timestamp;
   multiDay?: boolean;
   dailyTimes?: Record<string, DailyTime> | null;
@@ -46,7 +47,15 @@ export interface BusinessEvent {
 
 export type BusinessEventInput = Omit<
   BusinessEvent,
-  "id" | "ownerId" | "status" | "paid" | "createdAt" | "reviewedAt" | "reviewedBy" | "paidAt"
+  | "id"
+  | "ownerId"
+  | "status"
+  | "paid"
+  | "createdAt"
+  | "reviewedAt"
+  | "reviewedBy"
+  | "rejectionReason"
+  | "paidAt"
 >;
 
 export interface UmbrellaEvent {

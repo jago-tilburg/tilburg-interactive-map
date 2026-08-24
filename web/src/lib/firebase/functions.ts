@@ -12,9 +12,9 @@ export async function approveEvent(eventId: string) {
   return callable({ eventId });
 }
 
-export async function rejectEvent(eventId: string) {
+export async function rejectEvent(eventId: string, reason?: string) {
   const callable = httpsCallable(getFirebaseFunctions(), "rejectEvent");
-  return callable({ eventId });
+  return callable({ eventId, reason });
 }
 
 export async function confirmEventPaymentStub(eventId: string) {

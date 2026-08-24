@@ -189,6 +189,9 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
                   <div className={styles.eventMeta}>
                     {formatBusinessEventSchedule(ev)} · {ev.address}
                   </div>
+                  {ev.status === "rejected" && ev.rejectionReason && (
+                    <div className={styles.rejectionReason}>Reden voor afwijzing: {ev.rejectionReason}</div>
+                  )}
                   <div className={styles.eventStats}>
                     👁️ {ev.views ?? 0} · 🔗 {ev.clicks ?? 0} · ❤️ {ev.interest ?? 0}
                   </div>
