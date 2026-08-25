@@ -131,6 +131,19 @@
   color: white;
 }
 
+.shareButton {
+  background: none;
+  border: none;
+  color: #78716c;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+.shareButton:hover {
+  color: #2563eb;
+}
+
 .reportButton {
   background: none;
   border: none;

@@ -3,6 +3,22 @@
   margin-bottom: 0.75rem;
 }
 
+.shareButton {
+  background: none;
+  border: 1px solid #d2d2d7;
+  border-radius: 8px;
+  color: #78716c;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.4rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.shareButton:hover {
+  color: #2563eb;
+  border-color: #2563eb;
+}
+
 .description {
   margin-bottom: 1rem;
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Shop } from "@/types/shops";
@@ -6,6 +6,16 @@ import type { Shop } from "@/types/shops";
 const mockUseAuth = vi.fn();
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => mockUseAuth(),
+}));
+
+const showToast = vi.fn();
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ showToast }),
+}));
+
+const shareCurrentUrl = vi.fn();
+vi.mock("@/lib/shareUrl", () => ({
+  shareCurrentUrl: (...a: unknown[]) => shareCurrentUrl(...a),
 }));
 
 vi.mock("@/lib/shops/anonUserId", () => ({
@@ -71,6 +81,7 @@ function makeShop(overrides: Partial<Shop> = {}): Shop {
 beforeEach(() => {
   vi.clearAllMocks();
   mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: false });
+  shareCurrentUrl.mockResolvedValue(true);
   trackShopView.mockResolvedValue(1);
   getShopViews.mockResolvedValue(5);
   setShopLike.mockResolvedValue(undefined);
@@ -525,5 +536,42 @@ describe("ShopDetailModal", () => {
       "anon-1",
       expect.objectContaining({ contentType: "shop", contentId: "9001" }),
     );
+  });
+
+  describe("share button", () => {
+    afterEach(() => {
+      // @ts-expect-error -- jsdom doesn't define navigator.share by default; this only exists when a test adds it
+      delete navigator.share;
+    });
+
+    it("shares via the clipboard fallback and shows a toast (no Web Share API in this test environment)", async () => {
+      const user = userEvent.setup();
+      render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop()} />);
+
+      await user.click(screen.getByText("🔗 Delen"));
+
+      expect(shareCurrentUrl).toHaveBeenCalledWith("Test Shop");
+      expect(showToast).toHaveBeenCalledWith("Link gekopieerd.", "success");
+    });
+
+    it("does not show a toast when the native Web Share API is used", async () => {
+      Object.defineProperty(navigator, "share", { value: vi.fn(), configurable: true });
+      const user = userEvent.setup();
+      render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop()} />);
+
+      await user.click(screen.getByText("🔗 Delen"));
+
+      expect(showToast).not.toHaveBeenCalled();
+    });
+
+    it("does not show a toast when sharing/copying itself fails", async () => {
+      shareCurrentUrl.mockResolvedValue(false);
+      const user = userEvent.setup();
+      render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop()} />);
+
+      await user.click(screen.getByText("🔗 Delen"));
+
+      expect(showToast).not.toHaveBeenCalled();
+    });
   });
 });

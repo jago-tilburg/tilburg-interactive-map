@@ -91,3 +91,7 @@ export async function incrementEventInterest(eventId: string) {
 export async function incrementEventClicks(eventId: string) {
   return updateDoc(doc(getDb(), "businessEvents", eventId), { clicks: increment(1) });
 }
+
+export async function incrementEventShares(eventId: string) {
+  return updateDoc(doc(getDb(), "businessEvents", eventId), { shares: increment(1) });
+}

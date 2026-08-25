@@ -272,12 +272,12 @@ describe("BusinessDashboard", () => {
     expect(screen.getByText("listener failed")).toBeInTheDocument();
   });
 
-  it("shows KPI totals across events and per-event view/click/interest stats", () => {
+  it("shows KPI totals across events and per-event view/click/interest/share stats", () => {
     // "Live" requires both approved AND paid — an approved-but-unpaid event
     // isn't actually visible on the map yet, so evt1 must be paid to count.
     const eventsToEmit = [
-      makeEvent({ id: "evt1", status: "approved", paid: true, views: 10, clicks: 3, interest: 2 }),
-      makeEvent({ id: "evt2", status: "pending", views: 5, clicks: 1, interest: 0 }),
+      makeEvent({ id: "evt1", status: "approved", paid: true, views: 10, clicks: 3, interest: 2, shares: 4 }),
+      makeEvent({ id: "evt2", status: "pending", views: 5, clicks: 1, interest: 0, shares: 2 }),
     ];
     subscribeMyBusinessEvents.mockImplementation(
       (_uid: string, onChange: (events: BusinessEvent[]) => void) => {
@@ -291,8 +291,9 @@ describe("BusinessDashboard", () => {
     expect(screen.getByText("1")).toBeInTheDocument(); // Live events
     expect(screen.getByText("15")).toBeInTheDocument(); // Views totaal
     expect(screen.getByText("4")).toBeInTheDocument(); // Klikken totaal
-    expect(screen.getByText("👁️ 10 · 🔗 3 · ❤️ 2")).toBeInTheDocument();
-    expect(screen.getByText("👁️ 5 · 🔗 1 · ❤️ 0")).toBeInTheDocument();
+    expect(screen.getByText("6")).toBeInTheDocument(); // Shares totaal
+    expect(screen.getByText("👁️ 10 · 🔗 3 · ❤️ 2 · 📤 4")).toBeInTheDocument();
+    expect(screen.getByText("👁️ 5 · 🔗 1 · ❤️ 0 · 📤 2")).toBeInTheDocument();
   });
 
   it("filters the event list via the filter chips, matching each chip's own count", async () => {
@@ -374,7 +375,7 @@ describe("BusinessDashboard", () => {
     mockUseAuth.mockReturnValue({ currentBusiness: business });
     render(<BusinessDashboard open onClose={vi.fn()} />);
 
-    expect(screen.getByText("👁️ 0 · 🔗 0 · ❤️ 0")).toBeInTheDocument();
+    expect(screen.getByText("👁️ 0 · 🔗 0 · ❤️ 0 · 📤 0")).toBeInTheDocument();
   });
 
   it("no-ops when there is no current auth user", async () => {

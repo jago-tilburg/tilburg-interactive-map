@@ -18,6 +18,8 @@ import {
 } from "@/lib/firebase/shops";
 import { navigateToLocation } from "@/lib/shops/navigateToLocation";
 import { photoVariantUrl } from "@/lib/photos/photoVariants";
+import { shareCurrentUrl } from "@/lib/shareUrl";
+import { useToast } from "@/hooks/useToast";
 import { DietaryBadges } from "./DietaryBadges";
 import { SocialLinks } from "./SocialLinks";
 import { InstagramEmbed } from "./InstagramEmbed";
@@ -62,6 +64,7 @@ function useCurrentUserId(): string | null {
 
 export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDetailModalProps) {
   const { isAdmin } = useAuth();
+  const { showToast } = useToast();
   const userId = useCurrentUserId();
   const [viewCount, setViewCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -266,6 +269,17 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
                 👍 {likes.length}
               </button>
               {viewCount !== null && <span className={styles.viewCount}>👁️ {viewCount}</span>}
+              <button
+                type="button"
+                className={styles.shareButton}
+                onClick={async () => {
+                  const usedNativeShare = typeof navigator.share === "function";
+                  const success = await shareCurrentUrl(shop.name);
+                  if (success && !usedNativeShare) showToast("Link gekopieerd.", "success");
+                }}
+              >
+                🔗 Delen
+              </button>
               <button type="button" className={styles.reportButton} onClick={() => setReportModalOpen(true)}>
                 🚩 Melden
               </button>

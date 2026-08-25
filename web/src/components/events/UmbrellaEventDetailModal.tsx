@@ -2,6 +2,8 @@
 
 import { Modal } from "@/components/common/Modal";
 import { categoryOf, formatBusinessEventSchedule } from "@/lib/events/eventHelpers";
+import { shareCurrentUrl } from "@/lib/shareUrl";
+import { useToast } from "@/hooks/useToast";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./UmbrellaEventDetailModal.module.css";
 
@@ -20,14 +22,24 @@ export function UmbrellaEventDetailModal({
   approvedBusinessEvents,
   onOpenEvent,
 }: UmbrellaEventDetailModalProps) {
+  const { showToast } = useToast();
   if (!umbrella) return null;
   const children = approvedBusinessEvents.filter((ev) => ev.umbrellaEventId === umbrella.id);
+
+  async function handleShare() {
+    const usedNativeShare = typeof navigator.share === "function";
+    const success = await shareCurrentUrl(umbrella!.title);
+    if (success && !usedNativeShare) showToast("Link gekopieerd.", "success");
+  }
 
   return (
     <Modal open={open} onClose={onClose} title={`🎪 ${umbrella.title}`} variant="detail">
       <p className={styles.dates}>
         🗓️ {umbrella.startDate} t/m {umbrella.endDate}
       </p>
+      <button type="button" className={styles.shareButton} onClick={handleShare}>
+        🔗 Delen
+      </button>
       {umbrella.description && <p className={styles.description}>{umbrella.description}</p>}
       <h4>Onderdeel van dit evenement</h4>
       {children.length === 0 ? (

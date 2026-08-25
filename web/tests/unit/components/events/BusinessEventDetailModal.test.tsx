@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
@@ -8,13 +8,25 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+const showToast = vi.fn();
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ showToast }),
+}));
+
+const shareCurrentUrl = vi.fn();
+vi.mock("@/lib/shareUrl", () => ({
+  shareCurrentUrl: (...a: unknown[]) => shareCurrentUrl(...a),
+}));
+
 const trackEventView = vi.fn();
 const incrementEventInterest = vi.fn();
 const incrementEventClicks = vi.fn();
+const incrementEventShares = vi.fn();
 vi.mock("@/lib/firebase/businessEvents", () => ({
   trackEventView: (...a: unknown[]) => trackEventView(...a),
   incrementEventInterest: (...a: unknown[]) => incrementEventInterest(...a),
   incrementEventClicks: (...a: unknown[]) => incrementEventClicks(...a),
+  incrementEventShares: (...a: unknown[]) => incrementEventShares(...a),
 }));
 
 const setEventSaved = vi.fn();
@@ -71,6 +83,8 @@ beforeEach(() => {
   trackEventView.mockResolvedValue(undefined);
   incrementEventInterest.mockResolvedValue(undefined);
   incrementEventClicks.mockResolvedValue(undefined);
+  incrementEventShares.mockResolvedValue(undefined);
+  shareCurrentUrl.mockResolvedValue(true);
   setEventSaved.mockResolvedValue(undefined);
   createReport.mockResolvedValue(undefined);
 });
@@ -358,5 +372,45 @@ describe("BusinessEventDetailModal", () => {
       "anon-1",
       expect.objectContaining({ contentType: "businessEvent", contentId: "evt1" }),
     );
+  });
+
+  describe("share button", () => {
+    afterEach(() => {
+      // @ts-expect-error -- jsdom doesn't define navigator.share by default; this only exists when a test adds it
+      delete navigator.share;
+    });
+
+    it("shares via the clipboard fallback, shows a toast, and bumps the share counter", async () => {
+      const user = userEvent.setup();
+      render(<BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent()} umbrellaEvents={[]} />);
+
+      await user.click(screen.getByText("🔗 Delen"));
+
+      expect(shareCurrentUrl).toHaveBeenCalledWith("Test Event");
+      expect(showToast).toHaveBeenCalledWith("Link gekopieerd.", "success");
+      expect(incrementEventShares).toHaveBeenCalledWith("evt1");
+    });
+
+    it("does not show a toast when the native Web Share API is used, but still bumps the share counter", async () => {
+      Object.defineProperty(navigator, "share", { value: vi.fn(), configurable: true });
+      const user = userEvent.setup();
+      render(<BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent()} umbrellaEvents={[]} />);
+
+      await user.click(screen.getByText("🔗 Delen"));
+
+      expect(showToast).not.toHaveBeenCalled();
+      expect(incrementEventShares).toHaveBeenCalledWith("evt1");
+    });
+
+    it("does not bump the share counter when the share/copy is cancelled or fails", async () => {
+      shareCurrentUrl.mockResolvedValue(false);
+      const user = userEvent.setup();
+      render(<BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent()} umbrellaEvents={[]} />);
+
+      await user.click(screen.getByText("🔗 Delen"));
+
+      expect(incrementEventShares).not.toHaveBeenCalled();
+      expect(showToast).not.toHaveBeenCalled();
+    });
   });
 });

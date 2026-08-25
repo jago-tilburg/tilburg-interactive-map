@@ -4,10 +4,17 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/common/Modal";
 import { useAuth } from "@/hooks/useAuth";
 import { categoryOf, formatBusinessEventSchedule } from "@/lib/events/eventHelpers";
-import { trackEventView, incrementEventInterest, incrementEventClicks } from "@/lib/firebase/businessEvents";
+import {
+  trackEventView,
+  incrementEventInterest,
+  incrementEventClicks,
+  incrementEventShares,
+} from "@/lib/firebase/businessEvents";
 import { setEventSaved } from "@/lib/firebase/firestore";
 import { isSafeHttpUrl } from "@/lib/safeUrl";
 import { photoVariantUrl } from "@/lib/photos/photoVariants";
+import { shareCurrentUrl } from "@/lib/shareUrl";
+import { useToast } from "@/hooks/useToast";
 import { ReportModal } from "@/components/common/ReportModal";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./BusinessEventDetailModal.module.css";
@@ -30,6 +37,7 @@ export function BusinessEventDetailModal({
   onOpenUmbrella,
 }: BusinessEventDetailModalProps) {
   const { currentVisitor } = useAuth();
+  const { showToast } = useToast();
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [interest, setInterest] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -92,6 +100,14 @@ export function BusinessEventDetailModal({
     if (!isSafeHttpUrl(event!.websiteUrl)) return;
     incrementEventClicks(event!.id).catch(() => {});
     window.open(event!.websiteUrl, "_blank", "noopener,noreferrer");
+  }
+
+  async function handleShare() {
+    const usedNativeShare = typeof navigator.share === "function";
+    const success = await shareCurrentUrl(event!.title);
+    if (!success) return;
+    if (!usedNativeShare) showToast("Link gekopieerd.", "success");
+    incrementEventShares(event!.id).catch(() => {});
   }
 
   return (
@@ -179,6 +195,9 @@ export function BusinessEventDetailModal({
               🎟️ Ik wil hierheen!
             </button>
           )}
+          <button type="button" className={styles.shareButton} onClick={handleShare}>
+            🔗 Delen
+          </button>
           <button type="button" className={styles.reportButton} onClick={() => setReportModalOpen(true)}>
             🚩 Melden
           </button>

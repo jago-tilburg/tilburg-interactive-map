@@ -183,6 +183,7 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
   const liveEventsCount = sortedEvents.filter(isBusinessEventLive).length;
   const totalViews = sortedEvents.reduce((sum, e) => sum + (e.views ?? 0), 0);
   const totalClicks = sortedEvents.reduce((sum, e) => sum + (e.clicks ?? 0), 0);
+  const totalShares = sortedEvents.reduce((sum, e) => sum + (e.shares ?? 0), 0);
 
   const filterChips: { key: typeof eventFilter; label: string }[] = [
     { key: "all", label: `Alles (${sortedEvents.length})` },
@@ -214,6 +215,10 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
           <div className={styles.kpi}>
             <span className={styles.kpiValue}>{totalClicks}</span>
             <span className={styles.kpiLabel}>Klikken totaal</span>
+          </div>
+          <div className={styles.kpi}>
+            <span className={styles.kpiValue}>{totalShares}</span>
+            <span className={styles.kpiLabel}>Shares totaal</span>
           </div>
         </div>
 
@@ -280,7 +285,7 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
                         <div className={styles.rejectionReason}>Reden voor afwijzing: {ev.rejectionReason}</div>
                       )}
                       <div className={styles.eventStats}>
-                        👁️ {ev.views ?? 0} · 🔗 {ev.clicks ?? 0} · ❤️ {ev.interest ?? 0}
+                        👁️ {ev.views ?? 0} · 🔗 {ev.clicks ?? 0} · ❤️ {ev.interest ?? 0} · 📤 {ev.shares ?? 0}
                       </div>
                       <div className={styles.eventActions}>
                         <button type="button" onClick={() => openEditForm(ev)}>

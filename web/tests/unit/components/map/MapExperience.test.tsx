@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
@@ -11,6 +11,19 @@ vi.mock("@/hooks/useAuth", () => ({
 
 vi.mock("@/hooks/useToast", () => ({
   useToast: () => ({ showToast: vi.fn() }),
+}));
+
+// routerReplace updates the mocked pathname too, mirroring how a real
+// router.replace() changes what usePathname() subsequently returns — needed
+// so the "don't replace when already on the matching path" behavior can
+// actually be exercised across a sequence of navigations within one test.
+const mockUsePathname = vi.fn(() => "/");
+const routerReplace = vi.fn((path: string) => {
+  mockUsePathname.mockReturnValue(path);
+});
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: routerReplace }),
+  usePathname: () => mockUsePathname(),
 }));
 
 vi.mock("@/components/map/ShopMap", () => ({
@@ -156,6 +169,7 @@ import { MapExperience } from "@/components/map/MapExperience";
 beforeEach(() => {
   vi.clearAllMocks();
   mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: false });
+  mockUsePathname.mockReturnValue("/");
   subscribeShops.mockImplementation((onChange: (s: Shop[]) => void) => {
     onChange([shop]);
     return vi.fn();
@@ -299,5 +313,76 @@ describe("MapExperience", () => {
 
     expect(screen.getByRole("dialog", { name: "Test Shop" })).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Alle 2 Happies" })).not.toBeInTheDocument();
+  });
+});
+
+describe("MapExperience — deep-link URL sync", () => {
+  it("opens the shop detail modal immediately when initialSelection specifies a shop", () => {
+    render(<MapExperience apiKey="test-key" initialSelection={{ type: "shop", id: 9001 }} />);
+    expect(screen.getByRole("dialog", { name: "Test Shop" })).toBeInTheDocument();
+  });
+
+  it("opens the business event detail modal immediately when initialSelection specifies an event", () => {
+    render(<MapExperience apiKey="test-key" initialSelection={{ type: "event", id: "evt1" }} />);
+    expect(screen.getByRole("dialog", { name: "🍔 Test Event" })).toBeInTheDocument();
+  });
+
+  it("opens the umbrella detail modal immediately when initialSelection specifies an umbrella", () => {
+    render(<MapExperience apiKey="test-key" initialSelection={{ type: "umbrella", id: "u1" }} />);
+    expect(screen.getByRole("dialog", { name: "🎪 Kermis" })).toBeInTheDocument();
+  });
+
+  it("calls router.replace with the shop's path when a shop marker is clicked", async () => {
+    const user = userEvent.setup();
+    render(<MapExperience apiKey="test-key" />);
+
+    await user.click(screen.getByText("click-shop"));
+
+    expect(routerReplace).toHaveBeenCalledWith("/shop/9001", { scroll: false });
+  });
+
+  it("calls router.replace with the event's path when an event marker is clicked", async () => {
+    const user = userEvent.setup();
+    render(<MapExperience apiKey="test-key" />);
+
+    await user.click(screen.getByText("click-event"));
+
+    expect(routerReplace).toHaveBeenCalledWith("/event/evt1", { scroll: false });
+  });
+
+  it("calls router.replace with / when the detail modal is closed", async () => {
+    const user = userEvent.setup();
+    render(<MapExperience apiKey="test-key" />);
+
+    await user.click(screen.getByText("click-shop"));
+    routerReplace.mockClear();
+    await user.click(within(screen.getByRole("dialog")).getByLabelText("Sluiten"));
+
+    expect(routerReplace).toHaveBeenCalledWith("/", { scroll: false });
+  });
+
+  it("does not call router.replace when the URL already matches the current selection", () => {
+    mockUsePathname.mockReturnValue("/shop/9001");
+    render(<MapExperience apiKey="test-key" initialSelection={{ type: "shop", id: 9001 }} />);
+
+    expect(routerReplace).not.toHaveBeenCalled();
+  });
+
+  it("clears the selection when a deep-linked shop id doesn't match any real shop, once shops have loaded", async () => {
+    render(<MapExperience apiKey="test-key" initialSelection={{ type: "shop", id: 424242 }} />);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("clears the selection when a deep-linked event id doesn't match any real event, once events have loaded", async () => {
+    render(<MapExperience apiKey="test-key" initialSelection={{ type: "event", id: "does-not-exist" }} />);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("clears the selection when a deep-linked umbrella id doesn't match any real umbrella, once umbrellas have loaded", async () => {
+    render(<MapExperience apiKey="test-key" initialSelection={{ type: "umbrella", id: "does-not-exist" }} />);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 });

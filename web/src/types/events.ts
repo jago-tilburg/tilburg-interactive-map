@@ -46,6 +46,7 @@ export interface BusinessEvent {
   views?: number;
   interest?: number;
   clicks?: number;
+  shares?: number;
 }
 
 export type BusinessEventInput = Omit<

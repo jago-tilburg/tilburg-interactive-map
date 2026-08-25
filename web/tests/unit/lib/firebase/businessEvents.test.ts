@@ -36,6 +36,7 @@ import {
   trackEventView,
   incrementEventInterest,
   incrementEventClicks,
+  incrementEventShares,
 } from "@/lib/firebase/businessEvents";
 import { onSnapshot, addDoc, updateDoc, deleteDoc, where, increment } from "firebase/firestore";
 
@@ -198,5 +199,10 @@ describe("engagement counters", () => {
   it("incrementEventClicks increments clicks by 1", async () => {
     await incrementEventClicks("evt1");
     expect(updateDoc).toHaveBeenCalledWith(docRef("businessEvents/evt1"), { clicks: { __increment: 1 } });
+  });
+
+  it("incrementEventShares increments shares by 1", async () => {
+    await incrementEventShares("evt1");
+    expect(updateDoc).toHaveBeenCalledWith(docRef("businessEvents/evt1"), { shares: { __increment: 1 } });
   });
 });

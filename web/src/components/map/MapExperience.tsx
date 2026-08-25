@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { ShopMap } from "@/components/map/ShopMap";
 import { MapFilterPanel } from "@/components/mapfilter/MapFilterPanel";
 import { Header } from "@/components/layout/Header";
@@ -18,16 +19,28 @@ import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./MapExperience.module.css";
 
+// A deep-linked shop/event/umbrella, resolved from the matching /shop/[id]
+// /event/[id] /umbrella/[id] route (see app/_components/MapPageShell.tsx) —
+// opens that item's detail modal immediately, before any marker is ever
+// clicked.
+export type InitialSelection =
+  | { type: "shop"; id: number }
+  | { type: "event"; id: string }
+  | { type: "umbrella"; id: string };
+
 interface MapExperienceProps {
   apiKey: string;
+  initialSelection?: InitialSelection;
 }
 
 // Selection state tracks ids, not object references, so the detail modals
 // stay live-updated as the shops/(business)events subscriptions push new
 // data (e.g. a like or rating landing right after the modal opened) instead
 // of freezing on a stale snapshot from the moment the marker was clicked.
-export function MapExperience({ apiKey }: MapExperienceProps) {
+export function MapExperience({ apiKey, initialSelection }: MapExperienceProps) {
   const { isAdmin } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
   // Shared with MenuModal (via Header) — see useMapFilterState's doc comment
   // for why this is one lifted state, not two independent copies.
   const filterState = useMapFilterState();
@@ -38,15 +51,22 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
   // as the panel, not just its own results count.
   const [visibleShops, setVisibleShops] = useState<Shop[]>([]);
   const [visibleEvents, setVisibleEvents] = useState<BusinessEvent[]>([]);
-  const [selectedShopId, setSelectedShopId] = useState<number | null>(null);
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [selectedUmbrellaId, setSelectedUmbrellaId] = useState<string | null>(null);
+  const [selectedShopId, setSelectedShopId] = useState<number | null>(
+    initialSelection?.type === "shop" ? initialSelection.id : null,
+  );
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(
+    initialSelection?.type === "event" ? initialSelection.id : null,
+  );
+  const [selectedUmbrellaId, setSelectedUmbrellaId] = useState<string | null>(
+    initialSelection?.type === "umbrella" ? initialSelection.id : null,
+  );
   const [shopFormMode, setShopFormMode] = useState<"closed" | "create" | "edit">("closed");
   const [shopBeingEdited, setShopBeingEdited] = useState<Shop | null>(null);
   const [shopPrefill, setShopPrefill] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [shopsLoaded, setShopsLoaded] = useState(false);
   const [eventsLoaded, setEventsLoaded] = useState(false);
+  const [umbrellasLoaded, setUmbrellasLoaded] = useState(false);
 
   useEffect(() => {
     const unsubShops = subscribeShops((next) => {
@@ -57,13 +77,49 @@ export function MapExperience({ apiKey }: MapExperienceProps) {
       setBusinessEvents(next);
       setEventsLoaded(true);
     });
-    const unsubUmbrellas = subscribeUmbrellaEvents(setUmbrellaEvents);
+    const unsubUmbrellas = subscribeUmbrellaEvents((next) => {
+      setUmbrellaEvents(next);
+      setUmbrellasLoaded(true);
+    });
     return () => {
       unsubShops();
       unsubEvents();
       unsubUmbrellas();
     };
   }, []);
+
+  // Keeps the URL in sync with whichever detail modal (if any) is open —
+  // replace, not push, so clicking through several markers in a row
+  // doesn't pile up one history entry per click (the tradeoff: the back
+  // button doesn't "close" a modal opened this way).
+  useEffect(() => {
+    const path =
+      selectedShopId !== null
+        ? `/shop/${selectedShopId}`
+        : selectedEventId !== null
+          ? `/event/${selectedEventId}`
+          : selectedUmbrellaId !== null
+            ? `/umbrella/${selectedUmbrellaId}`
+            : "/";
+    if (path !== pathname) router.replace(path, { scroll: false });
+  }, [selectedShopId, selectedEventId, selectedUmbrellaId, pathname, router]);
+
+  // Clears a selection that doesn't match any real record, once its data
+  // has actually loaded — covers both a stale/bad deep link (e.g. a typo'd
+  // id) and a shop/event/umbrella being deleted while someone has it open.
+  // Adjusted during render (not in an effect) per the same pattern
+  // ShopDetailModal's errorShownForShopId uses: checking the *current*
+  // selection keeps this self-limiting — once cleared, selectedShopId is
+  // null, so the condition can't fire again for the same id.
+  if (selectedShopId !== null && shopsLoaded && !shops.some((s) => s.id === selectedShopId)) {
+    setSelectedShopId(null);
+  }
+  if (selectedEventId !== null && eventsLoaded && !businessEvents.some((e) => e.id === selectedEventId)) {
+    setSelectedEventId(null);
+  }
+  if (selectedUmbrellaId !== null && umbrellasLoaded && !umbrellaEvents.some((u) => u.id === selectedUmbrellaId)) {
+    setSelectedUmbrellaId(null);
+  }
 
   async function handleLongPressAdd(lat: number, lng: number) {
     const address = await reverseGeocode(lat, lng);

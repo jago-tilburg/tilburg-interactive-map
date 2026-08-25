@@ -1,8 +1,18 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { UmbrellaEventDetailModal } from "@/components/events/UmbrellaEventDetailModal";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
+
+const showToast = vi.fn();
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ showToast }),
+}));
+
+const shareCurrentUrl = vi.fn();
+vi.mock("@/lib/shareUrl", () => ({
+  shareCurrentUrl: (...a: unknown[]) => shareCurrentUrl(...a),
+}));
 
 const umbrella: UmbrellaEvent = {
   id: "u1",
@@ -35,6 +45,11 @@ function makeEvent(overrides: Partial<BusinessEvent> = {}): BusinessEvent {
     ...overrides,
   };
 }
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  shareCurrentUrl.mockResolvedValue(true);
+});
 
 describe("UmbrellaEventDetailModal", () => {
   it("renders nothing when there is no umbrella", () => {
@@ -72,5 +87,36 @@ describe("UmbrellaEventDetailModal", () => {
 
     await user.click(screen.getByText(/Test Event/));
     expect(onOpenEvent).toHaveBeenCalledWith("evt1");
+  });
+
+  describe("share button", () => {
+    afterEach(() => {
+      // @ts-expect-error -- jsdom doesn't define navigator.share by default; this only exists when a test adds it
+      delete navigator.share;
+    });
+
+    it("shares via the clipboard fallback and shows a toast (no Web Share API in this test environment)", async () => {
+      const user = userEvent.setup();
+      render(
+        <UmbrellaEventDetailModal open onClose={vi.fn()} umbrella={umbrella} approvedBusinessEvents={[]} />,
+      );
+
+      await user.click(screen.getByText("🔗 Delen"));
+
+      expect(shareCurrentUrl).toHaveBeenCalledWith("Kermis");
+      expect(showToast).toHaveBeenCalledWith("Link gekopieerd.", "success");
+    });
+
+    it("does not show a toast when the native Web Share API is used", async () => {
+      Object.defineProperty(navigator, "share", { value: vi.fn(), configurable: true });
+      const user = userEvent.setup();
+      render(
+        <UmbrellaEventDetailModal open onClose={vi.fn()} umbrella={umbrella} approvedBusinessEvents={[]} />,
+      );
+
+      await user.click(screen.getByText("🔗 Delen"));
+
+      expect(showToast).not.toHaveBeenCalled();
+    });
   });
 });
