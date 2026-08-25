@@ -296,10 +296,22 @@ describe("businessEvents/{eventId} public engagement counters", () => {
     await assertSucceeds(updateDoc(doc(db, "businessEvents", EVENT_ID), { clicks: 1 }));
   });
 
+  it("allows an unauthenticated visitor to bump the share count on an approved event", async () => {
+    await seedEvent({ status: "approved", shares: 0 });
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertSucceeds(updateDoc(doc(db, "businessEvents", EVENT_ID), { shares: 1 }));
+  });
+
   it("denies bumping the view count on a pending event", async () => {
     await seedEvent({ status: "pending", views: 0 });
     const db = testEnv.unauthenticatedContext().firestore();
     await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { views: 1 }));
+  });
+
+  it("denies bumping the share count on a pending event", async () => {
+    await seedEvent({ status: "pending", shares: 0 });
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { shares: 1 }));
   });
 
   it("denies smuggling a status change alongside a counter bump", async () => {

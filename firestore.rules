@@ -111,14 +111,14 @@ service cloud.firestore {
           || request.resource.data.umbrellaEventId == null
           || request.resource.data.umbrellaEventId == resource.data.umbrellaEventId
           || exists(/databases/$(database)/documents/umbrellaEvents/$(request.resource.data.umbrellaEventId))))
-        // Public engagement counters (views/interest/clicks) — open to
-        // anyone, including unauthenticated visitors, on an approved event,
-        // mirroring the RTDB shops' openly-writable likes/views. Every
-        // other field must stay byte-for-byte identical, so this branch can
-        // never be used to smuggle a status/paid/ownerId change past the
-        // owner-only branch above.
+        // Public engagement counters (views/interest/clicks/shares) — open
+        // to anyone, including unauthenticated visitors, on an approved
+        // event, mirroring the RTDB shops' openly-writable likes/views.
+        // Every other field must stay byte-for-byte identical, so this
+        // branch can never be used to smuggle a status/paid/ownerId change
+        // past the owner-only branch above.
         || (resource.data.status == 'approved'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'interest', 'clicks']));
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'interest', 'clicks', 'shares']));
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
