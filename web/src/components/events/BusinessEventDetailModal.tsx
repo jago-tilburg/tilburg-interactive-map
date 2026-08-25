@@ -7,6 +7,7 @@ import { categoryOf, formatBusinessEventSchedule } from "@/lib/events/eventHelpe
 import { trackEventView, incrementEventInterest, incrementEventClicks } from "@/lib/firebase/businessEvents";
 import { setEventSaved } from "@/lib/firebase/firestore";
 import { isSafeHttpUrl } from "@/lib/safeUrl";
+import { photoVariantUrl } from "@/lib/photos/photoVariants";
 import { ReportModal } from "@/components/common/ReportModal";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./BusinessEventDetailModal.module.css";
@@ -109,7 +110,14 @@ export function BusinessEventDetailModal({
           <div className={styles.columns}>
             <div className={styles.photoColumn}>
               {event.photoUrl ? (
-                <img src={event.photoUrl} alt={event.title} className={styles.photo} />
+                <img
+                  src={photoVariantUrl(event.photoUrl, "detail")}
+                  alt={event.title}
+                  className={styles.photo}
+                  onError={(e) => {
+                    if (e.currentTarget.src !== event.photoUrl) e.currentTarget.src = event.photoUrl!;
+                  }}
+                />
               ) : (
                 <div className={styles.photoPlaceholder}>{cat.emoji}</div>
               )}

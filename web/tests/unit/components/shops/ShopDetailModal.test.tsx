@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Shop } from "@/types/shops";
 
@@ -338,6 +338,25 @@ describe("ShopDetailModal", () => {
   it("shows the photo when photoUrl is set", () => {
     render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop({ photoUrl: "https://example.com/p.jpg" })} />);
     expect(screen.getByAltText("Test Shop")).toHaveAttribute("src", "https://example.com/p.jpg");
+  });
+
+  it("renders the _detail derivative for an own-Storage photoUrl", () => {
+    const photoUrl = "https://firebasestorage.googleapis.com/v0/b/test-bucket/o/shops%2F1%2Fabc.webp?alt=media";
+    render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop({ photoUrl })} />);
+    expect(screen.getByAltText("Test Shop")).toHaveAttribute(
+      "src",
+      "https://firebasestorage.googleapis.com/v0/b/test-bucket/o/shops%2F1%2Fabc_detail.webp?alt=media",
+    );
+  });
+
+  it("falls back to the original photoUrl when the _detail derivative fails to load", () => {
+    const photoUrl = "https://firebasestorage.googleapis.com/v0/b/test-bucket/o/shops%2F1%2Fabc.webp?alt=media";
+    render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop({ photoUrl })} />);
+    const img = screen.getByAltText("Test Shop");
+
+    fireEvent.error(img);
+
+    expect(img).toHaveAttribute("src", photoUrl);
   });
 
   it("lets an admin delete another user's comment and review", async () => {

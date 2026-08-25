@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 
@@ -105,6 +105,29 @@ describe("BusinessEventDetailModal", () => {
       "src",
       "https://example.com/photo.jpg",
     );
+  });
+
+  it("renders the _detail derivative for an own-Storage photoUrl", () => {
+    const photoUrl = "https://firebasestorage.googleapis.com/v0/b/test-bucket/o/businessEvents%2Fevt1%2Fx.webp?alt=media";
+    render(
+      <BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent({ photoUrl })} umbrellaEvents={[]} />,
+    );
+    expect(screen.getByRole("img", { name: "Test Event" })).toHaveAttribute(
+      "src",
+      "https://firebasestorage.googleapis.com/v0/b/test-bucket/o/businessEvents%2Fevt1%2Fx_detail.webp?alt=media",
+    );
+  });
+
+  it("falls back to the original photoUrl when the _detail derivative fails to load", () => {
+    const photoUrl = "https://firebasestorage.googleapis.com/v0/b/test-bucket/o/businessEvents%2Fevt1%2Fx.webp?alt=media";
+    render(
+      <BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent({ photoUrl })} umbrellaEvents={[]} />,
+    );
+    const img = screen.getByRole("img", { name: "Test Event" });
+
+    fireEvent.error(img);
+
+    expect(img).toHaveAttribute("src", photoUrl);
   });
 
   it("shows the umbrella badge and calls onOpenUmbrella when clicked", async () => {

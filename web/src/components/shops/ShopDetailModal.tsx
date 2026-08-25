@@ -17,6 +17,7 @@ import {
   deleteShop,
 } from "@/lib/firebase/shops";
 import { navigateToLocation } from "@/lib/shops/navigateToLocation";
+import { photoVariantUrl } from "@/lib/photos/photoVariants";
 import { DietaryBadges } from "./DietaryBadges";
 import { SocialLinks } from "./SocialLinks";
 import { InstagramEmbed } from "./InstagramEmbed";
@@ -235,7 +236,16 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
             scope. */}
         <div className={styles.columns}>
           <div className={styles.left}>
-            {shop.photoUrl && <img src={shop.photoUrl} alt={shop.name} className={styles.photo} />}
+            {shop.photoUrl && (
+              <img
+                src={photoVariantUrl(shop.photoUrl, "detail")}
+                alt={shop.name}
+                className={styles.photo}
+                onError={(e) => {
+                  if (e.currentTarget.src !== shop.photoUrl) e.currentTarget.src = shop.photoUrl;
+                }}
+              />
+            )}
 
             <div className={styles.reviewSection}>
               <div className={styles.reviewLabel}>Review van Bastiaan</div>

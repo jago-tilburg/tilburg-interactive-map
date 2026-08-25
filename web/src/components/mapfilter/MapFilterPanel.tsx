@@ -5,6 +5,7 @@ import { DIETARY_BADGES } from "@/lib/shops/socialAndDietary";
 import { EVENT_CATEGORIES } from "@/lib/events/eventHelpers";
 import { DatePickerPopover } from "./DatePickerPopover";
 import { filterShops, filterEvents, toggleInList } from "@/lib/filters/filterHelpers";
+import { photoVariantUrl } from "@/lib/photos/photoVariants";
 import type { MapFilterState, MapFilterActions } from "@/hooks/useMapFilterState";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, EventCategory, UmbrellaEvent } from "@/types/events";
@@ -205,7 +206,11 @@ export function MapFilterPanel({
               key={u.id}
               type="button"
               className={umbrellaFilter === u.id ? styles.umbrellaPillActive : styles.umbrellaPill}
-              style={u.photoUrl ? { backgroundImage: `url(${u.photoUrl})` } : { background: u.color }}
+              style={
+                u.photoUrl
+                  ? { backgroundImage: `url(${photoVariantUrl(u.photoUrl, "thumb")})` }
+                  : { background: u.color }
+              }
               onClick={() => setUmbrellaFilter(umbrellaFilter === u.id ? null : u.id)}
             >
               <span className={styles.umbrellaPillLabel}>{u.title}</span>

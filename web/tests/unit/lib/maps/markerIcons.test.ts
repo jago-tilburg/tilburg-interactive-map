@@ -231,6 +231,46 @@ describe("fetchEventPhotoDataUrl", () => {
 
     expect(result).toBeNull();
   });
+
+  it("fetches the _thumb derivative instead of the original for an own-Storage photoUrl", async () => {
+    const original = "https://firebasestorage.googleapis.com/v0/b/test-bucket/o/businessEvents%2Fevt1%2Fx.webp?alt=media";
+    const thumb = "https://firebasestorage.googleapis.com/v0/b/test-bucket/o/businessEvents%2Fevt1%2Fx_thumb.webp?alt=media";
+    const blob = new Blob(["fake-thumb-bytes"], { type: "image/webp" });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: () => Promise.resolve(blob) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchEventPhotoDataUrl(original);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(thumb, { mode: "cors" });
+    expect(result).toMatch(/^data:/);
+  });
+
+  it("falls back to fetching the original when the _thumb derivative isn't available yet", async () => {
+    const original = "https://firebasestorage.googleapis.com/v0/b/test-bucket/o/businessEvents%2Fevt1%2Fy.webp?alt=media";
+    const thumb = "https://firebasestorage.googleapis.com/v0/b/test-bucket/o/businessEvents%2Fevt1%2Fy_thumb.webp?alt=media";
+    const blob = new Blob(["fake-original-bytes"], { type: "image/webp" });
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === thumb) return Promise.resolve({ ok: false, status: 404 });
+      return Promise.resolve({ ok: true, blob: () => Promise.resolve(blob) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchEventPhotoDataUrl(original);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, thumb, { mode: "cors" });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, original, { mode: "cors" });
+    expect(result).toMatch(/^data:/);
+  });
+
+  it("returns null (without a redundant second fetch) when both the derivative and the original fail for an own-Storage URL", async () => {
+    const original = "https://firebasestorage.googleapis.com/v0/b/test-bucket/o/businessEvents%2Fevt1%2Fz.webp?alt=media";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    const result = await fetchEventPhotoDataUrl(original);
+
+    expect(result).toBeNull();
+  });
 });
 
 describe("shadeColor", () => {

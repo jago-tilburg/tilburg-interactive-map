@@ -315,4 +315,15 @@ describe("MapFilterPanel", () => {
     setup({ umbrellaEvents: [{ ...umbrella, photoUrl: undefined }] });
     expect(screen.getByText("Kermis")).toBeInTheDocument();
   });
+
+  it("uses the _thumb derivative for an own-Storage umbrella photoUrl", () => {
+    const photoUrl = "https://firebasestorage.googleapis.com/v0/b/test-bucket/o/umbrellaEvents%2Fu1%2Fx.webp?alt=media";
+    setup({ umbrellaEvents: [{ ...umbrella, photoUrl }] });
+
+    const pill = screen.getByText("Kermis").closest("button");
+    expect(pill).toHaveStyle({
+      backgroundImage:
+        "url(https://firebasestorage.googleapis.com/v0/b/test-bucket/o/umbrellaEvents%2Fu1%2Fx_thumb.webp?alt=media)",
+    });
+  });
 });

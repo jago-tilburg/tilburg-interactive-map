@@ -1,4 +1,5 @@
 import { ratingColor } from "@/lib/shops/shopHelpers";
+import { photoVariantUrl } from "@/lib/photos/photoVariants";
 
 // Same drop-pin SVG (data URI) the monolith's makeDropIcon() builds — color-
 // coded by rating, with the rating printed inside when showText is true.
@@ -287,12 +288,8 @@ export function computeIconScaledSize(
 // remembered forever; the next call is allowed to retry.
 const eventPhotoDataCache = new Map<string, Promise<string | null>>();
 
-export function fetchEventPhotoDataUrl(photoUrl: string): Promise<string | null> {
-  if (photoUrl.startsWith("data:")) return Promise.resolve(photoUrl);
-  const cached = eventPhotoDataCache.get(photoUrl);
-  if (cached) return cached;
-
-  const promise = fetch(photoUrl, { mode: "cors" })
+function fetchAsDataUrl(url: string): Promise<string> {
+  return fetch(url, { mode: "cors" })
     .then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.blob();
@@ -305,7 +302,25 @@ export function fetchEventPhotoDataUrl(photoUrl: string): Promise<string | null>
           reader.onerror = () => reject(reader.error);
           reader.readAsDataURL(blob);
         }),
-    )
+    );
+}
+
+// Prefers the smaller thumbnail derivative (processPhotoUpload,
+// functions/index.js) over the full original — markers render it small, no
+// reason to fetch/decode the full-size image. Falls back to the original
+// on any failure: a fresh upload's derivative can lag the original by the
+// few seconds processPhotoUpload takes to generate it, and an external
+// (business-supplied) photoUrl never had a derivative generated for it at
+// all, in which case the "thumb" variant is just the original again —
+// skip the pointless duplicate fetch for that case.
+export function fetchEventPhotoDataUrl(photoUrl: string): Promise<string | null> {
+  if (photoUrl.startsWith("data:")) return Promise.resolve(photoUrl);
+  const cached = eventPhotoDataCache.get(photoUrl);
+  if (cached) return cached;
+
+  const thumbUrl = photoVariantUrl(photoUrl, "thumb");
+  const promise = fetchAsDataUrl(thumbUrl)
+    .catch(() => (thumbUrl === photoUrl ? Promise.reject() : fetchAsDataUrl(photoUrl)))
     .catch(() => {
       eventPhotoDataCache.delete(photoUrl);
       return null;
