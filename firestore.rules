@@ -135,6 +135,44 @@ service cloud.firestore {
       allow write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // User-filed reports against a shop/event/comment/review (and, once
+    // built, a shop/event photo). Open to anyone, including unauthenticated
+    // visitors, matching the app's anonymous-interaction model elsewhere —
+    // reporterId is a self-asserted uid or device-local anon id, not
+    // verified against request.auth, same trust model shop likes/comments
+    // already use. Read/resolve restricted to admins.
+    match /reports/{reportId} {
+      allow read: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+
+      // Covers both filing a new report and a reporter re-filing on the
+      // same content (same deterministic doc id — see reports.ts) to
+      // reopen it. Always lands as 'open'; a direct write can never set
+      // resolvedAt/resolvedBy itself, only the admin branch below can.
+      allow create, update: if request.resource.data.keys().hasAll(
+          ['contentType', 'contentId', 'reporterId', 'reason', 'createdAt', 'status']
+        )
+        && request.resource.data.contentType in ['shop', 'businessEvent', 'comment', 'review', 'shopPhoto', 'eventPhoto']
+        && request.resource.data.reason in ['spam', 'offensive', 'incorrect_info', 'other']
+        && request.resource.data.status == 'open'
+        && request.resource.data.reporterId is string && request.resource.data.reporterId.size() <= 200
+        && request.resource.data.contentId is string && request.resource.data.contentId.size() <= 200
+        && (!('parentId' in request.resource.data)
+          || (request.resource.data.parentId is string && request.resource.data.parentId.size() <= 200))
+        && (!('details' in request.resource.data)
+          || (request.resource.data.details is string && request.resource.data.details.size() <= 1000))
+        && !('resolvedAt' in request.resource.data)
+        && !('resolvedBy' in request.resource.data);
+
+      // Admin resolve/dismiss — the only path that can move status away
+      // from 'open', and only these three fields may change.
+      allow update: if request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && request.resource.data.status in ['resolved', 'dismissed']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedAt', 'resolvedBy']);
+
+      allow delete: if false;
+    }
+
     // Everything else is closed by default until its module is built.
     match /{document=**} {
       allow read, write: if false;

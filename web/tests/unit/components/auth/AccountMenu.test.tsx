@@ -32,6 +32,13 @@ vi.mock("@/lib/firebase/businessEvents", () => ({
   deleteBusinessEvent: vi.fn(),
 }));
 
+vi.mock("@/lib/firebase/reports", () => ({
+  subscribeAllReportsForAdmin: vi.fn(() => vi.fn()),
+  createReport: vi.fn(),
+  resolveReport: vi.fn(),
+  dismissReport: vi.fn(),
+}));
+
 vi.mock("@/lib/firebase/shops", () => ({
   subscribeShops: vi.fn(() => vi.fn()),
   deleteShop: vi.fn(),

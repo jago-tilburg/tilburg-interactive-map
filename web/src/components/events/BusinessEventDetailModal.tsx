@@ -7,6 +7,7 @@ import { categoryOf, formatBusinessEventSchedule } from "@/lib/events/eventHelpe
 import { trackEventView, incrementEventInterest, incrementEventClicks } from "@/lib/firebase/businessEvents";
 import { setEventSaved } from "@/lib/firebase/firestore";
 import { isSafeHttpUrl } from "@/lib/safeUrl";
+import { ReportModal } from "@/components/common/ReportModal";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./BusinessEventDetailModal.module.css";
 
@@ -32,6 +33,7 @@ export function BusinessEventDetailModal({
   const [interest, setInterest] = useState(0);
   const [saved, setSaved] = useState(false);
   const [saveHint, setSaveHint] = useState<string | null>(null);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
 
   // Keeps local counters/UI state in sync when a different event is shown,
   // adjusted during render (not an effect) per the pattern used across this
@@ -92,79 +94,95 @@ export function BusinessEventDetailModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={`${cat.emoji} ${event.title}`} variant="detail">
-      <div className={styles.shell}>
-        {/* Photo narrower, info wider on desktop (1fr/1.4fr) — collapses to
-            one stacked column on mobile, matching the prototype's
-            event-detail-columns. The CTA bar stays a sibling of this grid,
-            not inside it, on both layouts. */}
-        <div className={styles.columns}>
-          <div className={styles.photoColumn}>
-            {event.photoUrl ? (
-              <img src={event.photoUrl} alt={event.title} className={styles.photo} />
-            ) : (
-              <div className={styles.photoPlaceholder}>{cat.emoji}</div>
-            )}
-          </div>
+    <>
+      <Modal
+        open={open && !reportModalOpen}
+        onClose={onClose}
+        title={`${cat.emoji} ${event.title}`}
+        variant="detail"
+      >
+        <div className={styles.shell}>
+          {/* Photo narrower, info wider on desktop (1fr/1.4fr) — collapses to
+              one stacked column on mobile, matching the prototype's
+              event-detail-columns. The CTA bar stays a sibling of this grid,
+              not inside it, on both layouts. */}
+          <div className={styles.columns}>
+            <div className={styles.photoColumn}>
+              {event.photoUrl ? (
+                <img src={event.photoUrl} alt={event.title} className={styles.photo} />
+              ) : (
+                <div className={styles.photoPlaceholder}>{cat.emoji}</div>
+              )}
+            </div>
 
-          <div className={styles.infoColumn}>
-            {umbrella && (
-              <button
-                type="button"
-                className={styles.umbrellaBadge}
-                style={{
-                  color: umbrella.color,
-                  borderColor: `${umbrella.color}55`,
-                  background: `${umbrella.color}22`,
-                }}
-                onClick={() => onOpenUmbrella?.(umbrella.id)}
-              >
-                🎪 Onderdeel van {umbrella.title}
-              </button>
-            )}
-            <p className={styles.address}>📍 {event.address}</p>
-            <p className={styles.schedule}>🗓️ {formatBusinessEventSchedule(event)}</p>
-            <p>
-              {description}
-              {event.description.length > DESCRIPTION_TRUNCATE_LENGTH && (
+            <div className={styles.infoColumn}>
+              {umbrella && (
                 <button
                   type="button"
-                  className={styles.readMoreToggle}
-                  onClick={() => setDescriptionExpanded((v) => !v)}
+                  className={styles.umbrellaBadge}
+                  style={{
+                    color: umbrella.color,
+                    borderColor: `${umbrella.color}55`,
+                    background: `${umbrella.color}22`,
+                  }}
+                  onClick={() => onOpenUmbrella?.(umbrella.id)}
                 >
-                  {descriptionExpanded ? "Minder tonen" : "Meer lezen"}
+                  🎪 Onderdeel van {umbrella.title}
                 </button>
               )}
-            </p>
+              <p className={styles.address}>📍 {event.address}</p>
+              <p className={styles.schedule}>🗓️ {formatBusinessEventSchedule(event)}</p>
+              <p>
+                {description}
+                {event.description.length > DESCRIPTION_TRUNCATE_LENGTH && (
+                  <button
+                    type="button"
+                    className={styles.readMoreToggle}
+                    onClick={() => setDescriptionExpanded((v) => !v)}
+                  >
+                    {descriptionExpanded ? "Minder tonen" : "Meer lezen"}
+                  </button>
+                )}
+              </p>
 
-            {event.prices && event.prices.length > 0 && (
-              <div className={styles.prices}>
-                {event.prices.map((price, i) => (
-                  <div key={i} className={styles.priceLine}>
-                    <span>{price.label}</span>
-                    <span>{price.amount === 0 ? "Gratis" : `€${price.amount.toFixed(2)}`}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+              {event.prices && event.prices.length > 0 && (
+                <div className={styles.prices}>
+                  {event.prices.map((price, i) => (
+                    <div key={i} className={styles.priceLine}>
+                      <span>{price.label}</span>
+                      <span>{price.amount === 0 ? "Gratis" : `€${price.amount.toFixed(2)}`}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className={styles.ctaBar}>
-        <button type="button" className={saved ? styles.saveActive : styles.save} onClick={handleToggleSave}>
-          {saved ? "🔖 Bewaard" : "🔖 Bewaar"}
-        </button>
-        <button type="button" className={styles.interest} onClick={handleInterest}>
-          👍 {interest}
-        </button>
-        {isSafeHttpUrl(event.websiteUrl) && (
-          <button type="button" className={styles.website} onClick={handleWebsiteClick}>
-            🎟️ Ik wil hierheen!
+        <div className={styles.ctaBar}>
+          <button type="button" className={saved ? styles.saveActive : styles.save} onClick={handleToggleSave}>
+            {saved ? "🔖 Bewaard" : "🔖 Bewaar"}
           </button>
-        )}
-      </div>
-      {saveHint && <p className={styles.saveHint}>{saveHint}</p>}
-    </Modal>
+          <button type="button" className={styles.interest} onClick={handleInterest}>
+            👍 {interest}
+          </button>
+          {isSafeHttpUrl(event.websiteUrl) && (
+            <button type="button" className={styles.website} onClick={handleWebsiteClick}>
+              🎟️ Ik wil hierheen!
+            </button>
+          )}
+          <button type="button" className={styles.reportButton} onClick={() => setReportModalOpen(true)}>
+            🚩 Melden
+          </button>
+        </div>
+        {saveHint && <p className={styles.saveHint}>{saveHint}</p>}
+      </Modal>
+      <ReportModal
+        open={reportModalOpen}
+        onClose={() => setReportModalOpen(false)}
+        contentType="businessEvent"
+        contentId={event.id}
+      />
+    </>
   );
 }

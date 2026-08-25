@@ -16,6 +16,7 @@ import {
   blockEvent,
   adminDeleteEvent,
 } from "@/lib/firebase/functions";
+import { subscribeAllReportsForAdmin, resolveReport, dismissReport } from "@/lib/firebase/reports";
 import { categoryOf, formatBusinessEventSchedule, businessEventStatusLabel } from "@/lib/events/eventHelpers";
 import { ShopFormModal } from "@/components/shops/ShopFormModal";
 import { UmbrellaFormModal } from "@/components/events/UmbrellaFormModal";
@@ -23,6 +24,7 @@ import { BusinessEventFormModal } from "@/components/events/BusinessEventFormMod
 import type { Shop } from "@/types/shops";
 import type { ShopRequest } from "@/types/requests";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
+import type { Report, ReportContentType, ReportReason } from "@/types/reports";
 import styles from "./AdminPanel.module.css";
 
 interface AdminPanelProps {
@@ -30,7 +32,23 @@ interface AdminPanelProps {
   onClose: () => void;
 }
 
-type Tab = "shops" | "userRatings" | "requests" | "businessEvents" | "umbrellaEvents";
+type Tab = "shops" | "userRatings" | "requests" | "businessEvents" | "umbrellaEvents" | "reports";
+
+const REPORT_CONTENT_TYPE_LABEL: Record<ReportContentType, string> = {
+  shop: "Winkel",
+  businessEvent: "Evenement",
+  comment: "Reactie",
+  review: "Review",
+  shopPhoto: "Winkelfoto",
+  eventPhoto: "Evenementfoto",
+};
+
+const REPORT_REASON_LABEL: Record<ReportReason, string> = {
+  spam: "Spam",
+  offensive: "Aanstootgevend",
+  incorrect_info: "Onjuiste informatie",
+  other: "Anders",
+};
 
 // The three moderation actions that take an optional free-text reason share
 // one confirm-with-reason prompt in the UI below, rather than three
@@ -78,6 +96,7 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
   const [requests, setRequests] = useState<ShopRequest[]>([]);
   const [events, setEvents] = useState<BusinessEvent[]>([]);
   const [umbrellas, setUmbrellas] = useState<UmbrellaEvent[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
   const [viewCounts, setViewCounts] = useState<Record<number, number>>({});
   const [busyEventId, setBusyEventId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<{ eventId: string; kind: ReasonActionKind } | null>(null);
@@ -95,9 +114,11 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
     const unsubRequests = subscribeRequests(setRequests, (err) => setError(err.message));
     const unsubEvents = subscribeAllBusinessEventsForAdmin(setEvents, (err) => setError(err.message));
     const unsubUmbrellas = subscribeUmbrellaEvents(setUmbrellas, (err) => setError(err.message));
+    const unsubReports = subscribeAllReportsForAdmin(setReports, (err) => setError(err.message));
     return () => {
       unsubShops();
       unsubRequests();
+      unsubReports();
       unsubEvents();
       unsubUmbrellas();
     };
@@ -200,7 +221,30 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
     }
   }
 
+  async function handleResolveReport(reportId: string) {
+    if (!currentUser) return;
+    setError(null);
+    try {
+      await resolveReport(reportId, currentUser.uid);
+      showToast("Melding afgehandeld.", "success");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Afhandelen mislukt.");
+    }
+  }
+
+  async function handleDismissReport(reportId: string) {
+    if (!currentUser) return;
+    setError(null);
+    try {
+      await dismissReport(reportId, currentUser.uid);
+      showToast("Melding genegeerd.", "success");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Negeren mislukt.");
+    }
+  }
+
   const pendingCount = events.filter((e) => e.status === "pending").length;
+  const openReports = reports.filter((r) => r.status === "open");
   const allRatings = shops.flatMap((shop) =>
     (shop.userRatings ?? []).map((r) => ({ shopName: shop.name, ...r })),
   );
@@ -208,6 +252,14 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
   const sortedUmbrellas = [...umbrellas].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  // Open reports first, newest first within each group.
+  const sortedReports = [...reports].sort((a, b) => {
+    if (a.status === "open" && b.status !== "open") return -1;
+    if (a.status !== "open" && b.status === "open") return 1;
+    const aTime = a.createdAt && "toMillis" in a.createdAt ? a.createdAt.toMillis() : 0;
+    const bTime = b.createdAt && "toMillis" in b.createdAt ? b.createdAt.toMillis() : 0;
+    return bTime - aTime;
+  });
 
   return (
     <>
@@ -247,6 +299,13 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
             onClick={() => setTab("umbrellaEvents")}
           >
             🎪 Grote evenementen ({umbrellas.length})
+          </button>
+          <button
+            type="button"
+            className={tab === "reports" ? styles.tabActive : styles.tab}
+            onClick={() => setTab("reports")}
+          >
+            🚩 Meldingen ({openReports.length})
           </button>
         </div>
 
@@ -490,6 +549,43 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
             ))}
           </div>
         )}
+
+        {tab === "reports" &&
+          (sortedReports.length === 0 ? (
+            <p className={styles.empty}>Nog geen meldingen 🚩</p>
+          ) : (
+            <div className={styles.list}>
+              {sortedReports.map((r) => (
+                <div key={r.id} className={styles.row}>
+                  <div>
+                    <div className={styles.rowTitle}>
+                      {REPORT_CONTENT_TYPE_LABEL[r.contentType]} · {REPORT_REASON_LABEL[r.reason]}
+                      {r.status !== "open" && (
+                        <span className={styles.status}>
+                          {r.status === "resolved" ? "Afgehandeld" : "Genegeerd"}
+                        </span>
+                      )}
+                    </div>
+                    <div className={styles.rowMeta}>
+                      contentId: {r.contentId}
+                      {r.parentId && ` · bij ${r.parentId}`}
+                    </div>
+                    {r.details && <div className={styles.rejectionReason}>{r.details}</div>}
+                  </div>
+                  {r.status === "open" && (
+                    <div className={styles.rowActions}>
+                      <button type="button" onClick={() => handleResolveReport(r.id)}>
+                        Afhandelen
+                      </button>
+                      <button type="button" onClick={() => handleDismissReport(r.id)}>
+                        Negeren
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
       </Modal>
 
       <ShopFormModal open={shopFormOpen} onClose={() => setShopFormOpen(false)} editingShop={editingShop} />

@@ -168,6 +168,20 @@
   align-items: center;
 }
 
+.reportButton {
+  background: none;
+  border: none;
+  color: #78716c;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  margin-left: auto;
+}
+
+.reportButton:hover {
+  color: #c0392b;
+}
+
 .adminActions {
   display: flex;
   gap: 0.5rem;

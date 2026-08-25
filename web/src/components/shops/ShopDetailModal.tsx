@@ -23,6 +23,7 @@ import { InstagramEmbed } from "./InstagramEmbed";
 import { StarRating } from "./StarRating";
 import { CommentNameModal } from "./CommentNameModal";
 import { UserReviewModal } from "./UserReviewModal";
+import { ReportModal } from "@/components/common/ReportModal";
 import type { Shop } from "@/types/shops";
 import styles from "./ShopDetailModal.module.css";
 
@@ -66,6 +67,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
   const [commentDraft, setCommentDraft] = useState("");
   const [pendingCommentText, setPendingCommentText] = useState<string | null>(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
 
   // Resets the error banner as soon as a different shop is shown — done
   // during render (comparing against the previously-rendered shop id)
@@ -199,7 +201,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
   return (
     <>
       <Modal
-        open={open && !pendingCommentText && !reviewModalOpen}
+        open={open && !pendingCommentText && !reviewModalOpen && !reportModalOpen}
         onClose={onClose}
         title={shop.name}
         variant="detail"
@@ -254,6 +256,9 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
                 👍 {likes.length}
               </button>
               {viewCount !== null && <span className={styles.viewCount}>👁️ {viewCount}</span>}
+              <button type="button" className={styles.reportButton} onClick={() => setReportModalOpen(true)}>
+                🚩 Melden
+              </button>
             </div>
 
             {isAdmin && (
@@ -342,6 +347,12 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
         open={reviewModalOpen}
         onClose={() => setReviewModalOpen(false)}
         onSubmit={handleSubmitReview}
+      />
+      <ReportModal
+        open={reportModalOpen}
+        onClose={() => setReportModalOpen(false)}
+        contentType="shop"
+        contentId={String(shop.id)}
       />
     </>
   );

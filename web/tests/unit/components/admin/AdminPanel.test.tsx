@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { Shop } from "@/types/shops";
 import type { ShopRequest } from "@/types/requests";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
+import type { Report } from "@/types/reports";
 
 const mockUseAuth = vi.fn();
 vi.mock("@/hooks/useAuth", () => ({
@@ -19,6 +20,7 @@ let emittedShops: Shop[] = [];
 let emittedRequests: ShopRequest[] = [];
 let emittedEvents: BusinessEvent[] = [];
 let emittedUmbrellas: UmbrellaEvent[] = [];
+let emittedReports: Report[] = [];
 
 const subscribeShops = vi.fn((onChange: (s: Shop[]) => void, ..._rest: [((err: Error) => void)?]) => {
   onChange(emittedShops);
@@ -71,6 +73,22 @@ vi.mock("@/lib/firebase/umbrellaEvents", () => ({
   deleteUmbrellaEvent: (...a: [string]) => deleteUmbrellaEvent(...a),
   createUmbrellaEvent: vi.fn(),
   updateUmbrellaEvent: vi.fn(),
+}));
+
+const subscribeAllReportsForAdmin = vi.fn(
+  (onChange: (r: Report[]) => void, ..._rest: [((err: Error) => void)?]) => {
+    onChange(emittedReports);
+    return vi.fn();
+  },
+);
+const resolveReport = vi.fn();
+const dismissReport = vi.fn();
+vi.mock("@/lib/firebase/reports", () => ({
+  subscribeAllReportsForAdmin: (...a: [(r: Report[]) => void, ((err: Error) => void)?]) =>
+    subscribeAllReportsForAdmin(...a),
+  createReport: vi.fn(),
+  resolveReport: (...a: [string, string]) => resolveReport(...a),
+  dismissReport: (...a: [string, string]) => dismissReport(...a),
 }));
 
 const approveEvent = vi.fn();
@@ -144,18 +162,34 @@ const umbrella: UmbrellaEvent = {
   createdAt: null as never,
 };
 
+function makeReport(overrides: Partial<Report> = {}): Report {
+  return {
+    id: "shop_9001_anon-1",
+    contentType: "shop",
+    contentId: "9001",
+    reporterId: "anon-1",
+    reason: "spam",
+    createdAt: null as never,
+    status: "open",
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   emittedShops = [];
   emittedRequests = [];
   emittedEvents = [];
   emittedUmbrellas = [];
+  emittedReports = [];
   approveEvent.mockResolvedValue(undefined);
   rejectEvent.mockResolvedValue(undefined);
   suspendEvent.mockResolvedValue(undefined);
   restoreEvent.mockResolvedValue(undefined);
   blockEvent.mockResolvedValue(undefined);
   adminDeleteEvent.mockResolvedValue(undefined);
+  resolveReport.mockResolvedValue(undefined);
+  dismissReport.mockResolvedValue(undefined);
   deleteUmbrellaEvent.mockResolvedValue(undefined);
   deleteShop.mockResolvedValue(undefined);
   deleteRequest.mockResolvedValue(undefined);
@@ -676,6 +710,110 @@ describe("AdminPanel umbrellaEvents tab", () => {
   });
 });
 
+describe("AdminPanel reports tab", () => {
+  it("shows the empty state when there are no reports", async () => {
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🚩 Meldingen (0)"));
+    expect(screen.getByText("Nog geen meldingen 🚩")).toBeInTheDocument();
+  });
+
+  it("lists an open report with its content type, reason, and details", async () => {
+    emittedReports = [makeReport({ details: "Verkeerde locatie" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🚩 Meldingen (1)"));
+    expect(screen.getByText("Winkel · Spam")).toBeInTheDocument();
+    expect(screen.getByText(/contentId: 9001/)).toBeInTheDocument();
+    expect(screen.getByText("Verkeerde locatie")).toBeInTheDocument();
+  });
+
+  it("shows the parentId hint for a comment/review report", async () => {
+    emittedReports = [makeReport({ contentType: "comment", contentId: "c1", parentId: "9001" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🚩 Meldingen (1)"));
+    expect(screen.getByText(/bij 9001/)).toBeInTheDocument();
+  });
+
+  it("resolves an open report", async () => {
+    emittedReports = [makeReport()];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🚩 Meldingen (1)"));
+    await user.click(screen.getByText("Afhandelen"));
+    expect(resolveReport).toHaveBeenCalledWith("shop_9001_anon-1", "admin-uid");
+  });
+
+  it("dismisses an open report", async () => {
+    emittedReports = [makeReport()];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🚩 Meldingen (1)"));
+    await user.click(screen.getByText("Negeren"));
+    expect(dismissReport).toHaveBeenCalledWith("shop_9001_anon-1", "admin-uid");
+  });
+
+  it("shows an error when resolving fails", async () => {
+    emittedReports = [makeReport()];
+    resolveReport.mockRejectedValue(new Error("network down"));
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🚩 Meldingen (1)"));
+    await user.click(screen.getByText("Afhandelen"));
+    expect(await screen.findByText("network down")).toBeInTheDocument();
+  });
+
+  it("shows a generic error when dismissing fails with a non-Error", async () => {
+    emittedReports = [makeReport()];
+    dismissReport.mockRejectedValue("not an Error instance");
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🚩 Meldingen (1)"));
+    await user.click(screen.getByText("Negeren"));
+    expect(await screen.findByText("Negeren mislukt.")).toBeInTheDocument();
+  });
+
+  it("does not show resolve/dismiss buttons for an already-resolved report, and shows its status", async () => {
+    emittedReports = [makeReport({ status: "resolved" })];
+    const user = userEvent.setup();
+    // Resolved reports don't count toward the open badge.
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🚩 Meldingen (0)"));
+    expect(screen.getByText("Afgehandeld")).toBeInTheDocument();
+    expect(screen.queryByText("Afhandelen")).not.toBeInTheDocument();
+    expect(screen.queryByText("Negeren")).not.toBeInTheDocument();
+  });
+
+  it("shows a dismissed report's status", async () => {
+    emittedReports = [makeReport({ status: "dismissed" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🚩 Meldingen (0)"));
+    expect(screen.getByText("Genegeerd")).toBeInTheDocument();
+  });
+
+  it("does nothing when there is no signed-in admin", async () => {
+    mockUseAuth.mockReturnValue({ currentUser: null });
+    emittedReports = [makeReport()];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🚩 Meldingen (1)"));
+    await user.click(screen.getByText("Afhandelen"));
+    expect(resolveReport).not.toHaveBeenCalled();
+  });
+});
+
 describe("AdminPanel subscription errors", () => {
   it("surfaces an error from the shops subscription", () => {
     subscribeShops.mockImplementationOnce((_onChange: (s: Shop[]) => void, onError?: (err: Error) => void) => {
@@ -717,5 +855,16 @@ describe("AdminPanel subscription errors", () => {
     );
     render(<AdminPanel open onClose={vi.fn()} />);
     expect(screen.getByText("umbrellas listener failed")).toBeInTheDocument();
+  });
+
+  it("surfaces an error from the reports subscription", () => {
+    subscribeAllReportsForAdmin.mockImplementationOnce(
+      (_onChange: (r: Report[]) => void, onError?: (err: Error) => void) => {
+        onError?.(new Error("reports listener failed"));
+        return vi.fn();
+      },
+    );
+    render(<AdminPanel open onClose={vi.fn()} />);
+    expect(screen.getByText("reports listener failed")).toBeInTheDocument();
   });
 });

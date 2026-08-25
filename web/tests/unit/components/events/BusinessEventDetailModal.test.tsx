@@ -22,6 +22,15 @@ vi.mock("@/lib/firebase/firestore", () => ({
   setEventSaved: (...a: unknown[]) => setEventSaved(...a),
 }));
 
+const createReport = vi.fn();
+vi.mock("@/lib/firebase/reports", () => ({
+  createReport: (...a: unknown[]) => createReport(...a),
+}));
+
+vi.mock("@/lib/shops/anonUserId", () => ({
+  getAnonUserId: vi.fn(() => "anon-1"),
+}));
+
 import { BusinessEventDetailModal } from "@/components/events/BusinessEventDetailModal";
 
 function makeEvent(overrides: Partial<BusinessEvent> = {}): BusinessEvent {
@@ -63,6 +72,7 @@ beforeEach(() => {
   incrementEventInterest.mockResolvedValue(undefined);
   incrementEventClicks.mockResolvedValue(undefined);
   setEventSaved.mockResolvedValue(undefined);
+  createReport.mockResolvedValue(undefined);
 });
 
 describe("BusinessEventDetailModal", () => {
@@ -312,5 +322,18 @@ describe("BusinessEventDetailModal", () => {
     );
     expect(screen.getByText("👍 9")).toBeInTheDocument();
     expect(screen.getByText("🔖 Bewaard")).toBeInTheDocument();
+  });
+
+  it("opens the report modal and files a report against the event", async () => {
+    const user = userEvent.setup();
+    render(<BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent()} umbrellaEvents={[]} />);
+
+    await user.click(screen.getByText("🚩 Melden"));
+    await user.click(screen.getByText("Melding versturen"));
+
+    expect(createReport).toHaveBeenCalledWith(
+      "anon-1",
+      expect.objectContaining({ contentType: "businessEvent", contentId: "evt1" }),
+    );
   });
 });

@@ -38,6 +38,11 @@ vi.mock("@/lib/shops/navigateToLocation", () => ({
   navigateToLocation: (...a: unknown[]) => navigateToLocation(...a),
 }));
 
+const createReport = vi.fn();
+vi.mock("@/lib/firebase/reports", () => ({
+  createReport: (...a: unknown[]) => createReport(...a),
+}));
+
 import { ShopDetailModal } from "@/components/shops/ShopDetailModal";
 
 function makeShop(overrides: Partial<Shop> = {}): Shop {
@@ -75,6 +80,7 @@ beforeEach(() => {
   addShopUserReview.mockResolvedValue(undefined);
   removeShopUserReview.mockResolvedValue(undefined);
   deleteShop.mockResolvedValue(undefined);
+  createReport.mockResolvedValue(undefined);
 });
 
 describe("ShopDetailModal", () => {
@@ -487,5 +493,18 @@ describe("ShopDetailModal", () => {
 
     await user.click(screen.getByText("👍 1"));
     expect(setShopLike).toHaveBeenCalledWith(9001, "visitor-1", false);
+  });
+
+  it("opens the report modal and files a report against the shop", async () => {
+    const user = userEvent.setup();
+    render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop()} />);
+
+    await user.click(screen.getByText("🚩 Melden"));
+    await user.click(screen.getByText("Melding versturen"));
+
+    expect(createReport).toHaveBeenCalledWith(
+      "anon-1",
+      expect.objectContaining({ contentType: "shop", contentId: "9001" }),
+    );
   });
 });

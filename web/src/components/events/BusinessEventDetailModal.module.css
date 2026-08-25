@@ -131,6 +131,19 @@
   color: white;
 }
 
+.reportButton {
+  background: none;
+  border: none;
+  color: #78716c;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+.reportButton:hover {
+  color: #c0392b;
+}
+
 .website {
   background: #d97706;
   color: white;
