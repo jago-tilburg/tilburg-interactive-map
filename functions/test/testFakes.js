@@ -1,0 +1,144 @@
+import { createRequire } from "module";
+
+// Shared require.cache-patching fakes for index.js's plain CommonJS
+// require() calls (Vitest's vi.mock only intercepts the ESM import graph —
+// see index.test.js's original top-of-file comment for the full
+// explanation). Every test file that imports index.js needs all four of
+// these faked, regardless of which export it actually cares about, since
+// index.js unconditionally requires and initializes all of them at module
+// load. Centralized here once three test files needed the identical ~40
+// lines of setup.
+const require = createRequire(import.meta.url);
+
+const MODULE_PATHS = {
+  app: require.resolve("firebase-admin/app"),
+  firestore: require.resolve("firebase-admin/firestore"),
+  storage: require.resolve("firebase-admin/storage"),
+  sharp: require.resolve("sharp"),
+};
+
+const realCacheEntries = {};
+for (const key of Object.keys(MODULE_PATHS)) {
+  realCacheEntries[key] = require.cache[MODULE_PATHS[key]];
+}
+
+export const firestoreStore = new Map();
+export const bucketStore = new Map();
+
+// A sharp(buffer) call is treated as "not a real image" when the buffer's
+// content is exactly this marker — lets a test exercise processPhotoUpload's
+// undecodable-bytes branch without a real corrupt image file.
+export const INVALID_IMAGE_MARKER = "NOT-A-REAL-IMAGE";
+
+// bucket.deleteFiles() rejects for any prefix containing this marker — lets
+// a test exercise deleteStorageDir's best-effort catch branch (e.g. by using
+// this as the deleted record's id) without needing a real Storage failure.
+export const DELETE_FAILURE_MARKER = "FAIL-DELETE";
+
+function makeDocRef(path, id) {
+  const key = `${path}/${id}`;
+  return {
+    get: async () => ({
+      exists: firestoreStore.has(key),
+      data: () => firestoreStore.get(key),
+    }),
+    update: async (patch) => {
+      const current = firestoreStore.get(key) || {};
+      firestoreStore.set(key, { ...current, ...patch });
+    },
+    delete: async () => {
+      firestoreStore.delete(key);
+    },
+  };
+}
+
+const fakeDb = {
+  collection: (path) => ({
+    doc: (id) => makeDocRef(path, id),
+  }),
+};
+
+function makeFile(name) {
+  return {
+    download: async () => {
+      const entry = bucketStore.get(name);
+      if (!entry) throw new Error(`no such object: ${name}`);
+      return [entry.buffer];
+    },
+    save: async (buffer, options) => {
+      bucketStore.set(name, { buffer, contentType: options && options.contentType });
+    },
+    delete: async () => {
+      bucketStore.delete(name);
+    },
+  };
+}
+
+const fakeBucket = {
+  file: (name) => makeFile(name),
+  deleteFiles: async ({ prefix } = {}) => {
+    if (prefix.includes(DELETE_FAILURE_MARKER)) throw new Error("simulated deleteFiles failure");
+    for (const key of [...bucketStore.keys()]) {
+      if (key.startsWith(prefix)) bucketStore.delete(key);
+    }
+  },
+};
+
+function fakeSharp(buffer) {
+  const isValid = buffer.toString() !== INVALID_IMAGE_MARKER;
+  return {
+    metadata: async () => {
+      if (!isValid) throw new Error("unsupported image format");
+      return { width: 1200, height: 800 };
+    },
+    clone() {
+      return this;
+    },
+    resize() {
+      return this;
+    },
+    webp() {
+      return this;
+    },
+    toBuffer: async () => Buffer.from(`derivative-of:${buffer.toString()}`),
+  };
+}
+
+require.cache[MODULE_PATHS.app] = {
+  id: MODULE_PATHS.app,
+  filename: MODULE_PATHS.app,
+  loaded: true,
+  exports: { initializeApp: () => {} },
+};
+require.cache[MODULE_PATHS.firestore] = {
+  id: MODULE_PATHS.firestore,
+  filename: MODULE_PATHS.firestore,
+  loaded: true,
+  exports: {
+    getFirestore: () => fakeDb,
+    FieldValue: { serverTimestamp: () => "SERVER_TIMESTAMP" },
+  },
+};
+require.cache[MODULE_PATHS.storage] = {
+  id: MODULE_PATHS.storage,
+  filename: MODULE_PATHS.storage,
+  loaded: true,
+  exports: { getStorage: () => ({ bucket: () => fakeBucket }) },
+};
+require.cache[MODULE_PATHS.sharp] = {
+  id: MODULE_PATHS.sharp,
+  filename: MODULE_PATHS.sharp,
+  loaded: true,
+  exports: fakeSharp,
+};
+
+export function restoreRealModules() {
+  for (const key of Object.keys(MODULE_PATHS)) {
+    const real = realCacheEntries[key];
+    if (real) {
+      require.cache[MODULE_PATHS[key]] = real;
+    } else {
+      delete require.cache[MODULE_PATHS[key]];
+    }
+  }
+}

@@ -1,60 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { createRequire } from "module";
-
-// index.js is plain CommonJS (`require('firebase-admin/app')` /
-// `require('firebase-admin/firestore')`, the modular admin SDK), which
-// Vitest's module graph does not intercept via vi.mock — that mechanism
-// only covers modules reached through the ESM import graph. Instead we
-// pre-seed Node's own require.cache for those two submodule paths with fake
-// modules before dynamically importing index.js, so its internal require()
-// calls resolve to the fakes without ever loading the real
-// @google-cloud/firestore client.
-const require = createRequire(import.meta.url);
-const appPath = require.resolve("firebase-admin/app");
-const firestorePath = require.resolve("firebase-admin/firestore");
-const realAppCacheEntry = require.cache[appPath];
-const realFirestoreCacheEntry = require.cache[firestorePath];
-
-const store = new Map();
-
-function makeDocRef(path, id) {
-  const key = `${path}/${id}`;
-  return {
-    get: async () => ({
-      exists: store.has(key),
-      data: () => store.get(key),
-    }),
-    update: async (patch) => {
-      const current = store.get(key) || {};
-      store.set(key, { ...current, ...patch });
-    },
-    delete: async () => {
-      store.delete(key);
-    },
-  };
-}
-
-const fakeDb = {
-  collection: (path) => ({
-    doc: (id) => makeDocRef(path, id),
-  }),
-};
-
-require.cache[appPath] = {
-  id: appPath,
-  filename: appPath,
-  loaded: true,
-  exports: { initializeApp: () => {} },
-};
-require.cache[firestorePath] = {
-  id: firestorePath,
-  filename: firestorePath,
-  loaded: true,
-  exports: {
-    getFirestore: () => fakeDb,
-    FieldValue: { serverTimestamp: () => "SERVER_TIMESTAMP" },
-  },
-};
+// See testFakes.js for why index.js's plain CommonJS require() calls need
+// this require.cache-patching approach instead of vi.mock.
+import { firestoreStore as store, restoreRealModules } from "./testFakes.js";
 
 const {
   confirmEventPaymentStub,
@@ -64,18 +11,7 @@ const {
   deleteEvent,
 } = await import("../index.js");
 
-afterAll(() => {
-  if (realAppCacheEntry) {
-    require.cache[appPath] = realAppCacheEntry;
-  } else {
-    delete require.cache[appPath];
-  }
-  if (realFirestoreCacheEntry) {
-    require.cache[firestorePath] = realFirestoreCacheEntry;
-  } else {
-    delete require.cache[firestorePath];
-  }
-});
+afterAll(restoreRealModules);
 
 const ADMIN_UID = "admin-uid";
 const OWNER_UID = "owner-uid";

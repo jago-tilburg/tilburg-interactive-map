@@ -1,5 +1,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
+const { onValueDeleted } = require('firebase-functions/v2/database');
+const { onDocumentDeleted } = require('firebase-functions/v2/firestore');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { logger } = require('firebase-functions');
 // Modular admin SDK (firebase-admin v13+ removed the old admin.firestore()
@@ -187,4 +189,41 @@ exports.processPhotoUpload = onObjectFinalized({ region: 'europe-west1', bucket:
       .toBuffer()
       .then((buf) => bucket.file(`${base}_detail.webp`).save(buf, { contentType: 'image/webp' })),
   ]);
+});
+
+// Best-effort — a deletion here failing left worse before this existed at
+// all (the record delete already happened; the alternative to swallowing
+// is an inconsistent partial-failure state, not a safer one), so this logs
+// and moves on rather than propagating. Deletes by prefix rather than
+// reconstructing exact filenames from the record's own photoUrl field —
+// robust to the original plus both _thumb/_detail derivatives, and to a
+// record whose photo upload partially failed and left an orphaned object
+// the record itself never referenced.
+async function deleteStorageDir(prefix) {
+  try {
+    await getStorage().bucket(PHOTO_BUCKET).deleteFiles({ prefix });
+  } catch (err) {
+    logger.warn(`deleteStorageDir: failed to delete ${prefix}`, { error: String(err) });
+  }
+}
+
+// Deleting a shop must also delete its Storage object(s) — otherwise every
+// deletion leaves billed storage behind forever. onValueDeleted fires only
+// when the value at the referenced path itself becomes null, i.e. the
+// whole shop node is gone, not on a child-level delete (removing a single
+// comment/like doesn't delete `/shops/{shopId}` itself, so this can't
+// misfire on the RTDB shops migration's per-key writes).
+exports.cleanupShopPhotos = onValueDeleted(
+  { ref: '/shops/{shopId}', instance: 'tilburg-interactive-map-5710f-default-rtdb' },
+  async (event) => {
+    await deleteStorageDir(`shops/${event.params.shopId}/`);
+  },
+);
+
+exports.cleanupBusinessEventPhotos = onDocumentDeleted('businessEvents/{eventId}', async (event) => {
+  await deleteStorageDir(`businessEvents/${event.params.eventId}/`);
+});
+
+exports.cleanupUmbrellaEventPhotos = onDocumentDeleted('umbrellaEvents/{umbrellaId}', async (event) => {
+  await deleteStorageDir(`umbrellaEvents/${event.params.umbrellaId}/`);
 });
