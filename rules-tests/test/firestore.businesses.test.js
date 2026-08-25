@@ -46,6 +46,12 @@ describe("businesses/{uid} create", () => {
     await assertFails(setDoc(doc(db, "businesses", UID), { ...validProfile, businessName: 42 }));
   });
 
+  it("denies create with an unbounded-length businessName or email", async () => {
+    const db = testEnv.authenticatedContext(UID).firestore();
+    await assertFails(setDoc(doc(db, "businesses", UID), { ...validProfile, businessName: "x".repeat(50000) }));
+    await assertFails(setDoc(doc(db, "businesses", UID), { ...validProfile, email: "x".repeat(50000) + "@example.com" }));
+  });
+
   it("allows the owner to create their own profile with all required fields", async () => {
     const db = testEnv.authenticatedContext(UID).firestore();
     await assertSucceeds(setDoc(doc(db, "businesses", UID), validProfile));

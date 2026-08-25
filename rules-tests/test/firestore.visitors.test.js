@@ -46,6 +46,12 @@ describe("visitors/{uid} create", () => {
     await assertFails(setDoc(doc(db, "visitors", UID), { ...validProfile, email: 12345 }));
   });
 
+  it("denies create with an unbounded-length email or displayName", async () => {
+    const db = testEnv.authenticatedContext(UID).firestore();
+    await assertFails(setDoc(doc(db, "visitors", UID), { ...validProfile, email: "x".repeat(50000) + "@example.com" }));
+    await assertFails(setDoc(doc(db, "visitors", UID), { ...validProfile, displayName: "x".repeat(50000) }));
+  });
+
   it("allows the owner to create their own profile with all required fields", async () => {
     const db = testEnv.authenticatedContext(UID).firestore();
     await assertSucceeds(setDoc(doc(db, "visitors", UID), validProfile));

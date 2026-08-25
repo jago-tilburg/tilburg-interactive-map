@@ -11,8 +11,11 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.auth.uid == uid
         && request.resource.data.keys().hasAll(['email', 'displayName', 'createdAt'])
-        && request.resource.data.email is string
-        && request.resource.data.displayName is string;
+        // Bounds chosen generously (well above any real content) so a
+        // legitimate signup is never rejected — same philosophy as
+        // businessEvents' create rule below.
+        && request.resource.data.email is string && request.resource.data.email.size() <= 320
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() <= 200;
     }
 
     // Business account profiles. Same owner-only shape as visitors/{uid}.
@@ -21,8 +24,8 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.auth.uid == uid
         && request.resource.data.keys().hasAll(['businessName', 'email', 'createdAt'])
-        && request.resource.data.businessName is string
-        && request.resource.data.email is string;
+        && request.resource.data.businessName is string && request.resource.data.businessName.size() <= 200
+        && request.resource.data.email is string && request.resource.data.email.size() <= 320;
     }
 
     // Admin membership list. Never client-readable or client-writable — only
@@ -131,7 +134,21 @@ service cloud.firestore {
     // Cloud Function needed, unlike businessEvents' status/paid.
     match /umbrellaEvents/{umbrellaId} {
       allow read: if true;
-      allow write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+
+      // create/update need request.resource.data (the incoming document),
+      // which doesn't exist on a delete — kept as a separate allow delete
+      // below rather than one combined `allow write`, or adding these
+      // checks to a combined rule would make every delete evaluate
+      // request.resource.data against a null request.resource and fail.
+      allow create, update: if request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && request.resource.data.keys().hasAll(['title', 'description', 'color', 'startDate', 'endDate'])
+        && request.resource.data.title is string && request.resource.data.title.size() <= 200
+        && request.resource.data.description is string && request.resource.data.description.size() <= 5000
+        && request.resource.data.color is string && request.resource.data.color.size() <= 50
+        && request.resource.data.startDate is string && request.resource.data.endDate is string;
+
+      allow delete: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
     // User-filed reports against a shop/event/comment/review (and, once
