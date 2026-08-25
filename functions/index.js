@@ -57,6 +57,65 @@ exports.rejectEvent = onCall(async (request) => {
   return { ok: true };
 });
 
+// Reactive moderation for a live (approved) event — replaces having to
+// pre-approve every submission with the ability to pull a problem event
+// down after the fact. Same admin-only, server-authoritative shape as
+// approve/reject: Firestore rules never let a client set `status` to any
+// of these values, only these functions can (Admin SDK bypasses rules).
+// No precondition on the event's current status, mirroring
+// approveEvent/rejectEvent's own simplicity — the admin UI only exposes
+// each action from the states where it makes sense.
+exports.suspendEvent = onCall(async (request) => {
+  await requireAdmin(request.auth);
+  const { eventId, reason } = request.data || {};
+  if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
+  const update = {
+    status: 'suspended',
+    moderatedAt: FieldValue.serverTimestamp(),
+    moderatedBy: request.auth.uid,
+  };
+  if (reason && reason.trim()) update.moderationReason = reason.trim();
+  await db.collection('businessEvents').doc(eventId).update(update);
+  return { ok: true };
+});
+
+// Reverses a suspension — the event goes back to 'approved' and becomes
+// publicly visible again. Deliberately has no equivalent for 'blocked':
+// block is meant to be the permanent action, restore only undoes suspend.
+exports.restoreEvent = onCall(async (request) => {
+  await requireAdmin(request.auth);
+  const { eventId } = request.data || {};
+  if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
+  await db.collection('businessEvents').doc(eventId).update({ status: 'approved' });
+  return { ok: true };
+});
+
+exports.blockEvent = onCall(async (request) => {
+  await requireAdmin(request.auth);
+  const { eventId, reason } = request.data || {};
+  if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
+  const update = {
+    status: 'blocked',
+    moderatedAt: FieldValue.serverTimestamp(),
+    moderatedBy: request.auth.uid,
+  };
+  if (reason && reason.trim()) update.moderationReason = reason.trim();
+  await db.collection('businessEvents').doc(eventId).update(update);
+  return { ok: true };
+});
+
+// Admin-initiated delete, distinct from the client-side deleteBusinessEvent
+// (Firestore rules only let the event's own owner delete it directly) — an
+// admin moderating someone else's event needs a server-side path that
+// doesn't depend on ownership. Permanent, unlike suspend.
+exports.deleteEvent = onCall(async (request) => {
+  await requireAdmin(request.auth);
+  const { eventId } = request.data || {};
+  if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
+  await db.collection('businessEvents').doc(eventId).delete();
+  return { ok: true };
+});
+
 // MOCK — stands in for a real Mollie/Stripe webhook, which needs API
 // credentials this environment doesn't have. Deliberately still enforces
 // the real security property the checklist cares about: `paid` can only be

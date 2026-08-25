@@ -53,6 +53,10 @@ vi.mock("@/lib/firebase/umbrellaEvents", () => ({
 vi.mock("@/lib/firebase/functions", () => ({
   approveEvent: vi.fn(),
   rejectEvent: vi.fn(),
+  suspendEvent: vi.fn(),
+  restoreEvent: vi.fn(),
+  blockEvent: vi.fn(),
+  adminDeleteEvent: vi.fn(),
   confirmEventPaymentStub: vi.fn(),
 }));
 

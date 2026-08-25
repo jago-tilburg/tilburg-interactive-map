@@ -158,6 +158,8 @@ describe("businessEventStatusLabel", () => {
   it("maps each status to its Dutch label", () => {
     expect(businessEventStatusLabel("approved")).toBe("Goedgekeurd");
     expect(businessEventStatusLabel("rejected")).toBe("Afgewezen");
+    expect(businessEventStatusLabel("suspended")).toBe("Opgeschort");
+    expect(businessEventStatusLabel("blocked")).toBe("Geblokkeerd");
     expect(businessEventStatusLabel("pending")).toBe("In afwachting");
   });
 });

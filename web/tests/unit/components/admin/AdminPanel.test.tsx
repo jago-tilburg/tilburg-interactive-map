@@ -51,13 +51,11 @@ const subscribeAllBusinessEventsForAdmin = vi.fn(
   },
 );
 const createBusinessEvent = vi.fn();
-const deleteBusinessEvent = vi.fn();
 vi.mock("@/lib/firebase/businessEvents", () => ({
   subscribeAllBusinessEventsForAdmin: (...a: [(e: BusinessEvent[]) => void, ((err: Error) => void)?]) =>
     subscribeAllBusinessEventsForAdmin(...a),
   createBusinessEvent: (...a: unknown[]) => createBusinessEvent(...a),
   updateBusinessEvent: vi.fn(),
-  deleteBusinessEvent: (...a: [string]) => deleteBusinessEvent(...a),
 }));
 
 const subscribeUmbrellaEvents = vi.fn(
@@ -77,9 +75,17 @@ vi.mock("@/lib/firebase/umbrellaEvents", () => ({
 
 const approveEvent = vi.fn();
 const rejectEvent = vi.fn();
+const suspendEvent = vi.fn();
+const restoreEvent = vi.fn();
+const blockEvent = vi.fn();
+const adminDeleteEvent = vi.fn();
 vi.mock("@/lib/firebase/functions", () => ({
   approveEvent: (...a: [string]) => approveEvent(...a),
   rejectEvent: (...a: [string, string?]) => rejectEvent(...a),
+  suspendEvent: (...a: [string, string?]) => suspendEvent(...a),
+  restoreEvent: (...a: [string]) => restoreEvent(...a),
+  blockEvent: (...a: [string, string?]) => blockEvent(...a),
+  adminDeleteEvent: (...a: [string]) => adminDeleteEvent(...a),
 }));
 
 import { AdminPanel } from "@/components/admin/AdminPanel";
@@ -146,6 +152,10 @@ beforeEach(() => {
   emittedUmbrellas = [];
   approveEvent.mockResolvedValue(undefined);
   rejectEvent.mockResolvedValue(undefined);
+  suspendEvent.mockResolvedValue(undefined);
+  restoreEvent.mockResolvedValue(undefined);
+  blockEvent.mockResolvedValue(undefined);
+  adminDeleteEvent.mockResolvedValue(undefined);
   deleteUmbrellaEvent.mockResolvedValue(undefined);
   deleteShop.mockResolvedValue(undefined);
   deleteRequest.mockResolvedValue(undefined);
@@ -458,30 +468,30 @@ describe("AdminPanel businessEvents tab", () => {
     expect(screen.queryByText(/^Reden:/)).not.toBeInTheDocument();
   });
 
-  it("deletes an approved event instead of approve/reject, matching the prototype's admin tab", async () => {
-    emittedEvents = [makeEvent({ status: "approved" })];
-    const user = userEvent.setup();
-    render(<AdminPanel open onClose={vi.fn()} />);
-
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
-    await user.click(screen.getByText("Verwijderen"));
-    expect(deleteBusinessEvent).toHaveBeenCalledWith("evt1");
-    expect(showToast).toHaveBeenCalledWith("Evenement verwijderd.", "success");
-  });
-
-  it("deletes a rejected event", async () => {
+  it("deletes a rejected event via the admin-gated delete function", async () => {
     emittedEvents = [makeEvent({ status: "rejected" })];
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
     await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
     await user.click(screen.getByText("Verwijderen"));
-    expect(deleteBusinessEvent).toHaveBeenCalledWith("evt1");
+    expect(adminDeleteEvent).toHaveBeenCalledWith("evt1");
+    expect(showToast).toHaveBeenCalledWith("Evenement verwijderd.", "success");
+  });
+
+  it("deletes a blocked event", async () => {
+    emittedEvents = [makeEvent({ status: "blocked" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("Verwijderen"));
+    expect(adminDeleteEvent).toHaveBeenCalledWith("evt1");
   });
 
   it("shows an error when deleting an event fails", async () => {
-    emittedEvents = [makeEvent({ status: "approved" })];
-    deleteBusinessEvent.mockRejectedValue(new Error("network down"));
+    emittedEvents = [makeEvent({ status: "rejected" })];
+    adminDeleteEvent.mockRejectedValue(new Error("network down"));
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
@@ -491,14 +501,119 @@ describe("AdminPanel businessEvents tab", () => {
   });
 
   it("shows a generic error when deleting an event fails with a non-Error", async () => {
-    emittedEvents = [makeEvent({ status: "approved" })];
-    deleteBusinessEvent.mockRejectedValue("not an Error instance");
+    emittedEvents = [makeEvent({ status: "rejected" })];
+    adminDeleteEvent.mockRejectedValue("not an Error instance");
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
     await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
     await user.click(screen.getByText("Verwijderen"));
     expect(await screen.findByText("Verwijderen mislukt.")).toBeInTheDocument();
+  });
+
+  it("suspends an approved event, with an optional reason, then deletes it from there", async () => {
+    emittedEvents = [makeEvent({ status: "approved" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("Opschorten"));
+    await user.type(screen.getByLabelText("Reden voor opschorten"), "Meerdere klachten");
+    await user.click(screen.getByText("Opschorten bevestigen"));
+    expect(suspendEvent).toHaveBeenCalledWith("evt1", "Meerdere klachten");
+    expect(showToast).toHaveBeenCalledWith("Evenement opgeschort.", "success");
+  });
+
+  it("cancelling the suspend prompt does not call suspendEvent", async () => {
+    emittedEvents = [makeEvent({ status: "approved" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("Opschorten"));
+    await user.click(screen.getByText("Annuleren"));
+    expect(suspendEvent).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Reden voor opschorten")).not.toBeInTheDocument();
+  });
+
+  it("shows an error when suspending fails", async () => {
+    emittedEvents = [makeEvent({ status: "approved" })];
+    suspendEvent.mockRejectedValue(new Error("network down"));
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("Opschorten"));
+    await user.click(screen.getByText("Opschorten bevestigen"));
+    expect(await screen.findByText("network down")).toBeInTheDocument();
+  });
+
+  it("restores a suspended event back to approved", async () => {
+    emittedEvents = [makeEvent({ status: "suspended", moderationReason: "Meerdere klachten" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    expect(screen.getByText("Reden: Meerdere klachten")).toBeInTheDocument();
+    await user.click(screen.getByText("Herstellen"));
+    expect(restoreEvent).toHaveBeenCalledWith("evt1");
+    expect(showToast).toHaveBeenCalledWith("Evenement hersteld.", "success");
+  });
+
+  it("shows an error when restoring fails", async () => {
+    emittedEvents = [makeEvent({ status: "suspended" })];
+    restoreEvent.mockRejectedValue(new Error("network down"));
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("Herstellen"));
+    expect(await screen.findByText("network down")).toBeInTheDocument();
+  });
+
+  it("blocks an approved event, with an optional reason", async () => {
+    emittedEvents = [makeEvent({ status: "approved" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("Blokkeren"));
+    await user.type(screen.getByLabelText("Reden voor blokkeren"), "Nepevenement");
+    await user.click(screen.getByText("Blokkeren bevestigen"));
+    expect(blockEvent).toHaveBeenCalledWith("evt1", "Nepevenement");
+    expect(showToast).toHaveBeenCalledWith("Evenement geblokkeerd.", "success");
+  });
+
+  it("blocks a suspended event too", async () => {
+    emittedEvents = [makeEvent({ status: "suspended" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("Blokkeren"));
+    await user.click(screen.getByText("Blokkeren bevestigen"));
+    expect(blockEvent).toHaveBeenCalledWith("evt1", undefined);
+  });
+
+  it("shows an error when blocking fails", async () => {
+    emittedEvents = [makeEvent({ status: "approved" })];
+    blockEvent.mockRejectedValue(new Error("network down"));
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("Blokkeren"));
+    await user.click(screen.getByText("Blokkeren bevestigen"));
+    expect(await screen.findByText("network down")).toBeInTheDocument();
+  });
+
+  it("does not show a moderation reason line when there isn't one", async () => {
+    emittedEvents = [makeEvent({ status: "blocked" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    expect(screen.queryByText(/^Reden:/)).not.toBeInTheDocument();
   });
 });
 

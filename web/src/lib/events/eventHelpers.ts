@@ -74,6 +74,8 @@ export function isBusinessEventLive(ev: Pick<BusinessEvent, "status" | "paid">):
 export function businessEventStatusLabel(status: BusinessEvent["status"]): string {
   if (status === "approved") return "Goedgekeurd";
   if (status === "rejected") return "Afgewezen";
+  if (status === "suspended") return "Opgeschort";
+  if (status === "blocked") return "Geblokkeerd";
   return "In afwachting";
 }
 

@@ -12,7 +12,7 @@ export interface EventPriceTier {
   amount: number;
 }
 
-export type BusinessEventStatus = "pending" | "approved" | "rejected";
+export type BusinessEventStatus = "pending" | "approved" | "rejected" | "suspended" | "blocked";
 
 export interface BusinessEvent {
   id: string;
@@ -33,6 +33,9 @@ export interface BusinessEvent {
   reviewedAt?: Timestamp;
   reviewedBy?: string;
   rejectionReason?: string;
+  moderatedAt?: Timestamp;
+  moderatedBy?: string;
+  moderationReason?: string;
   paidAt?: Timestamp;
   multiDay?: boolean;
   dailyTimes?: Record<string, DailyTime> | null;
@@ -55,6 +58,9 @@ export type BusinessEventInput = Omit<
   | "reviewedAt"
   | "reviewedBy"
   | "rejectionReason"
+  | "moderatedAt"
+  | "moderatedBy"
+  | "moderationReason"
   | "paidAt"
 >;
 

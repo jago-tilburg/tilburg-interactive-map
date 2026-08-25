@@ -28,6 +28,9 @@ function makeDocRef(path, id) {
       const current = store.get(key) || {};
       store.set(key, { ...current, ...patch });
     },
+    delete: async () => {
+      store.delete(key);
+    },
   };
 }
 
@@ -53,7 +56,15 @@ require.cache[firestorePath] = {
   },
 };
 
-const { approveEvent, rejectEvent, confirmEventPaymentStub } = await import("../index.js");
+const {
+  approveEvent,
+  rejectEvent,
+  confirmEventPaymentStub,
+  suspendEvent,
+  restoreEvent,
+  blockEvent,
+  deleteEvent,
+} = await import("../index.js");
 
 afterAll(() => {
   if (realAppCacheEntry) {
@@ -172,6 +183,172 @@ describe("rejectEvent", () => {
     });
 
     expect(store.get("businessEvents/evt1").rejectionReason).toBeUndefined();
+  });
+});
+
+describe("suspendEvent", () => {
+  it("throws unauthenticated when there is no auth context", async () => {
+    await expect(suspendEvent.run({ data: {}, auth: undefined })).rejects.toMatchObject({
+      code: "unauthenticated",
+    });
+  });
+
+  it("throws permission-denied when the caller is not an admin", async () => {
+    await expect(
+      suspendEvent.run({ data: { eventId: "evt1" }, auth: { uid: OTHER_UID } }),
+    ).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("throws invalid-argument when eventId is missing", async () => {
+    await expect(
+      suspendEvent.run({ data: {}, auth: { uid: ADMIN_UID } }),
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("suspends the event and stamps moderatedAt/moderatedBy for an admin caller", async () => {
+    store.set("businessEvents/evt1", { status: "approved", ownerId: OWNER_UID });
+
+    const result = await suspendEvent.run({
+      data: { eventId: "evt1" },
+      auth: { uid: ADMIN_UID },
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(store.get("businessEvents/evt1")).toMatchObject({
+      status: "suspended",
+      moderatedAt: "SERVER_TIMESTAMP",
+      moderatedBy: ADMIN_UID,
+    });
+    expect(store.get("businessEvents/evt1").moderationReason).toBeUndefined();
+  });
+
+  it("stores a trimmed moderationReason when one is given", async () => {
+    store.set("businessEvents/evt1", { status: "approved", ownerId: OWNER_UID });
+
+    await suspendEvent.run({
+      data: { eventId: "evt1", reason: "  Meerdere klachten ontvangen.  " },
+      auth: { uid: ADMIN_UID },
+    });
+
+    expect(store.get("businessEvents/evt1")).toMatchObject({
+      moderationReason: "Meerdere klachten ontvangen.",
+    });
+  });
+
+  it("omits moderationReason when only whitespace is given", async () => {
+    store.set("businessEvents/evt1", { status: "approved", ownerId: OWNER_UID });
+
+    await suspendEvent.run({
+      data: { eventId: "evt1", reason: "   " },
+      auth: { uid: ADMIN_UID },
+    });
+
+    expect(store.get("businessEvents/evt1").moderationReason).toBeUndefined();
+  });
+});
+
+describe("restoreEvent", () => {
+  it("throws unauthenticated when there is no auth context", async () => {
+    await expect(restoreEvent.run({ data: {}, auth: undefined })).rejects.toMatchObject({
+      code: "unauthenticated",
+    });
+  });
+
+  it("throws permission-denied when the caller is not an admin", async () => {
+    await expect(
+      restoreEvent.run({ data: { eventId: "evt1" }, auth: { uid: OTHER_UID } }),
+    ).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("throws invalid-argument when eventId is missing", async () => {
+    await expect(
+      restoreEvent.run({ data: {}, auth: { uid: ADMIN_UID } }),
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("sets a suspended event back to approved for an admin caller", async () => {
+    store.set("businessEvents/evt1", {
+      status: "suspended",
+      ownerId: OWNER_UID,
+      moderationReason: "oude reden",
+    });
+
+    const result = await restoreEvent.run({
+      data: { eventId: "evt1" },
+      auth: { uid: ADMIN_UID },
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(store.get("businessEvents/evt1").status).toBe("approved");
+  });
+});
+
+describe("blockEvent", () => {
+  it("throws unauthenticated when there is no auth context", async () => {
+    await expect(blockEvent.run({ data: {}, auth: undefined })).rejects.toMatchObject({
+      code: "unauthenticated",
+    });
+  });
+
+  it("throws permission-denied when the caller is not an admin", async () => {
+    await expect(
+      blockEvent.run({ data: { eventId: "evt1" }, auth: { uid: OTHER_UID } }),
+    ).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("throws invalid-argument when eventId is missing", async () => {
+    await expect(
+      blockEvent.run({ data: {}, auth: { uid: ADMIN_UID } }),
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("blocks the event and stamps moderatedAt/moderatedBy for an admin caller", async () => {
+    store.set("businessEvents/evt1", { status: "approved", ownerId: OWNER_UID });
+
+    const result = await blockEvent.run({
+      data: { eventId: "evt1", reason: "Nepevenement." },
+      auth: { uid: ADMIN_UID },
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(store.get("businessEvents/evt1")).toMatchObject({
+      status: "blocked",
+      moderatedAt: "SERVER_TIMESTAMP",
+      moderatedBy: ADMIN_UID,
+      moderationReason: "Nepevenement.",
+    });
+  });
+});
+
+describe("deleteEvent", () => {
+  it("throws unauthenticated when there is no auth context", async () => {
+    await expect(deleteEvent.run({ data: {}, auth: undefined })).rejects.toMatchObject({
+      code: "unauthenticated",
+    });
+  });
+
+  it("throws permission-denied when the caller is not an admin", async () => {
+    await expect(
+      deleteEvent.run({ data: { eventId: "evt1" }, auth: { uid: OTHER_UID } }),
+    ).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("throws invalid-argument when eventId is missing", async () => {
+    await expect(
+      deleteEvent.run({ data: {}, auth: { uid: ADMIN_UID } }),
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("deletes the event document for an admin caller, regardless of ownership", async () => {
+    store.set("businessEvents/evt1", { status: "approved", ownerId: OWNER_UID });
+
+    const result = await deleteEvent.run({
+      data: { eventId: "evt1" },
+      auth: { uid: ADMIN_UID },
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(store.has("businessEvents/evt1")).toBe(false);
   });
 });
 
