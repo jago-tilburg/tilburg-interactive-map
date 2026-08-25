@@ -18,18 +18,38 @@ const db = getFirestore();
 
 setGlobalOptions({ region: 'europe-west1' });
 
+// Logs every failed admin/ownership check — the actual "auth failures"
+// signal GO-LIVE-CHECKLIST.md §6 asks for. A single suspicious uid showing
+// up repeatedly here (not just a one-off UI mis-click) is the thing worth
+// alerting on; Cloud Logging is the natural home for that, no separate
+// logging service needed for a project this size.
 async function requireAdmin(auth) {
-  if (!auth) throw new HttpsError('unauthenticated', 'Login vereist.');
+  if (!auth) {
+    logger.warn('requireAdmin: denied — unauthenticated call');
+    throw new HttpsError('unauthenticated', 'Login vereist.');
+  }
   const adminDoc = await db.collection('admins').doc(auth.uid).get();
-  if (!adminDoc.exists) throw new HttpsError('permission-denied', 'Alleen admins mogen dit doen.');
+  if (!adminDoc.exists) {
+    logger.warn('requireAdmin: denied — caller is not an admin', { uid: auth.uid });
+    throw new HttpsError('permission-denied', 'Alleen admins mogen dit doen.');
+  }
 }
 
 async function getOwnedEvent(auth, eventId) {
-  if (!auth) throw new HttpsError('unauthenticated', 'Login vereist.');
+  if (!auth) {
+    logger.warn('getOwnedEvent: denied — unauthenticated call', { eventId: eventId || null });
+    throw new HttpsError('unauthenticated', 'Login vereist.');
+  }
   const ref = db.collection('businessEvents').doc(eventId);
   const snap = await ref.get();
-  if (!snap.exists) throw new HttpsError('not-found', 'Evenement niet gevonden.');
-  if (snap.data().ownerId !== auth.uid) throw new HttpsError('permission-denied', 'Dit is niet jouw evenement.');
+  if (!snap.exists) {
+    logger.warn('getOwnedEvent: denied — event not found', { eventId, uid: auth.uid });
+    throw new HttpsError('not-found', 'Evenement niet gevonden.');
+  }
+  if (snap.data().ownerId !== auth.uid) {
+    logger.warn('getOwnedEvent: denied — caller does not own this event', { eventId, uid: auth.uid });
+    throw new HttpsError('permission-denied', 'Dit is niet jouw evenement.');
+  }
   return ref;
 }
 
@@ -50,6 +70,7 @@ exports.suspendEvent = onCall(async (request) => {
   };
   if (reason && reason.trim()) update.moderationReason = reason.trim();
   await db.collection('businessEvents').doc(eventId).update(update);
+  logger.info('suspendEvent: event suspended', { eventId, adminUid: request.auth.uid, reason: update.moderationReason || null });
   return { ok: true };
 });
 
@@ -61,6 +82,7 @@ exports.restoreEvent = onCall(async (request) => {
   const { eventId } = request.data || {};
   if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
   await db.collection('businessEvents').doc(eventId).update({ status: 'approved' });
+  logger.info('restoreEvent: event restored to approved', { eventId, adminUid: request.auth.uid });
   return { ok: true };
 });
 
@@ -75,6 +97,7 @@ exports.blockEvent = onCall(async (request) => {
   };
   if (reason && reason.trim()) update.moderationReason = reason.trim();
   await db.collection('businessEvents').doc(eventId).update(update);
+  logger.info('blockEvent: event blocked', { eventId, adminUid: request.auth.uid, reason: update.moderationReason || null });
   return { ok: true };
 });
 
@@ -87,6 +110,7 @@ exports.deleteEvent = onCall(async (request) => {
   const { eventId } = request.data || {};
   if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
   await db.collection('businessEvents').doc(eventId).delete();
+  logger.info('deleteEvent: event permanently deleted by admin', { eventId, adminUid: request.auth.uid });
   return { ok: true };
 });
 
@@ -108,6 +132,14 @@ exports.confirmEventPaymentStub = onCall(async (request) => {
   const ref = await getOwnedEvent(request.auth, request.data && request.data.eventId);
   const snap = await ref.get();
   if (snap.data().status !== 'pending') {
+    // The "payment webhook failure" signal GO-LIVE-CHECKLIST.md §6 asks
+    // for — a real payment provider replacing this stub should keep
+    // logging this same rejection shape (event id, why, who).
+    logger.warn('confirmEventPaymentStub: rejected — event not in a payable state', {
+      eventId: ref.id,
+      uid: request.auth.uid,
+      status: snap.data().status,
+    });
     throw new HttpsError('failed-precondition', 'Evenement kan niet worden betaald vanuit deze status.');
   }
   await ref.update({
@@ -115,6 +147,7 @@ exports.confirmEventPaymentStub = onCall(async (request) => {
     paid: true,
     paidAt: FieldValue.serverTimestamp(),
   });
+  logger.info('confirmEventPaymentStub: event paid and published', { eventId: ref.id, ownerUid: request.auth.uid });
   return { ok: true };
 });
 
