@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/common/Modal";
+import { PhotoUploadField, type PendingPhoto } from "@/components/common/PhotoUploadField";
 import { createShop, updateShop } from "@/lib/firebase/shops";
+import { resolvePhotoUpdate } from "@/lib/photos/resolvePhotoUpdate";
 import { useToast } from "@/hooks/useToast";
 import { extractCoordsFromMapsUrl } from "@/lib/maps/extractCoordsFromUrl";
 import { RATING_SELECT_OPTIONS } from "@/lib/shops/shopHelpers";
@@ -63,11 +65,13 @@ export function ShopFormModal({ open, onClose, editingShop, prefill = null }: Sh
   const [form, setForm] = useState(() => (editingShop ? formFromShop(editingShop) : emptyForm(prefill)));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingPhoto, setPendingPhoto] = useState<PendingPhoto | null>(null);
 
   if (open && formIdentity !== renderedIdentity) {
     setRenderedIdentity(formIdentity);
     setForm(editingShop ? formFromShop(editingShop) : emptyForm(prefill));
     setError(null);
+    setPendingPhoto(null);
   }
 
   function handleExtractCoords() {
@@ -109,12 +113,25 @@ export function ShopFormModal({ open, onClose, editingShop, prefill = null }: Sh
     setSubmitting(true);
     try {
       if (editingShop) {
-        await updateShop(editingShop.id, input);
+        const photoUrl = await resolvePhotoUpdate("shops", editingShop.id, pendingPhoto, editingShop.photoUrl);
+        await updateShop(editingShop.id, { ...input, photoUrl });
+        showToast("Review bijgewerkt.", "success");
+        onClose();
       } else {
-        await createShop(input);
+        const created = await createShop(input);
+        if (pendingPhoto) {
+          try {
+            const photoUrl = await resolvePhotoUpdate("shops", created.id, pendingPhoto, "");
+            if (photoUrl) await updateShop(created.id, { photoUrl });
+          } catch {
+            showToast("Review opgeslagen, maar foto uploaden is mislukt. Voeg de foto later toe via bewerken.", "error");
+            onClose();
+            return;
+          }
+        }
+        showToast("Review toegevoegd.", "success");
+        onClose();
       }
-      showToast(editingShop ? "Review bijgewerkt." : "Review toegevoegd.", "success");
-      onClose();
     } catch (err) {
       setError(err instanceof Error ? `Opslaan mislukt: ${err.message}` : "Opslaan mislukt.");
     } finally {
@@ -203,12 +220,13 @@ export function ShopFormModal({ open, onClose, editingShop, prefill = null }: Sh
           />
         </div>
 
-        <input
-          type="text"
-          placeholder="Foto URL (optional)"
-          aria-label="Foto URL"
-          value={form.photoUrl}
-          onChange={(e) => setForm((f) => ({ ...f, photoUrl: e.target.value }))}
+        <PhotoUploadField
+          label="Foto"
+          aspectRatio={16 / 9}
+          currentUrl={form.photoUrl}
+          pendingPhoto={pendingPhoto}
+          onPendingPhotoChange={setPendingPhoto}
+          disabled={submitting}
         />
 
         <div className={styles.dietaryRow}>

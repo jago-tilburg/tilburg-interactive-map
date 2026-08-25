@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/common/Modal";
+import { PhotoUploadField, type PendingPhoto } from "@/components/common/PhotoUploadField";
 import { createUmbrellaEvent, updateUmbrellaEvent } from "@/lib/firebase/umbrellaEvents";
+import { resolvePhotoUpdate } from "@/lib/photos/resolvePhotoUpdate";
 import { useToast } from "@/hooks/useToast";
 import type { UmbrellaEvent } from "@/types/events";
 import styles from "./UmbrellaFormModal.module.css";
@@ -42,6 +44,7 @@ export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFo
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingPhoto, setPendingPhoto] = useState<PendingPhoto | null>(null);
 
   if (open && formIdentity !== renderedIdentity) {
     setRenderedIdentity(formIdentity);
@@ -58,6 +61,7 @@ export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFo
         : emptyForm(),
     );
     setError(null);
+    setPendingPhoto(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -78,12 +82,25 @@ export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFo
     setSubmitting(true);
     try {
       if (editingUmbrella) {
-        await updateUmbrellaEvent(editingUmbrella.id, input);
+        const photoUrl = await resolvePhotoUpdate("umbrellaEvents", editingUmbrella.id, pendingPhoto, editingUmbrella.photoUrl ?? "");
+        await updateUmbrellaEvent(editingUmbrella.id, { ...input, photoUrl });
+        showToast("Groot evenement bijgewerkt.", "success");
+        onClose();
       } else {
-        await createUmbrellaEvent(input);
+        const created = await createUmbrellaEvent(input);
+        if (pendingPhoto) {
+          try {
+            const photoUrl = await resolvePhotoUpdate("umbrellaEvents", created.id, pendingPhoto, "");
+            if (photoUrl) await updateUmbrellaEvent(created.id, { ...input, photoUrl });
+          } catch {
+            showToast("Groot evenement opgeslagen, maar foto uploaden is mislukt. Voeg de foto later toe via bewerken.", "error");
+            onClose();
+            return;
+          }
+        }
+        showToast("Groot evenement toegevoegd.", "success");
+        onClose();
       }
-      showToast(editingUmbrella ? "Groot evenement bijgewerkt." : "Groot evenement toegevoegd.", "success");
-      onClose();
     } catch (err) {
       setError(err instanceof Error ? `Opslaan mislukt: ${err.message}` : "Opslaan mislukt.");
     } finally {
@@ -125,12 +142,13 @@ export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFo
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
         />
-        <input
-          type="url"
-          placeholder="Foto-URL (bv. https://...)"
-          aria-label="Foto-URL"
-          value={form.photoUrl}
-          onChange={(e) => setForm((f) => ({ ...f, photoUrl: e.target.value }))}
+        <PhotoUploadField
+          label="Foto"
+          aspectRatio={16 / 9}
+          currentUrl={form.photoUrl}
+          pendingPhoto={pendingPhoto}
+          onPendingPhotoChange={setPendingPhoto}
+          disabled={submitting}
         />
         <label htmlFor="umbrella-color">Kleur</label>
         <input

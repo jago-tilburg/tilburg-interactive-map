@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UmbrellaEvent } from "@/types/events";
+import type { PendingPhoto } from "@/components/common/PhotoUploadField";
 
 const createUmbrellaEvent = vi.fn();
 const updateUmbrellaEvent = vi.fn();
@@ -10,9 +11,37 @@ vi.mock("@/lib/firebase/umbrellaEvents", () => ({
   updateUmbrellaEvent: (...args: unknown[]) => updateUmbrellaEvent(...args),
 }));
 
+const resolvePhotoUpdate = vi.fn();
+vi.mock("@/lib/photos/resolvePhotoUpdate", () => ({
+  resolvePhotoUpdate: (...a: unknown[]) => resolvePhotoUpdate(...a),
+}));
+
 const showToast = vi.fn();
 vi.mock("@/hooks/useToast", () => ({
   useToast: () => ({ showToast }),
+}));
+
+// See ShopFormModal.test.tsx for why PhotoUploadField is faked down to just
+// its two triggering buttons here — its own pipeline is covered by its
+// dedicated test file.
+vi.mock("@/components/common/PhotoUploadField", () => ({
+  PhotoUploadField: ({
+    onPendingPhotoChange,
+  }: {
+    onPendingPhotoChange: (p: PendingPhoto | null) => void;
+  }) => (
+    <div>
+      <button
+        type="button"
+        onClick={() => onPendingPhotoChange({ action: "replace", blob: new Blob(["x"]), previewUrl: "blob:preview" })}
+      >
+        FakeSelectPhoto
+      </button>
+      <button type="button" onClick={() => onPendingPhotoChange({ action: "remove" })}>
+        FakeRemovePhoto
+      </button>
+    </div>
+  ),
 }));
 
 import { UmbrellaFormModal } from "@/components/events/UmbrellaFormModal";
@@ -29,8 +58,9 @@ const umbrella: UmbrellaEvent = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  createUmbrellaEvent.mockResolvedValue(undefined);
+  createUmbrellaEvent.mockResolvedValue({ id: "u1" });
   updateUmbrellaEvent.mockResolvedValue(undefined);
+  resolvePhotoUpdate.mockResolvedValue("");
 });
 
 describe("UmbrellaFormModal create mode", () => {
@@ -53,7 +83,6 @@ describe("UmbrellaFormModal create mode", () => {
     await user.type(screen.getByLabelText("Startdatum"), "2026-09-01");
     await user.type(screen.getByLabelText("Einddatum"), "2026-09-10");
     await user.type(screen.getByLabelText("Omschrijving"), "Jaarlijkse kermis");
-    await user.type(screen.getByLabelText("Foto-URL"), "https://example.com/kermis.jpg");
     // Native color inputs aren't reliably typeable via userEvent.type —
     // fire the change event RTL/React expects directly instead.
     fireEvent.change(screen.getByLabelText("Kleur"), { target: { value: "#123456" } });
@@ -64,8 +93,64 @@ describe("UmbrellaFormModal create mode", () => {
         title: "Kermis 2026",
         startDate: "2026-09-01",
         description: "Jaarlijkse kermis",
-        photoUrl: "https://example.com/kermis.jpg",
       }),
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("uploads the photo after create and attaches its URL, once the new umbrella's id is known", async () => {
+    resolvePhotoUpdate.mockResolvedValue("https://storage.example/umbrellaEvents/u1/abc.webp");
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<UmbrellaFormModal open onClose={onClose} editingUmbrella={null} />);
+
+    await user.type(screen.getByLabelText("Naam"), "Kermis 2026");
+    await user.type(screen.getByLabelText("Einddatum"), "2026-09-10");
+    await user.click(screen.getByText("FakeSelectPhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(createUmbrellaEvent).toHaveBeenCalledWith(expect.objectContaining({ photoUrl: "" }));
+    expect(resolvePhotoUpdate).toHaveBeenCalledWith(
+      "umbrellaEvents",
+      "u1",
+      expect.objectContaining({ action: "replace" }),
+      "",
+    );
+    expect(updateUmbrellaEvent).toHaveBeenCalledWith(
+      "u1",
+      expect.objectContaining({ photoUrl: "https://storage.example/umbrellaEvents/u1/abc.webp" }),
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("skips the extra photoUrl write when the resolved photo is empty (picked then removed before ever saving)", async () => {
+    resolvePhotoUpdate.mockResolvedValue("");
+    const user = userEvent.setup();
+    render(<UmbrellaFormModal open onClose={vi.fn()} editingUmbrella={null} />);
+
+    await user.type(screen.getByLabelText("Naam"), "Kermis 2026");
+    await user.type(screen.getByLabelText("Einddatum"), "2026-09-10");
+    await user.click(screen.getByText("FakeRemovePhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(updateUmbrellaEvent).not.toHaveBeenCalled();
+  });
+
+  it("shows a toast and still closes when the photo upload fails after a successful create (record is already saved)", async () => {
+    resolvePhotoUpdate.mockRejectedValue(new Error("upload failed"));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<UmbrellaFormModal open onClose={onClose} editingUmbrella={null} />);
+
+    await user.type(screen.getByLabelText("Naam"), "Kermis 2026");
+    await user.type(screen.getByLabelText("Einddatum"), "2026-09-10");
+    await user.click(screen.getByText("FakeSelectPhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(updateUmbrellaEvent).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith(
+      "Groot evenement opgeslagen, maar foto uploaden is mislukt. Voeg de foto later toe via bewerken.",
+      "error",
     );
     expect(onClose).toHaveBeenCalled();
   });
@@ -130,5 +215,44 @@ describe("UmbrellaFormModal edit mode", () => {
     expect(screen.getByDisplayValue("Zonder kleur")).toBeInTheDocument();
     // Falls back to the default color when the record has none.
     expect(screen.getByLabelText("Kleur")).toHaveValue("#b45309");
+  });
+
+  it("replaces the photo on save, resolving the new URL via the umbrella's existing id", async () => {
+    const withPhoto = { ...umbrella, photoUrl: "https://storage.example/umbrellaEvents/u1/old.webp" };
+    resolvePhotoUpdate.mockResolvedValue("https://storage.example/umbrellaEvents/u1/new.webp");
+    const user = userEvent.setup();
+    render(<UmbrellaFormModal open onClose={vi.fn()} editingUmbrella={withPhoto} />);
+
+    await user.click(screen.getByText("FakeSelectPhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(resolvePhotoUpdate).toHaveBeenCalledWith(
+      "umbrellaEvents",
+      "u1",
+      expect.objectContaining({ action: "replace" }),
+      "https://storage.example/umbrellaEvents/u1/old.webp",
+    );
+    expect(updateUmbrellaEvent).toHaveBeenCalledWith(
+      "u1",
+      expect.objectContaining({ photoUrl: "https://storage.example/umbrellaEvents/u1/new.webp" }),
+    );
+  });
+
+  it("removes the photo on save, setting photoUrl to empty", async () => {
+    const withPhoto = { ...umbrella, photoUrl: "https://storage.example/umbrellaEvents/u1/old.webp" };
+    resolvePhotoUpdate.mockResolvedValue("");
+    const user = userEvent.setup();
+    render(<UmbrellaFormModal open onClose={vi.fn()} editingUmbrella={withPhoto} />);
+
+    await user.click(screen.getByText("FakeRemovePhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(resolvePhotoUpdate).toHaveBeenCalledWith(
+      "umbrellaEvents",
+      "u1",
+      expect.objectContaining({ action: "remove" }),
+      "https://storage.example/umbrellaEvents/u1/old.webp",
+    );
+    expect(updateUmbrellaEvent).toHaveBeenCalledWith("u1", expect.objectContaining({ photoUrl: "" }));
   });
 });

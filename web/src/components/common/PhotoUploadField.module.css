@@ -1,0 +1,101 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1c1917;
+}
+
+.placeholder,
+.preview {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
+}
+
+.placeholder {
+  border: 2px dashed #d2d2d7;
+  color: #78716c;
+  font-size: 0.875rem;
+  background: #faf8f5;
+}
+
+.preview {
+  border: 1px solid #d2d2d7;
+}
+
+.previewImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cropStage {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #1c1917;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.pickerActions,
+.cropActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pickerActions button,
+.cropActions button {
+  padding: 0.625rem 1rem;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.875rem;
+  background: #faf8f5;
+  color: #1c1917;
+  transition: all 0.2s;
+}
+
+.pickerActions button:first-child,
+.cropActions button:first-child {
+  background: #22c55e;
+  color: white;
+}
+
+.pickerActions button:hover:not(:disabled),
+.cropActions button:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.pickerActions button:disabled,
+.cropActions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.status {
+  color: #78716c;
+  font-size: 0.8125rem;
+  margin: 0;
+}
+
+.error {
+  color: #c0392b;
+  font-size: 0.9rem;
+  margin: 0;
+}

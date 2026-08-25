@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Shop } from "@/types/shops";
+import type { PendingPhoto } from "@/components/common/PhotoUploadField";
 
 const createShop = vi.fn();
 const updateShop = vi.fn();
@@ -10,9 +11,39 @@ vi.mock("@/lib/firebase/shops", () => ({
   updateShop: (...a: unknown[]) => updateShop(...a),
 }));
 
+const resolvePhotoUpdate = vi.fn();
+vi.mock("@/lib/photos/resolvePhotoUpdate", () => ({
+  resolvePhotoUpdate: (...a: unknown[]) => resolvePhotoUpdate(...a),
+}));
+
 const showToast = vi.fn();
 vi.mock("@/hooks/useToast", () => ({
   useToast: () => ({ showToast }),
+}));
+
+// PhotoUploadField itself has its own dedicated test file covering the
+// crop/HEIC/compress pipeline in full — here it's faked down to just the
+// two buttons that exercise ShopFormModal's own orchestration logic
+// (resolvePhotoUpdate call, create-then-attach sequencing, partial-failure
+// toast), which is what this file is actually responsible for testing.
+vi.mock("@/components/common/PhotoUploadField", () => ({
+  PhotoUploadField: ({
+    onPendingPhotoChange,
+  }: {
+    onPendingPhotoChange: (p: PendingPhoto | null) => void;
+  }) => (
+    <div>
+      <button
+        type="button"
+        onClick={() => onPendingPhotoChange({ action: "replace", blob: new Blob(["x"]), previewUrl: "blob:preview" })}
+      >
+        FakeSelectPhoto
+      </button>
+      <button type="button" onClick={() => onPendingPhotoChange({ action: "remove" })}>
+        FakeRemovePhoto
+      </button>
+    </div>
+  ),
 }));
 
 import { ShopFormModal } from "@/components/shops/ShopFormModal";
@@ -42,8 +73,9 @@ function makeShop(overrides: Partial<Shop> = {}): Shop {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  createShop.mockResolvedValue(undefined);
+  createShop.mockResolvedValue(makeShop());
   updateShop.mockResolvedValue(undefined);
+  resolvePhotoUpdate.mockResolvedValue("");
 });
 
 async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
@@ -149,7 +181,7 @@ describe("ShopFormModal create mode", () => {
     );
   });
 
-  it("includes manually edited lat/lng/rating/price/instagram/photo and all dietary checkboxes", async () => {
+  it("includes manually edited lat/lng/rating/price/instagram and all dietary checkboxes", async () => {
     const user = userEvent.setup();
     render(<ShopFormModal open onClose={vi.fn()} editingShop={null} />);
 
@@ -163,7 +195,6 @@ describe("ShopFormModal create mode", () => {
     await user.selectOptions(screen.getByLabelText("Beoordeling"), "9.5");
     await user.selectOptions(screen.getByLabelText("Prijs"), "€€€");
     await user.type(screen.getByLabelText("Instagram URL"), "https://instagram.com/test");
-    await user.type(screen.getByLabelText("Foto URL"), "https://example.com/photo.jpg");
     await user.click(screen.getByLabelText(/Glutenvrij/));
     await user.click(screen.getByLabelText(/Halal/));
     await user.click(screen.getByText("Opslaan"));
@@ -175,10 +206,63 @@ describe("ShopFormModal create mode", () => {
         rating: 9.5,
         price: "€€€",
         instagramUrl: "https://instagram.com/test",
-        photoUrl: "https://example.com/photo.jpg",
         dietaryOptions: { glutenvrij: true, halal: true, vega: false },
       }),
     );
+  });
+
+  it("uploads the photo after create and attaches its URL, once the new shop's id is known", async () => {
+    createShop.mockResolvedValue(makeShop({ id: 4242 }));
+    resolvePhotoUpdate.mockResolvedValue("https://storage.example/shops/4242/abc.webp");
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<ShopFormModal open onClose={onClose} editingShop={null} />);
+
+    await fillRequiredFields(user);
+    await user.click(screen.getByText("FakeSelectPhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(createShop).toHaveBeenCalledWith(expect.objectContaining({ photoUrl: "" }));
+    expect(resolvePhotoUpdate).toHaveBeenCalledWith(
+      "shops",
+      4242,
+      expect.objectContaining({ action: "replace" }),
+      "",
+    );
+    expect(updateShop).toHaveBeenCalledWith(4242, { photoUrl: "https://storage.example/shops/4242/abc.webp" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("skips the extra photoUrl write when the resolved photo is empty (picked then removed before ever saving)", async () => {
+    createShop.mockResolvedValue(makeShop({ id: 4242 }));
+    resolvePhotoUpdate.mockResolvedValue("");
+    const user = userEvent.setup();
+    render(<ShopFormModal open onClose={vi.fn()} editingShop={null} />);
+
+    await fillRequiredFields(user);
+    await user.click(screen.getByText("FakeRemovePhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it("shows a toast and still closes when the photo upload fails after a successful create (record is already saved)", async () => {
+    createShop.mockResolvedValue(makeShop({ id: 4242 }));
+    resolvePhotoUpdate.mockRejectedValue(new Error("upload failed"));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<ShopFormModal open onClose={onClose} editingShop={null} />);
+
+    await fillRequiredFields(user);
+    await user.click(screen.getByText("FakeSelectPhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(updateShop).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith(
+      "Review opgeslagen, maar foto uploaden is mislukt. Voeg de foto later toe via bewerken.",
+      "error",
+    );
+    expect(onClose).toHaveBeenCalled();
   });
 
   it("shows a save-failure error", async () => {
@@ -234,6 +318,45 @@ describe("ShopFormModal edit mode", () => {
     await user.click(screen.getByText("Opslaan"));
 
     expect(updateShop).toHaveBeenCalledWith(9001, expect.objectContaining({ name: "Updated Name" }));
+  });
+
+  it("replaces the photo on save, resolving the new URL via the shop's existing id", async () => {
+    const shop = makeShop({ photoUrl: "https://storage.example/shops/9001/old.webp" });
+    resolvePhotoUpdate.mockResolvedValue("https://storage.example/shops/9001/new.webp");
+    const user = userEvent.setup();
+    render(<ShopFormModal open onClose={vi.fn()} editingShop={shop} />);
+
+    await user.click(screen.getByText("FakeSelectPhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(resolvePhotoUpdate).toHaveBeenCalledWith(
+      "shops",
+      9001,
+      expect.objectContaining({ action: "replace" }),
+      "https://storage.example/shops/9001/old.webp",
+    );
+    expect(updateShop).toHaveBeenCalledWith(
+      9001,
+      expect.objectContaining({ photoUrl: "https://storage.example/shops/9001/new.webp" }),
+    );
+  });
+
+  it("removes the photo on save, setting photoUrl to empty", async () => {
+    const shop = makeShop({ photoUrl: "https://storage.example/shops/9001/old.webp" });
+    resolvePhotoUpdate.mockResolvedValue("");
+    const user = userEvent.setup();
+    render(<ShopFormModal open onClose={vi.fn()} editingShop={shop} />);
+
+    await user.click(screen.getByText("FakeRemovePhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(resolvePhotoUpdate).toHaveBeenCalledWith(
+      "shops",
+      9001,
+      expect.objectContaining({ action: "remove" }),
+      "https://storage.example/shops/9001/old.webp",
+    );
+    expect(updateShop).toHaveBeenCalledWith(9001, expect.objectContaining({ photoUrl: "" }));
   });
 
   it("re-syncs the form when reopened for a different shop while still mounted", () => {

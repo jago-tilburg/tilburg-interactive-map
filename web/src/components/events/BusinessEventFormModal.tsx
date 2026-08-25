@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/common/Modal";
+import { PhotoUploadField, type PendingPhoto } from "@/components/common/PhotoUploadField";
 import { createBusinessEvent, updateBusinessEvent } from "@/lib/firebase/businessEvents";
+import { resolvePhotoUpdate } from "@/lib/photos/resolvePhotoUpdate";
 import { useToast } from "@/hooks/useToast";
 import {
   EVENT_CATEGORIES,
@@ -86,6 +88,7 @@ export function BusinessEventFormModal({
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingPhoto, setPendingPhoto] = useState<PendingPhoto | null>(null);
 
   if (open && formIdentity !== renderedIdentity) {
     setRenderedIdentity(formIdentity);
@@ -97,6 +100,7 @@ export function BusinessEventFormModal({
           : emptyForm(),
     );
     setError(null);
+    setPendingPhoto(null);
   }
 
   const multiDay = isMultiDay(form.startDate, form.endDate || form.startDate);
@@ -223,13 +227,25 @@ export function BusinessEventFormModal({
     setSubmitting(true);
     try {
       if (editingEvent) {
-        await updateBusinessEvent(editingEvent.id, input);
+        const photoUrl = await resolvePhotoUpdate("businessEvents", editingEvent.id, pendingPhoto, editingEvent.photoUrl ?? "");
+        await updateBusinessEvent(editingEvent.id, { ...input, photoUrl });
         showToast("Evenement bijgewerkt.", "success");
+        onClose();
       } else {
-        await createBusinessEvent(ownerId, input);
+        const created = await createBusinessEvent(ownerId, input);
+        if (pendingPhoto) {
+          try {
+            const photoUrl = await resolvePhotoUpdate("businessEvents", created.id, pendingPhoto, "");
+            if (photoUrl) await updateBusinessEvent(created.id, { ...input, photoUrl });
+          } catch {
+            showToast("Evenement opgeslagen, maar foto uploaden is mislukt. Voeg de foto later toe via bewerken.", "error");
+            onClose();
+            return;
+          }
+        }
         showToast("Evenement toegevoegd. Betaal om het direct live te zetten.", "success");
+        onClose();
       }
-      onClose();
     } catch (err) {
       setError(err instanceof Error ? `Opslaan mislukt: ${err.message}` : "Opslaan mislukt.");
     } finally {
@@ -386,12 +402,13 @@ export function BusinessEventFormModal({
           onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
         />
 
-        <input
-          type="url"
-          placeholder="Foto-URL (optioneel)"
-          aria-label="Foto-URL"
-          value={form.photoUrl}
-          onChange={(e) => setForm((f) => ({ ...f, photoUrl: e.target.value }))}
+        <PhotoUploadField
+          label="Foto"
+          aspectRatio={3 / 4}
+          currentUrl={form.photoUrl}
+          pendingPhoto={pendingPhoto}
+          onPendingPhotoChange={setPendingPhoto}
+          disabled={submitting}
         />
 
         <input

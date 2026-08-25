@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
+import type { PendingPhoto } from "@/components/common/PhotoUploadField";
 
 const createBusinessEvent = vi.fn();
 const updateBusinessEvent = vi.fn();
@@ -10,9 +11,37 @@ vi.mock("@/lib/firebase/businessEvents", () => ({
   updateBusinessEvent: (...args: unknown[]) => updateBusinessEvent(...args),
 }));
 
+const resolvePhotoUpdate = vi.fn();
+vi.mock("@/lib/photos/resolvePhotoUpdate", () => ({
+  resolvePhotoUpdate: (...a: unknown[]) => resolvePhotoUpdate(...a),
+}));
+
 const showToast = vi.fn();
 vi.mock("@/hooks/useToast", () => ({
   useToast: () => ({ showToast }),
+}));
+
+// See ShopFormModal.test.tsx for why PhotoUploadField is faked down to just
+// its two triggering buttons here — its own pipeline is covered by its
+// dedicated test file.
+vi.mock("@/components/common/PhotoUploadField", () => ({
+  PhotoUploadField: ({
+    onPendingPhotoChange,
+  }: {
+    onPendingPhotoChange: (p: PendingPhoto | null) => void;
+  }) => (
+    <div>
+      <button
+        type="button"
+        onClick={() => onPendingPhotoChange({ action: "replace", blob: new Blob(["x"]), previewUrl: "blob:preview" })}
+      >
+        FakeSelectPhoto
+      </button>
+      <button type="button" onClick={() => onPendingPhotoChange({ action: "remove" })}>
+        FakeRemovePhoto
+      </button>
+    </div>
+  ),
 }));
 
 import { BusinessEventFormModal } from "@/components/events/BusinessEventFormModal";
@@ -50,8 +79,9 @@ const umbrella: UmbrellaEvent = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  createBusinessEvent.mockResolvedValue(undefined);
+  createBusinessEvent.mockResolvedValue({ id: "evt1" });
   updateBusinessEvent.mockResolvedValue(undefined);
+  resolvePhotoUpdate.mockResolvedValue("");
 });
 
 async function fillMinimalRequiredFields(user: ReturnType<typeof userEvent.setup>) {
@@ -97,7 +127,6 @@ describe("BusinessEventFormModal create mode", () => {
     await fillMinimalRequiredFields(user);
     await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
     await user.click(screen.getByText("Extract"));
-    await user.type(screen.getByLabelText("Foto-URL"), "https://example.com/event.jpg");
     await user.type(screen.getByLabelText("Website-URL"), "https://example.com");
     await user.click(screen.getByText("Opslaan"));
 
@@ -107,10 +136,75 @@ describe("BusinessEventFormModal create mode", () => {
         lat: 51.55,
         lng: 5.09,
         title: "My Event",
-        photoUrl: "https://example.com/event.jpg",
         websiteUrl: "https://example.com",
         prices: [],
       }),
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("uploads the photo after create and attaches its URL, once the new event's id is known", async () => {
+    resolvePhotoUpdate.mockResolvedValue("https://storage.example/businessEvents/evt1/abc.webp");
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BusinessEventFormModal open onClose={onClose} ownerId="owner-uid" editingEvent={null} umbrellaEvents={[]} />,
+    );
+
+    await fillMinimalRequiredFields(user);
+    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
+    await user.click(screen.getByText("Extract"));
+    await user.click(screen.getByText("FakeSelectPhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(createBusinessEvent).toHaveBeenCalledWith("owner-uid", expect.objectContaining({ photoUrl: "" }));
+    expect(resolvePhotoUpdate).toHaveBeenCalledWith(
+      "businessEvents",
+      "evt1",
+      expect.objectContaining({ action: "replace" }),
+      "",
+    );
+    expect(updateBusinessEvent).toHaveBeenCalledWith(
+      "evt1",
+      expect.objectContaining({ photoUrl: "https://storage.example/businessEvents/evt1/abc.webp" }),
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("skips the extra photoUrl write when the resolved photo is empty (picked then removed before ever saving)", async () => {
+    resolvePhotoUpdate.mockResolvedValue("");
+    const user = userEvent.setup();
+    render(
+      <BusinessEventFormModal open onClose={vi.fn()} ownerId="owner-uid" editingEvent={null} umbrellaEvents={[]} />,
+    );
+
+    await fillMinimalRequiredFields(user);
+    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
+    await user.click(screen.getByText("Extract"));
+    await user.click(screen.getByText("FakeRemovePhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(updateBusinessEvent).not.toHaveBeenCalled();
+  });
+
+  it("shows a toast and still closes when the photo upload fails after a successful create (record is already saved)", async () => {
+    resolvePhotoUpdate.mockRejectedValue(new Error("upload failed"));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BusinessEventFormModal open onClose={onClose} ownerId="owner-uid" editingEvent={null} umbrellaEvents={[]} />,
+    );
+
+    await fillMinimalRequiredFields(user);
+    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
+    await user.click(screen.getByText("Extract"));
+    await user.click(screen.getByText("FakeSelectPhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(updateBusinessEvent).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith(
+      "Evenement opgeslagen, maar foto uploaden is mislukt. Voeg de foto later toe via bewerken.",
+      "error",
     );
     expect(onClose).toHaveBeenCalled();
   });
@@ -451,6 +545,49 @@ describe("BusinessEventFormModal edit mode", () => {
     await user.click(screen.getByText("Opslaan"));
 
     expect(updateBusinessEvent).toHaveBeenCalledWith("evt1", expect.objectContaining({ title: "Changed Title" }));
+  });
+
+  it("replaces the photo on save, resolving the new URL via the event's existing id", async () => {
+    const event = makeEvent({ photoUrl: "https://storage.example/businessEvents/evt1/old.webp" });
+    resolvePhotoUpdate.mockResolvedValue("https://storage.example/businessEvents/evt1/new.webp");
+    const user = userEvent.setup();
+    render(
+      <BusinessEventFormModal open onClose={vi.fn()} ownerId="owner-uid" editingEvent={event} umbrellaEvents={[]} />,
+    );
+
+    await user.click(screen.getByText("FakeSelectPhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(resolvePhotoUpdate).toHaveBeenCalledWith(
+      "businessEvents",
+      "evt1",
+      expect.objectContaining({ action: "replace" }),
+      "https://storage.example/businessEvents/evt1/old.webp",
+    );
+    expect(updateBusinessEvent).toHaveBeenCalledWith(
+      "evt1",
+      expect.objectContaining({ photoUrl: "https://storage.example/businessEvents/evt1/new.webp" }),
+    );
+  });
+
+  it("removes the photo on save, setting photoUrl to empty", async () => {
+    const event = makeEvent({ photoUrl: "https://storage.example/businessEvents/evt1/old.webp" });
+    resolvePhotoUpdate.mockResolvedValue("");
+    const user = userEvent.setup();
+    render(
+      <BusinessEventFormModal open onClose={vi.fn()} ownerId="owner-uid" editingEvent={event} umbrellaEvents={[]} />,
+    );
+
+    await user.click(screen.getByText("FakeRemovePhoto"));
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(resolvePhotoUpdate).toHaveBeenCalledWith(
+      "businessEvents",
+      "evt1",
+      expect.objectContaining({ action: "remove" }),
+      "https://storage.example/businessEvents/evt1/old.webp",
+    );
+    expect(updateBusinessEvent).toHaveBeenCalledWith("evt1", expect.objectContaining({ photoUrl: "" }));
   });
 });
 
