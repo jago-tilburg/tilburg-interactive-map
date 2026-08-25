@@ -21,6 +21,11 @@ export function getTestEnv() {
         host: "127.0.0.1",
         port: 9000,
       },
+      storage: {
+        rules: fs.readFileSync(path.resolve(__dirname, "../../storage.rules"), "utf8"),
+        host: "127.0.0.1",
+        port: 9199,
+      },
     });
   }
   return testEnvPromise;

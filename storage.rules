@@ -1,0 +1,69 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Cross-service read into Firestore's admins/{uid} — the same closed
+    // collection firestore.rules already uses via exists() for every other
+    // admin gate in this app (businessEvents, umbrellaEvents, reports).
+    // Storage rules can only reach Firestore, never RTDB, which is why this
+    // is the mechanism here even though the RTDB shops write gate uses a
+    // hardcoded uid instead.
+    function isAdmin() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid));
+    }
+
+    // The pipeline (see GO-LIVE-CHECKLIST.md §5) always converts a photo to
+    // WebP client-side before it leaves the browser, so a legitimate upload
+    // is never anything else. Size is bounded generously above the ~500KB
+    // client-compression target (same "generous, never reject a legitimate
+    // submission" philosophy as firestore.rules' businessEvents bounds) —
+    // this is defense-in-depth against a caller that skips the client
+    // pipeline and calls the Storage API directly, not the actual
+    // compression step itself.
+    function isValidPhoto() {
+      return request.resource.contentType == 'image/webp'
+        && request.resource.size < 2 * 1024 * 1024;
+    }
+
+    // Shop photos. Shops have no ownerId/business-account concept at all —
+    // they're admin-managed only, matching database.rules.json's shops
+    // write gate (a hardcoded admin uid). Public read; write is admin-only.
+    match /shops/{shopId}/{fileName} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidPhoto();
+      allow delete: if isAdmin();
+    }
+
+    // Business event photos. Owner (matches businessEvents/{eventId}'s
+    // ownerId in Firestore) or admin — mirrors firestore.rules' businessEvents
+    // ownership check. A client-only ownership/type/size check is trivially
+    // bypassed by calling the Storage API directly, so it's enforced here
+    // too, not just in the upload UI.
+    match /businessEvents/{eventId}/{fileName} {
+      allow read: if true;
+      allow create, update: if isValidPhoto()
+        && (isAdmin()
+          || (request.auth != null
+            && request.auth.uid == firestore.get(/databases/(default)/documents/businessEvents/$(eventId)).data.ownerId));
+      allow delete: if isAdmin()
+        || (request.auth != null
+          && request.auth.uid == firestore.get(/databases/(default)/documents/businessEvents/$(eventId)).data.ownerId);
+    }
+
+    // Umbrella event photos. umbrellaEvents are admin-managed grouping
+    // containers (public read / admin-write in firestore.rules, no owning
+    // business) — same admin-only shape as shop photos.
+    match /umbrellaEvents/{umbrellaId}/{fileName} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidPhoto();
+      allow delete: if isAdmin();
+    }
+
+    // Everything else is closed by default until its module is built.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
