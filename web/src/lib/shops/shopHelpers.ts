@@ -18,34 +18,39 @@ export function shopsSnapshotToArray(val: unknown): Shop[] {
 // makes that promise actually true for every consumer — confirmed the hard
 // way: ShopDetailModal trusted the type and crashed the whole page
 // (`shop.likes.includes` on undefined) opening any shop with no likes yet.
+//
+// Each of these four fields is stored in RTDB as a keyed object (likes:
+// {userId: true}, the rest: {itemId: {...}}), not an array — keyed so
+// database.rules.json can scope writes to a single $key instead of granting
+// write to the whole subtree (see the shop-interactions-keyed-schema
+// migration). Normalizing back to arrays here is what keeps every
+// *consumer* of a Shop unaware of that storage-shape detail.
 function normalizeShopArrays(shop: Shop): Shop {
+  const rawLikes = shop.likes as unknown as Record<string, true> | string[] | undefined;
   return {
     ...shop,
-    likes: shop.likes ?? [],
-    comments: shop.comments ?? [],
-    userReviews: shop.userReviews ?? [],
-    userRatings: shop.userRatings ?? [],
+    likes: Array.isArray(rawLikes) ? rawLikes : Object.keys(rawLikes ?? {}),
+    comments: toValueArray(shop.comments),
+    userReviews: toValueArray(shop.userReviews),
+    userRatings: toValueArray(shop.userRatings),
   };
 }
 
-export function toggleLike(likes: string[] | undefined, userId: string): string[] {
-  const current = likes ?? [];
-  return current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId];
+function toValueArray<T>(val: T[] | Record<string, T> | undefined): T[] {
+  if (!val) return [];
+  return Array.isArray(val) ? val : Object.values(val);
 }
 
-export function upsertUserRating(
-  ratings: ShopUserRating[] | undefined,
+// Builds the next rating record for a user — preserves the original
+// createdAt and stamps updatedAt on a change, matching what the RTDB write
+// at userRatings/{userId} replaces wholesale.
+export function nextUserRating(
+  existing: ShopUserRating | undefined,
   userId: string,
   rating: number,
-): ShopUserRating[] {
-  const current = ratings ?? [];
-  const existingIndex = current.findIndex((r) => r.userId === userId);
-  if (existingIndex >= 0) {
-    const next = [...current];
-    next[existingIndex] = { ...next[existingIndex], rating, updatedAt: Date.now() };
-    return next;
-  }
-  return [...current, { userId, rating, createdAt: Date.now() }];
+): ShopUserRating {
+  if (existing) return { ...existing, userId, rating, updatedAt: Date.now() };
+  return { userId, rating, createdAt: Date.now() };
 }
 
 export function averageRating(ratings: ShopUserRating[] | undefined): number | null {
@@ -55,39 +60,24 @@ export function averageRating(ratings: ShopUserRating[] | undefined): number | n
   return Math.round((sum / current.length) * 10) / 10;
 }
 
-export function addComment(
-  comments: ShopComment[] | undefined,
-  input: { userId: string; userName: string; text: string },
-): ShopComment[] {
-  return [
-    ...(comments ?? []),
-    { id: Date.now(), userId: input.userId, userName: input.userName, text: input.text, createdAt: new Date().toISOString() },
-  ];
+export function buildComment(input: { userId: string; userName: string; text: string }): ShopComment {
+  return { id: Date.now(), userId: input.userId, userName: input.userName, text: input.text, createdAt: new Date().toISOString() };
 }
 
-export function removeComment(comments: ShopComment[] | undefined, commentId: number): ShopComment[] {
-  return (comments ?? []).filter((c) => c.id !== commentId);
-}
-
-export function addUserReview(
-  reviews: ShopUserReview[] | undefined,
-  input: { userId: string; userName: string; rating: number; text: string },
-): ShopUserReview[] {
-  return [
-    ...(reviews ?? []),
-    {
-      id: Date.now(),
-      userId: input.userId,
-      userName: input.userName,
-      rating: input.rating,
-      text: input.text,
-      createdAt: new Date().toISOString(),
-    },
-  ];
-}
-
-export function removeUserReview(reviews: ShopUserReview[] | undefined, reviewId: number): ShopUserReview[] {
-  return (reviews ?? []).filter((r) => r.id !== reviewId);
+export function buildUserReview(input: {
+  userId: string;
+  userName: string;
+  rating: number;
+  text: string;
+}): ShopUserReview {
+  return {
+    id: Date.now(),
+    userId: input.userId,
+    userName: input.userName,
+    rating: input.rating,
+    text: input.text,
+    createdAt: new Date().toISOString(),
+  };
 }
 
 // Ports migrateAnonymousVisitorData from the prototype: re-tags a shop's
@@ -107,41 +97,45 @@ export function computeAnonymousDataMigration(
   let migrated = 0;
 
   for (const shop of shops) {
-    const patch: ShopMigrationPatch = { shopId: shop.id };
+    const updates: Record<string, unknown> = {};
     let changed = false;
 
+    // Likes/ratings are keyed by userId itself, so re-tagging means moving
+    // the value from the old key to the new one (a real multi-path
+    // update), not patching a field in place.
     if (shop.likes?.includes(oldId)) {
-      const withoutOld = shop.likes.filter((id) => id !== oldId);
-      patch.likes = withoutOld.includes(newId) ? withoutOld : [...withoutOld, newId];
+      updates[`likes/${oldId}`] = null;
+      if (!shop.likes.includes(newId)) updates[`likes/${newId}`] = true;
       changed = true;
       migrated++;
     }
 
     const oldRating = shop.userRatings?.find((r) => r.userId === oldId);
     if (oldRating) {
-      patch.userRatings = [
-        ...shop.userRatings.filter((r) => r.userId !== oldId && r.userId !== newId),
-        { ...oldRating, userId: newId },
-      ];
+      updates[`userRatings/${oldId}`] = null;
+      updates[`userRatings/${newId}`] = { ...oldRating, userId: newId };
       changed = true;
       migrated++;
     }
 
+    // Comments/reviews are keyed by their own generated id, independent of
+    // userId — re-tagging is an in-place field patch on each existing key,
+    // not a key move.
     const ownComments = shop.comments?.filter((c) => c.userId === oldId) ?? [];
+    for (const c of ownComments) updates[`comments/${c.id}/userId`] = newId;
     if (ownComments.length > 0) {
-      patch.comments = shop.comments.map((c) => (c.userId === oldId ? { ...c, userId: newId } : c));
       changed = true;
       migrated += ownComments.length;
     }
 
     const ownReviews = shop.userReviews?.filter((r) => r.userId === oldId) ?? [];
+    for (const r of ownReviews) updates[`userReviews/${r.id}/userId`] = newId;
     if (ownReviews.length > 0) {
-      patch.userReviews = shop.userReviews.map((r) => (r.userId === oldId ? { ...r, userId: newId } : r));
       changed = true;
       migrated += ownReviews.length;
     }
 
-    if (changed) patches.push(patch);
+    if (changed) patches.push({ shopId: shop.id, updates });
   }
 
   return { patches, migrated };

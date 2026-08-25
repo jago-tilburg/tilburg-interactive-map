@@ -36,20 +36,33 @@ export async function deleteShop(shopId: number) {
   return remove(ref(getRtdb(), `shops/${shopId}`));
 }
 
-export async function setShopLikes(shopId: number, likes: string[]) {
-  return set(ref(getRtdb(), `shops/${shopId}/likes`), likes);
+// Each of these writes (or deletes) a single keyed child under shops/{id}
+// — never the whole comments/likes/userRatings/userReviews subtree — so a
+// caller can at most touch one item, matching database.rules.json's
+// per-$key write grants (no more parent-level `.write: true`).
+export async function setShopLike(shopId: number, userId: string, liked: boolean) {
+  const likeRef = ref(getRtdb(), `shops/${shopId}/likes/${userId}`);
+  return liked ? set(likeRef, true) : remove(likeRef);
 }
 
-export async function setShopComments(shopId: number, comments: ShopComment[]) {
-  return set(ref(getRtdb(), `shops/${shopId}/comments`), comments);
+export async function setShopUserRating(shopId: number, userId: string, rating: ShopUserRating) {
+  return set(ref(getRtdb(), `shops/${shopId}/userRatings/${userId}`), rating);
 }
 
-export async function setShopUserRatings(shopId: number, ratings: ShopUserRating[]) {
-  return set(ref(getRtdb(), `shops/${shopId}/userRatings`), ratings);
+export async function addShopComment(shopId: number, comment: ShopComment) {
+  return set(ref(getRtdb(), `shops/${shopId}/comments/${comment.id}`), comment);
 }
 
-export async function setShopUserReviews(shopId: number, reviews: ShopUserReview[]) {
-  return set(ref(getRtdb(), `shops/${shopId}/userReviews`), reviews);
+export async function removeShopComment(shopId: number, commentId: number) {
+  return remove(ref(getRtdb(), `shops/${shopId}/comments/${commentId}`));
+}
+
+export async function addShopUserReview(shopId: number, review: ShopUserReview) {
+  return set(ref(getRtdb(), `shops/${shopId}/userReviews/${review.id}`), review);
+}
+
+export async function removeShopUserReview(shopId: number, reviewId: number) {
+  return remove(ref(getRtdb(), `shops/${shopId}/userReviews/${reviewId}`));
 }
 
 export async function getShopsOnce(): Promise<Shop[]> {
@@ -59,7 +72,7 @@ export async function getShopsOnce(): Promise<Shop[]> {
 
 async function applyShopMigrationPatches(patches: ShopMigrationPatch[]) {
   await Promise.all(
-    patches.map(({ shopId, ...fields }) => update(ref(getRtdb(), `shops/${shopId}`), fields)),
+    patches.map(({ shopId, updates }) => update(ref(getRtdb(), `shops/${shopId}`), updates)),
   );
 }
 

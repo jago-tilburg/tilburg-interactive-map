@@ -4,20 +4,14 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Modal } from "@/components/common/Modal";
 import { useAuth } from "@/hooks/useAuth";
 import { getAnonUserId } from "@/lib/shops/anonUserId";
+import { nextUserRating, averageRating, buildComment, buildUserReview } from "@/lib/shops/shopHelpers";
 import {
-  toggleLike,
-  upsertUserRating,
-  averageRating,
-  addComment,
-  removeComment,
-  addUserReview,
-  removeUserReview,
-} from "@/lib/shops/shopHelpers";
-import {
-  setShopLikes,
-  setShopUserRatings,
-  setShopComments,
-  setShopUserReviews,
+  setShopLike,
+  setShopUserRating,
+  addShopComment,
+  removeShopComment,
+  addShopUserReview,
+  removeShopUserReview,
   trackShopView,
   getShopViews,
   deleteShop,
@@ -118,7 +112,8 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
     /* v8 ignore next -- see hasLiked above. */
     if (!userId) return;
     try {
-      await setShopUserRatings(shop!.id, upsertUserRating(shop!.userRatings, userId, rating));
+      const existing = shop!.userRatings.find((r) => r.userId === userId);
+      await setShopUserRating(shop!.id, userId, nextUserRating(existing, userId, rating));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Rating opslaan mislukt.");
     }
@@ -128,7 +123,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
     /* v8 ignore next -- see hasLiked above. */
     if (!userId) return;
     try {
-      await setShopLikes(shop!.id, toggleLike(shop!.likes, userId));
+      await setShopLike(shop!.id, userId, !hasLiked);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Opslaan mislukt.");
     }
@@ -148,10 +143,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
        documented above hasLiked. */
     if (!userId || !pendingCommentText) return;
     try {
-      await setShopComments(
-        shop!.id,
-        addComment(shop!.comments, { userId, userName: name, text: pendingCommentText }),
-      );
+      await addShopComment(shop!.id, buildComment({ userId, userName: name, text: pendingCommentText }));
       setCommentDraft("");
     } catch (err) {
       // Also close the name-prompt on failure — it sits in front of the
@@ -165,7 +157,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
 
   async function handleDeleteComment(commentId: number) {
     try {
-      await setShopComments(shop!.id, removeComment(shop!.comments, commentId));
+      await removeShopComment(shop!.id, commentId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verwijderen mislukt.");
     }
@@ -175,9 +167,9 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
     /* v8 ignore next -- see hasLiked above. */
     if (!userId) return;
     try {
-      await setShopUserReviews(
+      await addShopUserReview(
         shop!.id,
-        addUserReview(shop!.userReviews, { userId, userName: input.name, rating: input.rating, text: input.text }),
+        buildUserReview({ userId, userName: input.name, rating: input.rating, text: input.text }),
       );
     } catch (err) {
       // Also close the review modal on failure — see handleSubmitCommentName.
@@ -189,7 +181,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
 
   async function handleDeleteReview(reviewId: number) {
     try {
-      await setShopUserReviews(shop!.id, removeUserReview(shop!.userReviews, reviewId));
+      await removeShopUserReview(shop!.id, reviewId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verwijderen mislukt.");
     }

@@ -12,18 +12,22 @@ vi.mock("@/lib/shops/anonUserId", () => ({
   getAnonUserId: vi.fn(() => "anon-1"),
 }));
 
-const setShopLikes = vi.fn();
-const setShopUserRatings = vi.fn();
-const setShopComments = vi.fn();
-const setShopUserReviews = vi.fn();
+const setShopLike = vi.fn();
+const setShopUserRating = vi.fn();
+const addShopComment = vi.fn();
+const removeShopComment = vi.fn();
+const addShopUserReview = vi.fn();
+const removeShopUserReview = vi.fn();
 const trackShopView = vi.fn();
 const getShopViews = vi.fn();
 const deleteShop = vi.fn();
 vi.mock("@/lib/firebase/shops", () => ({
-  setShopLikes: (...a: unknown[]) => setShopLikes(...a),
-  setShopUserRatings: (...a: unknown[]) => setShopUserRatings(...a),
-  setShopComments: (...a: unknown[]) => setShopComments(...a),
-  setShopUserReviews: (...a: unknown[]) => setShopUserReviews(...a),
+  setShopLike: (...a: unknown[]) => setShopLike(...a),
+  setShopUserRating: (...a: unknown[]) => setShopUserRating(...a),
+  addShopComment: (...a: unknown[]) => addShopComment(...a),
+  removeShopComment: (...a: unknown[]) => removeShopComment(...a),
+  addShopUserReview: (...a: unknown[]) => addShopUserReview(...a),
+  removeShopUserReview: (...a: unknown[]) => removeShopUserReview(...a),
   trackShopView: (...a: unknown[]) => trackShopView(...a),
   getShopViews: (...a: unknown[]) => getShopViews(...a),
   deleteShop: (...a: unknown[]) => deleteShop(...a),
@@ -64,10 +68,12 @@ beforeEach(() => {
   mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: false });
   trackShopView.mockResolvedValue(1);
   getShopViews.mockResolvedValue(5);
-  setShopLikes.mockResolvedValue(undefined);
-  setShopUserRatings.mockResolvedValue(undefined);
-  setShopComments.mockResolvedValue(undefined);
-  setShopUserReviews.mockResolvedValue(undefined);
+  setShopLike.mockResolvedValue(undefined);
+  setShopUserRating.mockResolvedValue(undefined);
+  addShopComment.mockResolvedValue(undefined);
+  removeShopComment.mockResolvedValue(undefined);
+  addShopUserReview.mockResolvedValue(undefined);
+  removeShopUserReview.mockResolvedValue(undefined);
   deleteShop.mockResolvedValue(undefined);
 });
 
@@ -143,14 +149,15 @@ describe("ShopDetailModal", () => {
     await waitFor(() => expect(screen.getByLabelText("Geef 7 sterren")).toBeInTheDocument());
     await user.click(screen.getByLabelText("Geef 7 sterren"));
 
-    expect(setShopUserRatings).toHaveBeenCalledWith(
+    expect(setShopUserRating).toHaveBeenCalledWith(
       9001,
-      expect.arrayContaining([expect.objectContaining({ userId: "anon-1", rating: 7 })]),
+      "anon-1",
+      expect.objectContaining({ userId: "anon-1", rating: 7 }),
     );
   });
 
   it("shows a save error when rating fails", async () => {
-    setShopUserRatings.mockRejectedValue(new Error("network down"));
+    setShopUserRating.mockRejectedValue(new Error("network down"));
     const user = userEvent.setup();
     render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop()} />);
 
@@ -161,7 +168,7 @@ describe("ShopDetailModal", () => {
   });
 
   it("shows a generic rating error when a non-Error is thrown", async () => {
-    setShopUserRatings.mockRejectedValue("not an Error instance");
+    setShopUserRating.mockRejectedValue("not an Error instance");
     const user = userEvent.setup();
     render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop()} />);
 
@@ -194,7 +201,7 @@ describe("ShopDetailModal", () => {
     await waitFor(() => expect(screen.getByText("👍 0")).toBeInTheDocument());
     await user.click(screen.getByText("👍 0"));
 
-    expect(setShopLikes).toHaveBeenCalledWith(9001, ["anon-1"]);
+    expect(setShopLike).toHaveBeenCalledWith(9001, "anon-1", true);
   });
 
   it("requires non-empty comment text before opening the name prompt", async () => {
@@ -217,9 +224,9 @@ describe("ShopDetailModal", () => {
     await user.click(screen.getByText("Versturen"));
 
     await waitFor(() =>
-      expect(setShopComments).toHaveBeenCalledWith(
+      expect(addShopComment).toHaveBeenCalledWith(
         9001,
-        expect.arrayContaining([expect.objectContaining({ userName: "Jago", text: "Heerlijk!" })]),
+        expect.objectContaining({ userName: "Jago", text: "Heerlijk!" }),
       ),
     );
   });
@@ -233,7 +240,7 @@ describe("ShopDetailModal", () => {
     await user.click(screen.getByText("Annuleren"));
 
     expect(screen.queryByRole("dialog", { name: "Wat is je naam?" })).not.toBeInTheDocument();
-    expect(setShopComments).not.toHaveBeenCalled();
+    expect(addShopComment).not.toHaveBeenCalled();
   });
 
   it("closes the review modal via cancel without posting", async () => {
@@ -244,7 +251,7 @@ describe("ShopDetailModal", () => {
     await user.click(screen.getByText("Annuleren"));
 
     expect(screen.queryByRole("dialog", { name: "Voeg Je Review Toe" })).not.toBeInTheDocument();
-    expect(setShopUserReviews).not.toHaveBeenCalled();
+    expect(addShopUserReview).not.toHaveBeenCalled();
   });
 
   it("lists existing comments and reviews", () => {
@@ -269,9 +276,9 @@ describe("ShopDetailModal", () => {
     await user.click(screen.getByText("Versturen"));
 
     await waitFor(() =>
-      expect(setShopUserReviews).toHaveBeenCalledWith(
+      expect(addShopUserReview).toHaveBeenCalledWith(
         9001,
-        expect.arrayContaining([expect.objectContaining({ userName: "Jago", rating: 9.0, text: "Top" })]),
+        expect.objectContaining({ userName: "Jago", rating: 9.0, text: "Top" }),
       ),
     );
   });
@@ -338,14 +345,14 @@ describe("ShopDetailModal", () => {
 
     const deleteButtons = screen.getAllByText("Verwijderen");
     await user.click(deleteButtons[0]);
-    expect(setShopComments).toHaveBeenCalledWith(9001, []);
+    expect(removeShopComment).toHaveBeenCalledWith(9001, 1);
 
     await user.click(screen.getAllByText("Verwijderen")[deleteButtons.length - 1]);
-    expect(setShopUserReviews).toHaveBeenCalledWith(9001, []);
+    expect(removeShopUserReview).toHaveBeenCalledWith(9001, 2);
   });
 
   it("shows an error when deleting a comment fails", async () => {
-    setShopComments.mockRejectedValue(new Error("network down"));
+    removeShopComment.mockRejectedValue(new Error("network down"));
     mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: true });
     const shop = makeShop({
       comments: [{ id: 1, userId: "someone-else", userName: "Anna", text: "Top!", createdAt: "t" }],
@@ -358,7 +365,7 @@ describe("ShopDetailModal", () => {
   });
 
   it("shows a generic error when deleting a comment fails with a non-Error", async () => {
-    setShopComments.mockRejectedValue("not an Error instance");
+    removeShopComment.mockRejectedValue("not an Error instance");
     mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: true });
     const shop = makeShop({
       comments: [{ id: 1, userId: "someone-else", userName: "Anna", text: "Top!", createdAt: "t" }],
@@ -371,7 +378,7 @@ describe("ShopDetailModal", () => {
   });
 
   it("shows an error when deleting a review fails", async () => {
-    setShopUserReviews.mockRejectedValue(new Error("network down"));
+    removeShopUserReview.mockRejectedValue(new Error("network down"));
     mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: true });
     const shop = makeShop({
       userReviews: [{ id: 2, userId: "someone-else", userName: "Bram", rating: 9.0, text: "Geweldig", createdAt: "t" }],
@@ -384,7 +391,7 @@ describe("ShopDetailModal", () => {
   });
 
   it("shows a generic error when deleting a review fails with a non-Error", async () => {
-    setShopUserReviews.mockRejectedValue("not an Error instance");
+    removeShopUserReview.mockRejectedValue("not an Error instance");
     mockUseAuth.mockReturnValue({ currentVisitor: null, isAdmin: true });
     const shop = makeShop({
       userReviews: [{ id: 2, userId: "someone-else", userName: "Bram", rating: 9.0, text: "Geweldig", createdAt: "t" }],
@@ -397,7 +404,7 @@ describe("ShopDetailModal", () => {
   });
 
   it("shows an error when posting a comment fails", async () => {
-    setShopComments.mockRejectedValue(new Error("network down"));
+    addShopComment.mockRejectedValue(new Error("network down"));
     const user = userEvent.setup();
     render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop()} />);
 
@@ -410,7 +417,7 @@ describe("ShopDetailModal", () => {
   });
 
   it("shows a generic error when posting a comment fails with a non-Error", async () => {
-    setShopComments.mockRejectedValue("not an Error instance");
+    addShopComment.mockRejectedValue("not an Error instance");
     const user = userEvent.setup();
     render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop()} />);
 
@@ -423,7 +430,7 @@ describe("ShopDetailModal", () => {
   });
 
   it("shows an error when posting a review fails", async () => {
-    setShopUserReviews.mockRejectedValue(new Error("network down"));
+    addShopUserReview.mockRejectedValue(new Error("network down"));
     const user = userEvent.setup();
     render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop()} />);
 
@@ -437,7 +444,7 @@ describe("ShopDetailModal", () => {
   });
 
   it("shows a generic error when posting a review fails with a non-Error", async () => {
-    setShopUserReviews.mockRejectedValue("not an Error instance");
+    addShopUserReview.mockRejectedValue("not an Error instance");
     const user = userEvent.setup();
     render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop()} />);
 
@@ -451,7 +458,7 @@ describe("ShopDetailModal", () => {
   });
 
   it("shows an error when toggling a like fails", async () => {
-    setShopLikes.mockRejectedValue(new Error("network down"));
+    setShopLike.mockRejectedValue(new Error("network down"));
     const user = userEvent.setup();
     render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop()} />);
 
@@ -462,7 +469,7 @@ describe("ShopDetailModal", () => {
   });
 
   it("shows a generic like error when a non-Error is thrown", async () => {
-    setShopLikes.mockRejectedValue("not an Error instance");
+    setShopLike.mockRejectedValue("not an Error instance");
     const user = userEvent.setup();
     render(<ShopDetailModal open onClose={vi.fn()} shop={makeShop()} />);
 
@@ -479,6 +486,6 @@ describe("ShopDetailModal", () => {
     render(<ShopDetailModal open onClose={vi.fn()} shop={shop} />);
 
     await user.click(screen.getByText("👍 1"));
-    expect(setShopLikes).toHaveBeenCalledWith(9001, []);
+    expect(setShopLike).toHaveBeenCalledWith(9001, "visitor-1", false);
   });
 });

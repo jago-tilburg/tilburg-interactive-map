@@ -46,116 +46,144 @@ describe("shops", () => {
     await assertFails(set(ref(db, "shops/shop1"), { name: "hijacked" }));
   });
 
-  it("allows anyone, even unauthenticated, to write userReviews (overrides the shop-level write restriction)", async () => {
+  it("allows anyone, even unauthenticated, to write a single userReviews item by its own key", async () => {
     const db = testEnv.unauthenticatedContext().database();
-    await assertSucceeds(set(ref(db, "shops/shop1/userReviews/rev1"), { text: "Great!" }));
+    await assertSucceeds(
+      set(ref(db, "shops/shop1/userReviews/rev1"), {
+        id: 1,
+        userId: OTHER_UID,
+        userName: "A",
+        rating: 8,
+        text: "Great!",
+        createdAt: "t",
+      }),
+    );
   });
 
-  it("allows anyone to read/write userRatings", async () => {
+  it("allows anyone to read/write a single userRatings item, keyed by userId", async () => {
     const db = testEnv.unauthenticatedContext().database();
-    await assertSucceeds(set(ref(db, "shops/shop1/userRatings"), { avg: 4.5 }));
+    await assertSucceeds(
+      set(ref(db, `shops/shop1/userRatings/${OTHER_UID}`), { userId: OTHER_UID, rating: 4.5, createdAt: 1 }),
+    );
     await assertSucceeds(get(ref(db, "shops/shop1/userRatings")));
   });
 
-  it("allows anyone to write comments", async () => {
+  it("allows anyone to write a single comment by its own key", async () => {
     const db = testEnv.unauthenticatedContext().database();
-    await assertSucceeds(set(ref(db, "shops/shop1/comments/c1"), { text: "Nice" }));
+    await assertSucceeds(
+      set(ref(db, "shops/shop1/comments/c1"), { id: 1, userId: OTHER_UID, userName: "A", text: "Nice", createdAt: "t" }),
+    );
   });
 
-  it("allows anyone to read/write likes", async () => {
+  it("allows anyone to read/write a single like, keyed by userId", async () => {
     const db = testEnv.unauthenticatedContext().database();
-    await assertSucceeds(set(ref(db, "shops/shop1/likes"), { [OTHER_UID]: true }));
+    await assertSucceeds(set(ref(db, `shops/shop1/likes/${OTHER_UID}`), true));
     await assertSucceeds(get(ref(db, "shops/shop1/likes")));
   });
 
-  // The tests above only prove the intended positive case ("add your own
-  // item"). RTDB rules apply to the whole subtree at the path they're
-  // declared on — `.write:true` at shops/{id}/comments etc. grants
-  // unrestricted write to that ENTIRE node, not just to a new child key.
-  // These document the actual, broader blast radius that follows from that:
-  // an unauthenticated caller can wipe or overwrite every OTHER user's
-  // comments/likes/ratings/reviews on any shop in one call, not just add
-  // their own. Security review finding (2026-08-24) — not yet remediated;
-  // these are assertSucceeds because that's what the rules currently allow,
-  // same convention as the userReviews test above documenting a known,
-  // accepted-so-far tradeoff. Flip to assertFails once this is fixed by
-  // scoping writes to $key-level ownership checks instead of a blanket
-  // parent-level `true`.
-  it("SECURITY FINDING: an unauthenticated user can wipe ALL comments on a shop, not just add their own", async () => {
-    await seed("shops/shop1/comments/real-user-comment", { userId: "real-user", text: "genuine comment" });
+  // FIXED (2026-08-25, data-model migration): comments/likes/userRatings/
+  // userReviews used to be stored as an array-at-parent-path, and
+  // `.write:true` at that PARENT node granted write to the whole subtree —
+  // an unauthenticated caller could wipe or overwrite every OTHER user's
+  // item in one call, not just add their own (see the git history of this
+  // file for the previous "SECURITY FINDING" tests documenting that). Now
+  // each of the four is a keyed-child object (likes: {userId: true}, the
+  // rest: {itemId: {...}}) with `.write` granted only at $key level and no
+  // parent-level grant at all — a write can touch at most one item.
+  //
+  // This does NOT add per-user ownership verification (auth.uid === $key):
+  // the app intentionally supports anonymous local-id likes/comments/
+  // ratings/reviews with no real auth token to check, so that was never
+  // achievable without breaking that feature. What's fixed is the blast
+  // radius — bulk wipe/overwrite of an entire shop's interactions — not
+  // impersonation of a single other user's item, which stays open by design
+  // (matches the userReviews/likes/comments "allows anyone" tests above).
+  it("denies wiping the entire comments node in one call", async () => {
+    await seed("shops/shop1/comments/real-user-comment", { id: 1, userId: "real-user", userName: "R", text: "genuine comment", createdAt: "t" });
     const db = testEnv.unauthenticatedContext().database();
-    await assertSucceeds(remove(ref(db, "shops/shop1/comments")));
-    const after = await get(ref(db, "shops/shop1/comments"));
-    if (after.exists()) throw new Error("expected comments to be wiped, but data survived");
+    await assertFails(remove(ref(db, "shops/shop1/comments")));
+    const after = await get(ref(db, "shops/shop1/comments/real-user-comment"));
+    if (!after.exists()) throw new Error("expected the comment to survive the denied wipe attempt");
   });
 
-  it("SECURITY FINDING: an unauthenticated user can wipe ALL likes on a shop", async () => {
+  it("denies wiping the entire likes node in one call", async () => {
     await seed("shops/shop1/likes", { "real-user": true });
     const db = testEnv.unauthenticatedContext().database();
-    await assertSucceeds(remove(ref(db, "shops/shop1/likes")));
+    await assertFails(remove(ref(db, "shops/shop1/likes")));
   });
 
-  it("SECURITY FINDING: an unauthenticated user can wipe ALL userRatings on a shop", async () => {
-    await seed("shops/shop1/userRatings", { "real-user": 5 });
+  it("denies wiping the entire userRatings node in one call", async () => {
+    await seed("shops/shop1/userRatings", { "real-user": { userId: "real-user", rating: 5, createdAt: 1 } });
     const db = testEnv.unauthenticatedContext().database();
-    await assertSucceeds(remove(ref(db, "shops/shop1/userRatings")));
+    await assertFails(remove(ref(db, "shops/shop1/userRatings")));
   });
 
-  it("SECURITY FINDING: an unauthenticated user can wipe ALL userReviews on a shop", async () => {
-    await seed("shops/shop1/userReviews", { "real-review": { text: "genuine review" } });
+  it("denies wiping the entire userReviews node in one call", async () => {
+    await seed("shops/shop1/userReviews", {
+      "real-review": { id: 1, userId: "real-user", userName: "R", rating: 8, text: "genuine review", createdAt: "t" },
+    });
     const db = testEnv.unauthenticatedContext().database();
-    await assertSucceeds(remove(ref(db, "shops/shop1/userReviews")));
+    await assertFails(remove(ref(db, "shops/shop1/userReviews")));
+  });
+
+  it("still allows deleting a single comment by its own key", async () => {
+    await seed("shops/shop1/comments/c1", { id: 1, userId: "u1", userName: "A", text: "Nice", createdAt: "t" });
+    const db = testEnv.unauthenticatedContext().database();
+    await assertSucceeds(remove(ref(db, "shops/shop1/comments/c1")));
+  });
+
+  it("still allows deleting a single like by its own key", async () => {
+    await seed(`shops/shop1/likes/${OTHER_UID}`, true);
+    const db = testEnv.unauthenticatedContext().database();
+    await assertSucceeds(remove(ref(db, `shops/shop1/likes/${OTHER_UID}`)));
   });
 });
 
 describe("data shape / type validation", () => {
-  // FIXED (2026-08-25): comments/likes/userRatings/userReviews had zero
-  // `.validate` clauses — pure access control, no shape enforcement at
-  // all. Every client-side consumer assumes an object shape (e.g.
-  // Object.values(comments) to render a list); nothing stopped a caller
-  // from replacing that object with a raw string/number, which would
-  // throw when real client code iterates it — a crash vector against
-  // anyone who then views that shop. Added `.validate:
-  // "!newData.exists() || newData.hasChildren()"` to all four — requires
-  // any non-delete write to be a real container (object/array with at
-  // least one entry), same shape the app itself always writes. Doesn't
-  // touch the parent-write-grants-whole-subtree issue (still deferred,
-  // see the commit that fixed requests/shopViews) — this only closes the
-  // "wrong shape entirely" crash vector, independent of that.
-  it("denies overwriting comments with a raw string", async () => {
+  // FIXED (2026-08-25): originally these `.validate` clauses lived at the
+  // comments/likes/userRatings/userReviews PARENT node (checking only "is
+  // this a non-empty container at all"). Now that each is a keyed-child
+  // object with write scoped to $key, validation moved down to the same
+  // $key level and got stricter: each item must have the specific fields
+  // the app always writes (hasChildren([...])), not just "any container
+  // shape" — rejects both a raw string/number AND a same-shape-but-wrong
+  // object.
+  it("denies overwriting a single comment with a raw string", async () => {
     const db = testEnv.unauthenticatedContext().database();
-    await assertFails(set(ref(db, "shops/shop1/comments"), "not an object, breaks Object.values(comments) client-side"));
+    await assertFails(set(ref(db, "shops/shop1/comments/c1"), "not an object"));
   });
 
-  it("denies overwriting likes with a number", async () => {
+  it("denies a comment missing required fields", async () => {
     const db = testEnv.unauthenticatedContext().database();
-    await assertFails(set(ref(db, "shops/shop1/likes"), 12345));
+    await assertFails(set(ref(db, "shops/shop1/comments/c1"), { userId: "u1" }));
   });
 
-  it("denies overwriting userRatings with a boolean", async () => {
+  it("denies overwriting a single like with a non-boolean", async () => {
     const db = testEnv.unauthenticatedContext().database();
-    await assertFails(set(ref(db, "shops/shop1/userRatings"), true));
+    await assertFails(set(ref(db, `shops/shop1/likes/${OTHER_UID}`), "yes"));
   });
 
-  it("denies overwriting userReviews with a raw string", async () => {
+  it("denies a userRating missing required fields", async () => {
     const db = testEnv.unauthenticatedContext().database();
-    await assertFails(set(ref(db, "shops/shop1/userReviews"), "not an object"));
+    await assertFails(set(ref(db, `shops/shop1/userRatings/${OTHER_UID}`), { rating: 5 }));
   });
 
-  it("still allows a legitimate object write to comments (the app's real write pattern)", async () => {
+  it("denies a userReview missing required fields", async () => {
     const db = testEnv.unauthenticatedContext().database();
-    await assertSucceeds(set(ref(db, "shops/shop1/comments"), { c1: { userId: "u1", text: "Nice" } }));
+    await assertFails(set(ref(db, "shops/shop1/userReviews/rev1"), { userId: "u1", text: "no rating field" }));
   });
 
-  it("still allows deleting (setting to null/empty, which RTDB treats as delete)", async () => {
-    await seed("shops/shop1/comments", { c1: { userId: "u1", text: "Nice" } });
+  it("still allows a legitimate single-comment write matching the app's real shape", async () => {
     const db = testEnv.unauthenticatedContext().database();
-    await assertSucceeds(remove(ref(db, "shops/shop1/comments")));
+    await assertSucceeds(
+      set(ref(db, "shops/shop1/comments/c1"), { id: 1, userId: "u1", userName: "A", text: "Nice", createdAt: "t" }),
+    );
   });
 
-  it("still allows adding a single comment by key (the app's other real write path)", async () => {
+  it("still allows deleting a single comment (setting to null, which RTDB treats as delete)", async () => {
+    await seed("shops/shop1/comments/c1", { id: 1, userId: "u1", userName: "A", text: "Nice", createdAt: "t" });
     const db = testEnv.unauthenticatedContext().database();
-    await assertSucceeds(set(ref(db, "shops/shop1/comments/c1"), { userId: "u1", text: "Nice" }));
+    await assertSucceeds(remove(ref(db, "shops/shop1/comments/c1")));
   });
 });
 

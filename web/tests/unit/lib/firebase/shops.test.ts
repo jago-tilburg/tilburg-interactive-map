@@ -27,10 +27,12 @@ import {
   createShop,
   updateShop,
   deleteShop,
-  setShopLikes,
-  setShopComments,
-  setShopUserRatings,
-  setShopUserReviews,
+  setShopLike,
+  setShopUserRating,
+  addShopComment,
+  removeShopComment,
+  addShopUserReview,
+  removeShopUserReview,
   getShopsOnce,
   migrateAnonymousDataToVisitor,
   trackShopView,
@@ -114,19 +116,49 @@ describe("deleteShop", () => {
   });
 });
 
-describe("setShopLikes / setShopComments / setShopUserRatings / setShopUserReviews", () => {
-  it("write to the correct sub-paths", async () => {
-    await setShopLikes(9001, ["u1"]);
-    expect(set).toHaveBeenCalledWith(refFor("shops/9001/likes"), ["u1"]);
+describe("setShopLike", () => {
+  it("sets a single like keyed by userId when liked", async () => {
+    await setShopLike(9001, "u1", true);
+    expect(set).toHaveBeenCalledWith(refFor("shops/9001/likes/u1"), true);
+  });
 
-    await setShopComments(9001, []);
-    expect(set).toHaveBeenCalledWith(refFor("shops/9001/comments"), []);
+  it("removes only that user's like key when unliked", async () => {
+    await setShopLike(9001, "u1", false);
+    expect(remove).toHaveBeenCalledWith(refFor("shops/9001/likes/u1"));
+  });
+});
 
-    await setShopUserRatings(9001, []);
-    expect(set).toHaveBeenCalledWith(refFor("shops/9001/userRatings"), []);
+describe("setShopUserRating", () => {
+  it("writes a single rating keyed by userId", async () => {
+    const rating = { userId: "u1", rating: 8, createdAt: 100 };
+    await setShopUserRating(9001, "u1", rating);
+    expect(set).toHaveBeenCalledWith(refFor("shops/9001/userRatings/u1"), rating);
+  });
+});
 
-    await setShopUserReviews(9001, []);
-    expect(set).toHaveBeenCalledWith(refFor("shops/9001/userReviews"), []);
+describe("addShopComment / removeShopComment", () => {
+  it("writes a single comment keyed by its own id", async () => {
+    const comment = { id: 555, userId: "u1", userName: "A", text: "Nice", createdAt: "t" };
+    await addShopComment(9001, comment);
+    expect(set).toHaveBeenCalledWith(refFor("shops/9001/comments/555"), comment);
+  });
+
+  it("removes only that one comment key", async () => {
+    await removeShopComment(9001, 555);
+    expect(remove).toHaveBeenCalledWith(refFor("shops/9001/comments/555"));
+  });
+});
+
+describe("addShopUserReview / removeShopUserReview", () => {
+  it("writes a single review keyed by its own id", async () => {
+    const review = { id: 777, userId: "u1", userName: "A", rating: 9, text: "Top", createdAt: "t" };
+    await addShopUserReview(9001, review);
+    expect(set).toHaveBeenCalledWith(refFor("shops/9001/userReviews/777"), review);
+  });
+
+  it("removes only that one review key", async () => {
+    await removeShopUserReview(9001, 777);
+    expect(remove).toHaveBeenCalledWith(refFor("shops/9001/userReviews/777"));
   });
 });
 
@@ -140,7 +172,7 @@ describe("getShopsOnce", () => {
 });
 
 describe("migrateAnonymousDataToVisitor", () => {
-  it("writes only the changed fields for shops touched by the anon id", async () => {
+  it("writes only a keyed multi-path patch for shops touched by the anon id", async () => {
     vi.mocked(get).mockResolvedValue({
       val: () => ({
         "9001": { id: 9001, likes: ["anon-1"], comments: [], userReviews: [], userRatings: [] },
@@ -152,7 +184,7 @@ describe("migrateAnonymousDataToVisitor", () => {
 
     expect(migrated).toBe(1);
     expect(update).toHaveBeenCalledTimes(1);
-    expect(update).toHaveBeenCalledWith(refFor("shops/9001"), { likes: ["uid-1"] });
+    expect(update).toHaveBeenCalledWith(refFor("shops/9001"), { "likes/anon-1": null, "likes/uid-1": true });
   });
 
   it("does not write anything when nothing is tied to the anon id", async () => {

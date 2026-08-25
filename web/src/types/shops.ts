@@ -55,12 +55,12 @@ export type ShopInput = Omit<
   "id" | "likes" | "comments" | "userReviews" | "userRatings" | "createdAt"
 >;
 
-// Per-shop delta produced by computeAnonymousDataMigration — only the
-// interaction fields that actually changed for that shop are present.
+// Per-shop delta produced by computeAnonymousDataMigration: relative-path
+// keys under shops/{shopId} (RTDB multi-path update shape), e.g.
+// "likes/anon-1": null, "likes/uid-1": true, "comments/171234/userId": "uid-1".
+// Keyed-child paths (not whole-array replacement) so each write stays
+// scoped to the single like/rating/comment/review it touches.
 export interface ShopMigrationPatch {
   shopId: number;
-  likes?: string[];
-  comments?: ShopComment[];
-  userRatings?: ShopUserRating[];
-  userReviews?: ShopUserReview[];
+  updates: Record<string, unknown>;
 }

@@ -1,13 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   shopsSnapshotToArray,
-  toggleLike,
-  upsertUserRating,
+  nextUserRating,
   averageRating,
-  addComment,
-  removeComment,
-  addUserReview,
-  removeUserReview,
+  buildComment,
+  buildUserReview,
   ratingColor,
   RATING_SELECT_OPTIONS,
   computeAnonymousDataMigration,
@@ -66,49 +63,38 @@ describe("shopsSnapshotToArray", () => {
     expect(shop.userRatings).toEqual([]);
   });
 
-  it("leaves already-present interaction arrays untouched", () => {
-    const shopWithData = {
+  it("converts the keyed-object RTDB storage shape (likes: {userId: true}, rest: {itemId: {...}}) back to arrays", () => {
+    const raw = {
       id: 9002,
-      likes: ["u1"],
-      comments: [{ id: 1, userId: "u1", userName: "A", text: "x", createdAt: "t" }],
-      userReviews: [],
-      userRatings: [],
+      likes: { u1: true },
+      comments: { "1": { id: 1, userId: "u1", userName: "A", text: "x", createdAt: "t" } },
+      userReviews: {},
+      userRatings: {},
     };
-    const [shop] = shopsSnapshotToArray([shopWithData]);
+    const [shop] = shopsSnapshotToArray([raw]);
     expect(shop.likes).toEqual(["u1"]);
-    expect(shop.comments).toEqual(shopWithData.comments);
+    expect(shop.comments).toEqual([{ id: 1, userId: "u1", userName: "A", text: "x", createdAt: "t" }]);
   });
 });
 
-describe("toggleLike", () => {
-  it("adds the userId when not already liked", () => {
-    expect(toggleLike(undefined, "u1")).toEqual(["u1"]);
-    expect(toggleLike(["u2"], "u1")).toEqual(["u2", "u1"]);
-  });
-
-  it("removes the userId when already liked", () => {
-    expect(toggleLike(["u1", "u2"], "u1")).toEqual(["u2"]);
-  });
-});
-
-describe("upsertUserRating", () => {
-  it("adds a new rating for a first-time rater", () => {
-    const result = upsertUserRating(undefined, "u1", 8);
-    expect(result).toEqual([expect.objectContaining({ userId: "u1", rating: 8 })]);
+describe("nextUserRating", () => {
+  it("builds a new rating for a first-time rater", () => {
+    const result = nextUserRating(undefined, "u1", 8);
+    expect(result).toMatchObject({ userId: "u1", rating: 8 });
+    expect(result.updatedAt).toBeUndefined();
   });
 
   it("updates an existing rating in place, stamping updatedAt", () => {
-    const existing = [{ userId: "u1", rating: 5, createdAt: 100 }];
-    const result = upsertUserRating(existing, "u1", 9);
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ userId: "u1", rating: 9, createdAt: 100 });
-    expect(result[0].updatedAt).toBeDefined();
+    const existing = { userId: "u1", rating: 5, createdAt: 100 };
+    const result = nextUserRating(existing, "u1", 9);
+    expect(result).toMatchObject({ userId: "u1", rating: 9, createdAt: 100 });
+    expect(result.updatedAt).toBeDefined();
   });
 
-  it("does not mutate the input array", () => {
-    const existing = [{ userId: "u1", rating: 5, createdAt: 100 }];
-    upsertUserRating(existing, "u1", 9);
-    expect(existing[0].rating).toBe(5);
+  it("does not mutate the existing rating", () => {
+    const existing = { userId: "u1", rating: 5, createdAt: 100 };
+    nextUserRating(existing, "u1", 9);
+    expect(existing.rating).toBe(5);
   });
 });
 
@@ -137,44 +123,20 @@ describe("averageRating", () => {
   });
 });
 
-describe("addComment / removeComment", () => {
-  it("appends a comment with a generated id and timestamp", () => {
-    const result = addComment(undefined, { userId: "u1", userName: "Jago", text: "Lekker!" });
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ userId: "u1", userName: "Jago", text: "Lekker!" });
-    expect(result[0].id).toBeDefined();
-  });
-
-  it("removes a comment by id", () => {
-    const comments = [
-      { id: 1, userId: "u1", userName: "A", text: "x", createdAt: "t" },
-      { id: 2, userId: "u2", userName: "B", text: "y", createdAt: "t" },
-    ];
-    expect(removeComment(comments, 1)).toEqual([comments[1]]);
-  });
-
-  it("returns an empty array when removing from an undefined list", () => {
-    expect(removeComment(undefined, 1)).toEqual([]);
+describe("buildComment", () => {
+  it("builds a comment with a generated id and timestamp", () => {
+    const result = buildComment({ userId: "u1", userName: "Jago", text: "Lekker!" });
+    expect(result).toMatchObject({ userId: "u1", userName: "Jago", text: "Lekker!" });
+    expect(result.id).toBeDefined();
+    expect(result.createdAt).toBeDefined();
   });
 });
 
-describe("addUserReview / removeUserReview", () => {
-  it("appends a review with a generated id and timestamp", () => {
-    const result = addUserReview(undefined, { userId: "u1", userName: "Jago", rating: 9, text: "Top" });
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ userId: "u1", userName: "Jago", rating: 9, text: "Top" });
-  });
-
-  it("removes a review by id", () => {
-    const reviews = [
-      { id: 1, userId: "u1", userName: "A", rating: 8, text: "x", createdAt: "t" },
-      { id: 2, userId: "u2", userName: "B", rating: 9, text: "y", createdAt: "t" },
-    ];
-    expect(removeUserReview(reviews, 1)).toEqual([reviews[1]]);
-  });
-
-  it("returns an empty array when removing from an undefined list", () => {
-    expect(removeUserReview(undefined, 1)).toEqual([]);
+describe("buildUserReview", () => {
+  it("builds a review with a generated id and timestamp", () => {
+    const result = buildUserReview({ userId: "u1", userName: "Jago", rating: 9, text: "Top" });
+    expect(result).toMatchObject({ userId: "u1", userName: "Jago", rating: 9, text: "Top" });
+    expect(result.id).toBeDefined();
   });
 });
 
@@ -194,21 +156,21 @@ describe("computeAnonymousDataMigration", () => {
     expect(computeAnonymousDataMigration(shops, "uid-1", "uid-1")).toEqual({ patches: [], migrated: 0 });
   });
 
-  it("re-tags a like from the anon id to the new uid", () => {
+  it("re-tags a like from the anon id to the new uid via a keyed move", () => {
     const shops = [makeShop({ id: 1, likes: ["anon-1", "other"] })];
     const { patches, migrated } = computeAnonymousDataMigration(shops, "anon-1", "uid-1");
     expect(migrated).toBe(1);
-    expect(patches).toEqual([{ shopId: 1, likes: ["other", "uid-1"] }]);
+    expect(patches).toEqual([{ shopId: 1, updates: { "likes/anon-1": null, "likes/uid-1": true } }]);
   });
 
-  it("dedupes a like when the new uid already liked the same shop", () => {
+  it("dedupes a like when the new uid already liked the same shop (no redundant write)", () => {
     const shops = [makeShop({ id: 1, likes: ["anon-1", "uid-1"] })];
     const { patches, migrated } = computeAnonymousDataMigration(shops, "anon-1", "uid-1");
     expect(migrated).toBe(1);
-    expect(patches).toEqual([{ shopId: 1, likes: ["uid-1"] }]);
+    expect(patches).toEqual([{ shopId: 1, updates: { "likes/anon-1": null } }]);
   });
 
-  it("re-tags the anon rating, overwriting any existing rating from the new uid", () => {
+  it("re-tags the anon rating via a keyed move, overwriting any existing rating from the new uid", () => {
     const shops = [
       makeShop({
         id: 1,
@@ -221,35 +183,42 @@ describe("computeAnonymousDataMigration", () => {
     const { patches, migrated } = computeAnonymousDataMigration(shops, "anon-1", "uid-1");
     expect(migrated).toBe(1);
     expect(patches).toEqual([
-      { shopId: 1, userRatings: [{ userId: "uid-1", rating: 9, createdAt: 100 }] },
+      {
+        shopId: 1,
+        updates: {
+          "userRatings/anon-1": null,
+          "userRatings/uid-1": { userId: "uid-1", rating: 9, createdAt: 100 },
+        },
+      },
     ]);
   });
 
-  it("re-tags every comment and review from the anon id, counting each one", () => {
+  it("re-tags every comment and review from the anon id via a per-key userId field patch, counting each one", () => {
     const shops = [
       makeShop({
         id: 1,
         comments: [
-          { id: 1, userId: "anon-1", userName: "Jago", text: "a", createdAt: "t" },
-          { id: 2, userId: "anon-1", userName: "Jago", text: "b", createdAt: "t" },
-          { id: 3, userId: "other", userName: "X", text: "c", createdAt: "t" },
+          { id: 101, userId: "anon-1", userName: "Jago", text: "a", createdAt: "t" },
+          { id: 102, userId: "anon-1", userName: "Jago", text: "b", createdAt: "t" },
+          { id: 103, userId: "other", userName: "X", text: "c", createdAt: "t" },
         ],
         userReviews: [
-          { id: 1, userId: "anon-1", userName: "Jago", rating: 8, text: "top", createdAt: "t" },
-          { id: 2, userId: "other", userName: "X", rating: 6, text: "meh", createdAt: "t" },
+          { id: 201, userId: "anon-1", userName: "Jago", rating: 8, text: "top", createdAt: "t" },
+          { id: 202, userId: "other", userName: "X", rating: 6, text: "meh", createdAt: "t" },
         ],
       }),
     ];
     const { patches, migrated } = computeAnonymousDataMigration(shops, "anon-1", "uid-1");
     expect(migrated).toBe(3);
-    expect(patches[0].comments).toEqual([
-      { id: 1, userId: "uid-1", userName: "Jago", text: "a", createdAt: "t" },
-      { id: 2, userId: "uid-1", userName: "Jago", text: "b", createdAt: "t" },
-      { id: 3, userId: "other", userName: "X", text: "c", createdAt: "t" },
-    ]);
-    expect(patches[0].userReviews).toEqual([
-      { id: 1, userId: "uid-1", userName: "Jago", rating: 8, text: "top", createdAt: "t" },
-      { id: 2, userId: "other", userName: "X", rating: 6, text: "meh", createdAt: "t" },
+    expect(patches).toEqual([
+      {
+        shopId: 1,
+        updates: {
+          "comments/101/userId": "uid-1",
+          "comments/102/userId": "uid-1",
+          "userReviews/201/userId": "uid-1",
+        },
+      },
     ]);
   });
 
@@ -263,7 +232,7 @@ describe("computeAnonymousDataMigration", () => {
     const { patches, migrated } = computeAnonymousDataMigration([shop], "anon-1", "uid-1");
 
     expect(migrated).toBe(1);
-    expect(patches).toEqual([{ shopId: 1, likes: ["uid-1"] }]);
+    expect(patches).toEqual([{ shopId: 1, updates: { "likes/anon-1": null, "likes/uid-1": true } }]);
   });
 
   it("skips shops with nothing tied to the anon id and only patches the ones that changed", () => {
@@ -271,7 +240,7 @@ describe("computeAnonymousDataMigration", () => {
     const touched = makeShop({ id: 2, likes: ["anon-1"] });
     const { patches, migrated } = computeAnonymousDataMigration([untouched, touched], "anon-1", "uid-1");
     expect(migrated).toBe(1);
-    expect(patches).toEqual([{ shopId: 2, likes: ["uid-1"] }]);
+    expect(patches).toEqual([{ shopId: 2, updates: { "likes/anon-1": null, "likes/uid-1": true } }]);
   });
 });
 
