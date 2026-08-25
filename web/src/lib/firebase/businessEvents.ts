@@ -64,19 +64,13 @@ export async function createBusinessEvent(ownerId: string, input: BusinessEventI
   });
 }
 
-// Mirrors the original app's rule: editing title/dates/location on an
-// already-approved event pulls it back to 'pending' for re-review — the one
-// client-driven status transition the Firestore rules allow.
-export async function updateBusinessEvent(
-  eventId: string,
-  input: BusinessEventInput,
-  options: { pullBackToPending: boolean },
-) {
-  const patch: Record<string, unknown> = { ...input };
-  if (options.pullBackToPending) {
-    patch.status = "pending";
-  }
-  return updateDoc(doc(getDb(), "businessEvents", eventId), patch);
+// `status` is fully server-only now (Cloud Functions only, see
+// firestore.rules) — no client-driven transition exists any more. Firestore
+// rules separately reject changing title/dates/lat/lng once an event is
+// paid; BusinessEventFormModal checks that client-side first for a clear
+// error message instead of a raw permission-denied round trip.
+export async function updateBusinessEvent(eventId: string, input: BusinessEventInput) {
+  return updateDoc(doc(getDb(), "businessEvents", eventId), input);
 }
 
 export async function deleteBusinessEvent(eventId: string) {

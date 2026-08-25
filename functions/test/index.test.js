@@ -57,8 +57,6 @@ require.cache[firestorePath] = {
 };
 
 const {
-  approveEvent,
-  rejectEvent,
   confirmEventPaymentStub,
   suspendEvent,
   restoreEvent,
@@ -86,104 +84,6 @@ const OTHER_UID = "other-uid";
 beforeEach(() => {
   store.clear();
   store.set(`admins/${ADMIN_UID}`, { email: "admin@example.com" });
-});
-
-describe("approveEvent", () => {
-  it("throws unauthenticated when there is no auth context", async () => {
-    await expect(approveEvent.run({ data: {}, auth: undefined })).rejects.toMatchObject({
-      code: "unauthenticated",
-    });
-  });
-
-  it("throws permission-denied when the caller is not an admin", async () => {
-    await expect(
-      approveEvent.run({ data: { eventId: "evt1" }, auth: { uid: OTHER_UID } }),
-    ).rejects.toMatchObject({ code: "permission-denied" });
-  });
-
-  it("throws invalid-argument when eventId is missing", async () => {
-    await expect(
-      approveEvent.run({ data: {}, auth: { uid: ADMIN_UID } }),
-    ).rejects.toMatchObject({ code: "invalid-argument" });
-  });
-
-  it("approves the event and stamps reviewedAt/reviewedBy for an admin caller", async () => {
-    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID });
-
-    const result = await approveEvent.run({
-      data: { eventId: "evt1" },
-      auth: { uid: ADMIN_UID },
-    });
-
-    expect(result).toEqual({ ok: true });
-    expect(store.get("businessEvents/evt1")).toMatchObject({
-      status: "approved",
-      reviewedAt: "SERVER_TIMESTAMP",
-      reviewedBy: ADMIN_UID,
-    });
-  });
-});
-
-describe("rejectEvent", () => {
-  it("throws unauthenticated when there is no auth context", async () => {
-    await expect(rejectEvent.run({ data: {}, auth: undefined })).rejects.toMatchObject({
-      code: "unauthenticated",
-    });
-  });
-
-  it("throws permission-denied when the caller is not an admin", async () => {
-    await expect(
-      rejectEvent.run({ data: { eventId: "evt1" }, auth: { uid: OTHER_UID } }),
-    ).rejects.toMatchObject({ code: "permission-denied" });
-  });
-
-  it("throws invalid-argument when eventId is missing", async () => {
-    await expect(
-      rejectEvent.run({ data: {}, auth: { uid: ADMIN_UID } }),
-    ).rejects.toMatchObject({ code: "invalid-argument" });
-  });
-
-  it("rejects the event and stamps reviewedAt/reviewedBy for an admin caller", async () => {
-    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID });
-
-    const result = await rejectEvent.run({
-      data: { eventId: "evt1" },
-      auth: { uid: ADMIN_UID },
-    });
-
-    expect(result).toEqual({ ok: true });
-    expect(store.get("businessEvents/evt1")).toMatchObject({
-      status: "rejected",
-      reviewedAt: "SERVER_TIMESTAMP",
-      reviewedBy: ADMIN_UID,
-    });
-    expect(store.get("businessEvents/evt1").rejectionReason).toBeUndefined();
-  });
-
-  it("stores a trimmed rejectionReason when one is given", async () => {
-    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID });
-
-    await rejectEvent.run({
-      data: { eventId: "evt1", reason: "  Adres komt niet overeen met KVK-registratie.  " },
-      auth: { uid: ADMIN_UID },
-    });
-
-    expect(store.get("businessEvents/evt1")).toMatchObject({
-      status: "rejected",
-      rejectionReason: "Adres komt niet overeen met KVK-registratie.",
-    });
-  });
-
-  it("omits rejectionReason when only whitespace is given", async () => {
-    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID });
-
-    await rejectEvent.run({
-      data: { eventId: "evt1", reason: "   " },
-      auth: { uid: ADMIN_UID },
-    });
-
-    expect(store.get("businessEvents/evt1").rejectionReason).toBeUndefined();
-  });
 });
 
 describe("suspendEvent", () => {
@@ -366,23 +266,31 @@ describe("confirmEventPaymentStub", () => {
   });
 
   it("throws permission-denied when the caller does not own the event", async () => {
-    store.set("businessEvents/evt1", { status: "approved", ownerId: OWNER_UID });
+    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID });
 
     await expect(
       confirmEventPaymentStub.run({ data: { eventId: "evt1" }, auth: { uid: OTHER_UID } }),
     ).rejects.toMatchObject({ code: "permission-denied" });
   });
 
-  it("throws failed-precondition when the event is not yet approved", async () => {
-    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID });
+  it("throws failed-precondition when the event is not pending (already paid)", async () => {
+    store.set("businessEvents/evt1", { status: "approved", paid: true, ownerId: OWNER_UID });
 
     await expect(
       confirmEventPaymentStub.run({ data: { eventId: "evt1" }, auth: { uid: OWNER_UID } }),
     ).rejects.toMatchObject({ code: "failed-precondition" });
   });
 
-  it("marks the event paid for its approved, owning caller", async () => {
-    store.set("businessEvents/evt1", { status: "approved", ownerId: OWNER_UID });
+  it("throws failed-precondition when the event was suspended/blocked before payment", async () => {
+    store.set("businessEvents/evt1", { status: "blocked", ownerId: OWNER_UID });
+
+    await expect(
+      confirmEventPaymentStub.run({ data: { eventId: "evt1" }, auth: { uid: OWNER_UID } }),
+    ).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("pays and publishes the event directly for its pending, owning caller — no separate approval step", async () => {
+    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID });
 
     const result = await confirmEventPaymentStub.run({
       data: { eventId: "evt1" },
@@ -391,6 +299,7 @@ describe("confirmEventPaymentStub", () => {
 
     expect(result).toEqual({ ok: true });
     expect(store.get("businessEvents/evt1")).toMatchObject({
+      status: "approved",
       paid: true,
       paidAt: "SERVER_TIMESTAMP",
     });

@@ -8,14 +8,7 @@ import { subscribeShops, deleteShop, getShopViews } from "@/lib/firebase/shops";
 import { subscribeRequests, deleteRequest } from "@/lib/firebase/requests";
 import { subscribeAllBusinessEventsForAdmin } from "@/lib/firebase/businessEvents";
 import { subscribeUmbrellaEvents, deleteUmbrellaEvent } from "@/lib/firebase/umbrellaEvents";
-import {
-  approveEvent,
-  rejectEvent,
-  suspendEvent,
-  restoreEvent,
-  blockEvent,
-  adminDeleteEvent,
-} from "@/lib/firebase/functions";
+import { suspendEvent, restoreEvent, blockEvent, adminDeleteEvent } from "@/lib/firebase/functions";
 import { subscribeAllReportsForAdmin, resolveReport, dismissReport } from "@/lib/firebase/reports";
 import { categoryOf, formatBusinessEventSchedule, businessEventStatusLabel } from "@/lib/events/eventHelpers";
 import { ShopFormModal } from "@/components/shops/ShopFormModal";
@@ -50,10 +43,10 @@ const REPORT_REASON_LABEL: Record<ReportReason, string> = {
   other: "Anders",
 };
 
-// The three moderation actions that take an optional free-text reason share
-// one confirm-with-reason prompt in the UI below, rather than three
+// The two moderation actions that take an optional free-text reason share
+// one confirm-with-reason prompt in the UI below, rather than two
 // near-identical copies of it.
-type ReasonActionKind = "reject" | "suspend" | "block";
+type ReasonActionKind = "suspend" | "block";
 
 const REASON_ACTIONS: Record<
   ReasonActionKind,
@@ -65,13 +58,6 @@ const REASON_ACTIONS: Record<
     errorFallback: string;
   }
 > = {
-  reject: {
-    call: rejectEvent,
-    label: "Reden voor afwijzing",
-    confirmLabel: "Afwijzing bevestigen",
-    successToast: "Evenement afgewezen.",
-    errorFallback: "Afwijzen mislukt.",
-  },
   suspend: {
     call: suspendEvent,
     label: "Reden voor opschorten",
@@ -157,19 +143,6 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
     }
   }
 
-  async function handleApprove(eventId: string) {
-    setBusyEventId(eventId);
-    setError(null);
-    try {
-      await approveEvent(eventId);
-      showToast("Evenement goedgekeurd.", "success");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Goedkeuren mislukt.");
-    } finally {
-      setBusyEventId(null);
-    }
-  }
-
   async function handleConfirmReasonAction() {
     if (!pendingAction) return;
     const { eventId, kind } = pendingAction;
@@ -243,7 +216,6 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
     }
   }
 
-  const pendingCount = events.filter((e) => e.status === "pending").length;
   const openReports = reports.filter((r) => r.status === "open");
   const allRatings = shops.flatMap((shop) =>
     (shop.userRatings ?? []).map((r) => ({ shopName: shop.name, ...r })),
@@ -291,7 +263,7 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
             className={tab === "businessEvents" ? styles.tabActive : styles.tab}
             onClick={() => setTab("businessEvents")}
           >
-            🎉 Bedrijfsevents ({pendingCount})
+            🎉 Bedrijfsevents ({events.length})
           </button>
           <button
             type="button"
@@ -443,20 +415,6 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
                       </div>
                     ) : (
                       <div className={styles.rowActions}>
-                        {ev.status === "pending" && (
-                          <>
-                            <button type="button" disabled={busyEventId === ev.id} onClick={() => handleApprove(ev.id)}>
-                              Goedkeuren
-                            </button>
-                            <button
-                              type="button"
-                              disabled={busyEventId === ev.id}
-                              onClick={() => setPendingAction({ eventId: ev.id, kind: "reject" })}
-                            >
-                              Afwijzen
-                            </button>
-                          </>
-                        )}
                         {ev.status === "approved" && (
                           <>
                             <button
@@ -495,9 +453,11 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
                             </button>
                           </>
                         )}
-                        {(ev.status === "rejected" || ev.status === "blocked") && (
-                          // Matches the prototype's admin events tab, where rejected/blocked
-                          // events still get a delete action.
+                        {(ev.status === "pending" || ev.status === "rejected" || ev.status === "blocked") && (
+                          // pending: unpaid, nothing to approve/reject any more (paying
+                          // publishes it directly) — just lets admin clean up junk
+                          // submissions. rejected/blocked: matches the prototype's admin
+                          // events tab, still get a delete action.
                           <button type="button" onClick={() => handleDeleteEvent(ev.id)}>
                             Verwijderen
                           </button>

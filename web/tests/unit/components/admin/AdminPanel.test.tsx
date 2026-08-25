@@ -91,15 +91,11 @@ vi.mock("@/lib/firebase/reports", () => ({
   dismissReport: (...a: [string, string]) => dismissReport(...a),
 }));
 
-const approveEvent = vi.fn();
-const rejectEvent = vi.fn();
 const suspendEvent = vi.fn();
 const restoreEvent = vi.fn();
 const blockEvent = vi.fn();
 const adminDeleteEvent = vi.fn();
 vi.mock("@/lib/firebase/functions", () => ({
-  approveEvent: (...a: [string]) => approveEvent(...a),
-  rejectEvent: (...a: [string, string?]) => rejectEvent(...a),
   suspendEvent: (...a: [string, string?]) => suspendEvent(...a),
   restoreEvent: (...a: [string]) => restoreEvent(...a),
   blockEvent: (...a: [string, string?]) => blockEvent(...a),
@@ -182,8 +178,6 @@ beforeEach(() => {
   emittedEvents = [];
   emittedUmbrellas = [];
   emittedReports = [];
-  approveEvent.mockResolvedValue(undefined);
-  rejectEvent.mockResolvedValue(undefined);
   suspendEvent.mockResolvedValue(undefined);
   restoreEvent.mockResolvedValue(undefined);
   blockEvent.mockResolvedValue(undefined);
@@ -398,90 +392,36 @@ describe("AdminPanel businessEvents tab", () => {
     expect(screen.queryByText("+ Snel evenement toevoegen")).not.toBeInTheDocument();
   });
 
-  it("approves and rejects pending events", async () => {
+  it("shows only a delete action for a pending (unpaid) event — nothing to approve/reject any more", async () => {
     emittedEvents = [makeEvent({ status: "pending" })];
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
     await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
-    await user.click(screen.getByText("Goedkeuren"));
-    expect(approveEvent).toHaveBeenCalledWith("evt1");
-
-    await user.click(screen.getByText("Afwijzen"));
-    await user.click(screen.getByText("Afwijzing bevestigen"));
-    expect(rejectEvent).toHaveBeenCalledWith("evt1", undefined);
-  });
-
-  it("rejects with a typed reason, and cancelling closes the prompt without calling rejectEvent", async () => {
-    emittedEvents = [makeEvent({ status: "pending" })];
-    const user = userEvent.setup();
-    render(<AdminPanel open onClose={vi.fn()} />);
-
-    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
-    await user.click(screen.getByText("Afwijzen"));
-    await user.click(screen.getByText("Annuleren"));
-    expect(rejectEvent).not.toHaveBeenCalled();
-    expect(screen.queryByLabelText("Reden voor afwijzing")).not.toBeInTheDocument();
-
-    await user.click(screen.getByText("Afwijzen"));
-    await user.type(screen.getByLabelText("Reden voor afwijzing"), "Adres onvindbaar");
-    await user.click(screen.getByText("Afwijzing bevestigen"));
-    expect(rejectEvent).toHaveBeenCalledWith("evt1", "Adres onvindbaar");
-  });
-
-  it("shows an error when approving fails", async () => {
-    emittedEvents = [makeEvent({ status: "pending" })];
-    approveEvent.mockRejectedValue(new Error("network down"));
-    const user = userEvent.setup();
-    render(<AdminPanel open onClose={vi.fn()} />);
-
-    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
-    await user.click(screen.getByText("Goedkeuren"));
-    expect(await screen.findByText("network down")).toBeInTheDocument();
-  });
-
-  it("shows an error when rejecting fails", async () => {
-    emittedEvents = [makeEvent({ status: "pending" })];
-    rejectEvent.mockRejectedValue(new Error("network down"));
-    const user = userEvent.setup();
-    render(<AdminPanel open onClose={vi.fn()} />);
-
-    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
-    await user.click(screen.getByText("Afwijzen"));
-    await user.click(screen.getByText("Afwijzing bevestigen"));
-    expect(await screen.findByText("network down")).toBeInTheDocument();
-  });
-
-  it("shows an error when approving fails with a non-Error", async () => {
-    emittedEvents = [makeEvent({ status: "pending" })];
-    approveEvent.mockRejectedValue("not an Error instance");
-    const user = userEvent.setup();
-    render(<AdminPanel open onClose={vi.fn()} />);
-
-    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
-    await user.click(screen.getByText("Goedkeuren"));
-    expect(await screen.findByText("Goedkeuren mislukt.")).toBeInTheDocument();
-  });
-
-  it("rejects a pending event and shows a non-Error failure message", async () => {
-    emittedEvents = [makeEvent({ status: "pending" })];
-    rejectEvent.mockRejectedValue("not an Error instance");
-    const user = userEvent.setup();
-    render(<AdminPanel open onClose={vi.fn()} />);
-
-    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
-    await user.click(screen.getByText("Afwijzen"));
-    await user.click(screen.getByText("Afwijzing bevestigen"));
-    expect(await screen.findByText("Afwijzen mislukt.")).toBeInTheDocument();
-  });
-
-  it("does not show approve/reject for a non-pending event", async () => {
-    emittedEvents = [makeEvent({ status: "approved" })];
-    const user = userEvent.setup();
-    render(<AdminPanel open onClose={vi.fn()} />);
-
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
     expect(screen.queryByText("Goedkeuren")).not.toBeInTheDocument();
+    expect(screen.queryByText("Afwijzen")).not.toBeInTheDocument();
+    expect(screen.getByText("Verwijderen")).toBeInTheDocument();
+  });
+
+  it("deletes a pending event via the admin-gated delete function", async () => {
+    emittedEvents = [makeEvent({ status: "pending" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
+    await user.click(screen.getByText("Verwijderen"));
+    expect(adminDeleteEvent).toHaveBeenCalledWith("evt1");
+  });
+
+  it("does not show suspend/block/restore for a pending event", async () => {
+    emittedEvents = [makeEvent({ status: "pending" })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
+    expect(screen.queryByText("Opschorten")).not.toBeInTheDocument();
+    expect(screen.queryByText("Blokkeren")).not.toBeInTheDocument();
+    expect(screen.queryByText("Herstellen")).not.toBeInTheDocument();
   });
 
   it("shows the rejection reason on a rejected event, when present", async () => {
@@ -489,7 +429,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     expect(screen.getByText("Reden: Adres onvindbaar")).toBeInTheDocument();
   });
 
@@ -498,7 +438,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     expect(screen.queryByText(/^Reden:/)).not.toBeInTheDocument();
   });
 
@@ -507,7 +447,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Verwijderen"));
     expect(adminDeleteEvent).toHaveBeenCalledWith("evt1");
     expect(showToast).toHaveBeenCalledWith("Evenement verwijderd.", "success");
@@ -518,7 +458,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Verwijderen"));
     expect(adminDeleteEvent).toHaveBeenCalledWith("evt1");
   });
@@ -529,7 +469,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Verwijderen"));
     expect(await screen.findByText("network down")).toBeInTheDocument();
   });
@@ -540,7 +480,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Verwijderen"));
     expect(await screen.findByText("Verwijderen mislukt.")).toBeInTheDocument();
   });
@@ -550,7 +490,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Opschorten"));
     await user.type(screen.getByLabelText("Reden voor opschorten"), "Meerdere klachten");
     await user.click(screen.getByText("Opschorten bevestigen"));
@@ -563,7 +503,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Opschorten"));
     await user.click(screen.getByText("Annuleren"));
     expect(suspendEvent).not.toHaveBeenCalled();
@@ -576,7 +516,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Opschorten"));
     await user.click(screen.getByText("Opschorten bevestigen"));
     expect(await screen.findByText("network down")).toBeInTheDocument();
@@ -587,7 +527,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     expect(screen.getByText("Reden: Meerdere klachten")).toBeInTheDocument();
     await user.click(screen.getByText("Herstellen"));
     expect(restoreEvent).toHaveBeenCalledWith("evt1");
@@ -600,7 +540,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Herstellen"));
     expect(await screen.findByText("network down")).toBeInTheDocument();
   });
@@ -610,7 +550,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Blokkeren"));
     await user.type(screen.getByLabelText("Reden voor blokkeren"), "Nepevenement");
     await user.click(screen.getByText("Blokkeren bevestigen"));
@@ -623,7 +563,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Blokkeren"));
     await user.click(screen.getByText("Blokkeren bevestigen"));
     expect(blockEvent).toHaveBeenCalledWith("evt1", undefined);
@@ -635,7 +575,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     await user.click(screen.getByText("Blokkeren"));
     await user.click(screen.getByText("Blokkeren bevestigen"));
     expect(await screen.findByText("network down")).toBeInTheDocument();
@@ -646,7 +586,7 @@ describe("AdminPanel businessEvents tab", () => {
     const user = userEvent.setup();
     render(<AdminPanel open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 Bedrijfsevents (0)"));
+    await user.click(screen.getByText("🎉 Bedrijfsevents (1)"));
     expect(screen.queryByText(/^Reden:/)).not.toBeInTheDocument();
   });
 });

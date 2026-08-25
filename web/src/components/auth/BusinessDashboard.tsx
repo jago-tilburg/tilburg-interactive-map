@@ -292,7 +292,7 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
                         <button type="button" className={styles.deleteButton} onClick={() => handleDelete(ev.id)}>
                           Verwijderen
                         </button>
-                        {ev.status === "approved" && !ev.paid && (
+                        {ev.status === "pending" && !ev.paid && (
                           <button type="button" onClick={() => handlePayMock(ev.id)}>
                             Nu betalen (mock)
                           </button>

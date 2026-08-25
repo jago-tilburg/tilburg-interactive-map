@@ -204,22 +204,30 @@ export function BusinessEventFormModal({
       prices: form.prices.filter((p) => p.label.trim()),
     };
 
+    if (editingEvent) {
+      const significantChange =
+        editingEvent.title !== input.title ||
+        editingEvent.startDate !== input.startDate ||
+        editingEvent.endDate !== input.endDate ||
+        editingEvent.lat !== input.lat ||
+        editingEvent.lng !== input.lng;
+      // Firestore rules deny this too (paid events lock these fields), but
+      // checking client-side first gives a clear message instead of a raw
+      // permission-denied round trip.
+      if (significantChange && editingEvent.paid) {
+        setError("Titel, datum of locatie van een betaald, live evenement kun je niet meer wijzigen.");
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       if (editingEvent) {
-        const significantChange =
-          editingEvent.title !== input.title ||
-          editingEvent.startDate !== input.startDate ||
-          editingEvent.endDate !== input.endDate ||
-          editingEvent.lat !== input.lat ||
-          editingEvent.lng !== input.lng;
-        await updateBusinessEvent(editingEvent.id, input, {
-          pullBackToPending: significantChange && editingEvent.status === "approved",
-        });
+        await updateBusinessEvent(editingEvent.id, input);
         showToast("Evenement bijgewerkt.", "success");
       } else {
         await createBusinessEvent(ownerId, input);
-        showToast("Evenement toegevoegd, in afwachting van goedkeuring.", "success");
+        showToast("Evenement toegevoegd. Betaal om het direct live te zetten.", "success");
       }
       onClose();
     } catch (err) {

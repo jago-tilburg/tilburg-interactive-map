@@ -384,16 +384,15 @@ describe("BusinessEventFormModal edit mode", () => {
     expect(screen.getByRole("dialog", { name: "Evenement bewerken" })).toBeInTheDocument();
   });
 
-  it("pulls an approved event back to pending on a significant change (title)", async () => {
-    const onClose = vi.fn();
+  it("blocks a significant change (title) to a PAID event client-side, with a clear error, and never calls updateBusinessEvent", async () => {
     const user = userEvent.setup();
-    const approvedEvent = makeEvent({ status: "approved" });
+    const paidEvent = makeEvent({ status: "approved", paid: true });
     render(
       <BusinessEventFormModal
         open
-        onClose={onClose}
+        onClose={vi.fn()}
         ownerId="owner-uid"
-        editingEvent={approvedEvent}
+        editingEvent={paidEvent}
         umbrellaEvents={[]}
       />,
     );
@@ -403,29 +402,55 @@ describe("BusinessEventFormModal edit mode", () => {
     await user.type(titleInput, "Changed Title");
     await user.click(screen.getByText("Opslaan"));
 
-    expect(updateBusinessEvent).toHaveBeenCalledWith(
-      "evt1",
-      expect.objectContaining({ title: "Changed Title" }),
-      { pullBackToPending: true },
-    );
+    expect(
+      screen.getByText("Titel, datum of locatie van een betaald, live evenement kun je niet meer wijzigen."),
+    ).toBeInTheDocument();
+    expect(updateBusinessEvent).not.toHaveBeenCalled();
   });
 
-  it("does not pull back to pending when nothing significant changed", async () => {
+  it("still allows a non-significant change (description) to a PAID event", async () => {
     const user = userEvent.setup();
-    const approvedEvent = makeEvent({ status: "approved" });
+    const paidEvent = makeEvent({ status: "approved", paid: true });
     render(
       <BusinessEventFormModal
         open
         onClose={vi.fn()}
         ownerId="owner-uid"
-        editingEvent={approvedEvent}
+        editingEvent={paidEvent}
         umbrellaEvents={[]}
       />,
     );
 
+    const descriptionInput = screen.getByLabelText("Beschrijving");
+    await user.clear(descriptionInput);
+    await user.type(descriptionInput, "Updated description");
     await user.click(screen.getByText("Opslaan"));
 
-    expect(updateBusinessEvent).toHaveBeenCalledWith("evt1", expect.anything(), { pullBackToPending: false });
+    expect(updateBusinessEvent).toHaveBeenCalledWith(
+      "evt1",
+      expect.objectContaining({ description: "Updated description" }),
+    );
+  });
+
+  it("allows a significant change on an unpaid (pending) event", async () => {
+    const user = userEvent.setup();
+    const pendingEvent = makeEvent({ status: "pending", paid: false });
+    render(
+      <BusinessEventFormModal
+        open
+        onClose={vi.fn()}
+        ownerId="owner-uid"
+        editingEvent={pendingEvent}
+        umbrellaEvents={[]}
+      />,
+    );
+
+    const titleInput = screen.getByLabelText("Titel");
+    await user.clear(titleInput);
+    await user.type(titleInput, "Changed Title");
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(updateBusinessEvent).toHaveBeenCalledWith("evt1", expect.objectContaining({ title: "Changed Title" }));
   });
 });
 

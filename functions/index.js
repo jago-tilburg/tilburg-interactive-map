@@ -27,44 +27,12 @@ async function getOwnedEvent(auth, eventId) {
   return ref;
 }
 
-// Server-authoritative event approval. Firestore rules deny direct client
-// writes to `status`/`paid` on events — this is the only path that can set
-// them, and only for a caller listed in the closed `admins` collection.
-exports.approveEvent = onCall(async (request) => {
-  await requireAdmin(request.auth);
-  const { eventId } = request.data;
-  if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
-  await db.collection('businessEvents').doc(eventId).update({
-    status: 'approved',
-    reviewedAt: FieldValue.serverTimestamp(),
-    reviewedBy: request.auth.uid,
-  });
-  return { ok: true };
-});
-
-exports.rejectEvent = onCall(async (request) => {
-  await requireAdmin(request.auth);
-  const { eventId, reason } = request.data;
-  if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
-  const update = {
-    status: 'rejected',
-    reviewedAt: FieldValue.serverTimestamp(),
-    reviewedBy: request.auth.uid,
-  };
-  // Optional — an admin can still reject without typing one.
-  if (reason && reason.trim()) update.rejectionReason = reason.trim();
-  await db.collection('businessEvents').doc(eventId).update(update);
-  return { ok: true };
-});
-
-// Reactive moderation for a live (approved) event — replaces having to
-// pre-approve every submission with the ability to pull a problem event
-// down after the fact. Same admin-only, server-authoritative shape as
-// approve/reject: Firestore rules never let a client set `status` to any
-// of these values, only these functions can (Admin SDK bypasses rules).
-// No precondition on the event's current status, mirroring
-// approveEvent/rejectEvent's own simplicity — the admin UI only exposes
-// each action from the states where it makes sense.
+// Reactive moderation for a live event — an admin's only lever now that
+// paying is what publishes an event (see confirmEventPaymentStub below),
+// not a pre-publish approval step. Firestore rules never let a client set
+// `status` to any of these values, only these functions can (Admin SDK
+// bypasses rules). No precondition on the event's current status — the
+// admin UI only exposes each action from the states where it makes sense.
 exports.suspendEvent = onCall(async (request) => {
   await requireAdmin(request.auth);
   const { eventId, reason } = request.data || {};
@@ -118,18 +86,26 @@ exports.deleteEvent = onCall(async (request) => {
 
 // MOCK — stands in for a real Mollie/Stripe webhook, which needs API
 // credentials this environment doesn't have. Deliberately still enforces
-// the real security property the checklist cares about: `paid` can only be
-// set here (server-side, ownership + approval-status checked), never by a
-// raw client write to the event document. Swapping in a real payment
-// provider later means replacing the body of this function, not the
-// Firestore rules or the client-side contract that calls it.
+// the real security property the checklist cares about: `status`/`paid`
+// can only be set here (server-side, ownership + current-status checked),
+// never by a raw client write to the event document. Swapping in a real
+// payment provider later means replacing the body of this function, not
+// the Firestore rules or the client-side contract that calls it.
+//
+// This is also the event's actual publish trigger now — paying an event
+// makes it live directly, no separate admin approval step in between.
+// approveEvent/rejectEvent (and the pending-approval state they used to
+// gate) are gone; suspendEvent/blockEvent above are the admin's lever now,
+// applied reactively to something already live rather than proactively
+// before it ever goes live.
 exports.confirmEventPaymentStub = onCall(async (request) => {
   const ref = await getOwnedEvent(request.auth, request.data && request.data.eventId);
   const snap = await ref.get();
-  if (snap.data().status !== 'approved') {
-    throw new HttpsError('failed-precondition', 'Evenement moet eerst goedgekeurd zijn voordat je kunt betalen.');
+  if (snap.data().status !== 'pending') {
+    throw new HttpsError('failed-precondition', 'Evenement kan niet worden betaald vanuit deze status.');
   }
   await ref.update({
+    status: 'approved',
     paid: true,
     paidAt: FieldValue.serverTimestamp(),
   });

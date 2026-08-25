@@ -12,7 +12,14 @@ vi.mock("@/lib/firebase/app", () => ({
   getFirebaseApp: vi.fn(() => ({ name: "mock-app" })),
 }));
 
-import { getFirebaseFunctions, approveEvent, rejectEvent, confirmEventPaymentStub } from "@/lib/firebase/functions";
+import {
+  getFirebaseFunctions,
+  confirmEventPaymentStub,
+  suspendEvent,
+  restoreEvent,
+  blockEvent,
+  adminDeleteEvent,
+} from "@/lib/firebase/functions";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
 beforeEach(() => {
@@ -27,27 +34,52 @@ describe("getFirebaseFunctions", () => {
   });
 });
 
-describe("approveEvent / rejectEvent / confirmEventPaymentStub", () => {
-  it("approveEvent calls the approveEvent callable with the eventId", async () => {
-    await approveEvent("evt1");
-    expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "approveEvent");
+describe("confirmEventPaymentStub", () => {
+  it("calls the confirmEventPaymentStub callable with the eventId", async () => {
+    await confirmEventPaymentStub("evt1");
+    expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "confirmEventPaymentStub");
     expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1" });
   });
+});
 
-  it("rejectEvent calls the rejectEvent callable with the eventId and no reason", async () => {
-    await rejectEvent("evt1");
-    expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "rejectEvent");
+describe("suspendEvent", () => {
+  it("calls the suspendEvent callable with the eventId and no reason", async () => {
+    await suspendEvent("evt1");
+    expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "suspendEvent");
     expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1", reason: undefined });
   });
 
-  it("rejectEvent passes a reason through to the callable when given", async () => {
-    await rejectEvent("evt1", "Adres onvindbaar");
-    expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1", reason: "Adres onvindbaar" });
+  it("passes a reason through to the callable when given", async () => {
+    await suspendEvent("evt1", "Meerdere klachten");
+    expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1", reason: "Meerdere klachten" });
+  });
+});
+
+describe("restoreEvent", () => {
+  it("calls the restoreEvent callable with the eventId", async () => {
+    await restoreEvent("evt1");
+    expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "restoreEvent");
+    expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1" });
+  });
+});
+
+describe("blockEvent", () => {
+  it("calls the blockEvent callable with the eventId and no reason", async () => {
+    await blockEvent("evt1");
+    expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "blockEvent");
+    expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1", reason: undefined });
   });
 
-  it("confirmEventPaymentStub calls the confirmEventPaymentStub callable with the eventId", async () => {
-    await confirmEventPaymentStub("evt1");
-    expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "confirmEventPaymentStub");
+  it("passes a reason through to the callable when given", async () => {
+    await blockEvent("evt1", "Nepevenement");
+    expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1", reason: "Nepevenement" });
+  });
+});
+
+describe("adminDeleteEvent", () => {
+  it("calls the deleteEvent callable (server function name) with the eventId", async () => {
+    await adminDeleteEvent("evt1");
+    expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "deleteEvent");
     expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1" });
   });
 });

@@ -175,10 +175,10 @@ describe("businessEvents/{eventId} update", () => {
     await assertSucceeds(updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "Updated title" }));
   });
 
-  it("allows the owner to pull an approved event back to pending", async () => {
+  it("denies the owner pulling an approved event back to pending — no client-driven status transitions at all now", async () => {
     await seedEvent({ status: "approved" });
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await assertSucceeds(updateDoc(doc(db, "businessEvents", EVENT_ID), { status: "pending" }));
+    await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { status: "pending" }));
   });
 
   it("denies the owner setting status to approved directly", async () => {
@@ -205,50 +205,46 @@ describe("businessEvents/{eventId} update", () => {
     await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "hijacked" }));
   });
 
-  // FIXED (2026-08-25): the "allows the owner to edit non-restricted
-  // fields" test above only seeds a PENDING event. The rule used to allow
-  // status to stay unchanged OR go approved->pending on ANY edit — it
-  // never forced approved->pending specifically on a "significant" content
-  // edit (title/dates/location — mirroring BusinessEventFormModal's own
-  // significantChange check), so a direct write bypassing that UI could
-  // change an already-approved event's headline details while it stayed
-  // visibly "approved," with no re-review. Now mirrors the same
-  // significant-fields list the client already uses.
-  it("denies changing an APPROVED event's title while status stays approved", async () => {
-    await seedEvent({ status: "approved", title: "Original, admin-approved title" });
+  // FIXED (2026-08-25, data-model change): significant-fields locking used
+  // to key off status=='approved' with a pull-back-to-'pending' escape
+  // hatch — that escape hatch no longer exists (there's no more admin
+  // re-review to pull back into now that payment publishes an event
+  // directly). The lock now keys off `paid` instead, which is also more
+  // correct: it closes a gap the old rule had, where a paid-but-suspended
+  // event (status no longer 'approved') could have its significant fields
+  // freely edited again.
+  it("denies changing a PAID event's title", async () => {
+    await seedEvent({ status: "approved", paid: true, title: "Original, paid-for title" });
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
     await assertFails(
-      updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "Silently changed after approval, still shows approved" }),
+      updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "Silently changed after payment" }),
     );
   });
 
-  it("denies changing an APPROVED event's startDate/endDate/lat/lng while status stays approved", async () => {
-    await seedEvent({ status: "approved" });
+  it("denies changing a PAID event's startDate/endDate/lat/lng", async () => {
+    await seedEvent({ status: "approved", paid: true });
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
     await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { startDate: "2026-10-01" }));
     await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { lat: 52.0 }));
   });
 
-  it("allows changing a significant field on an APPROVED event IF status is pulled back to pending in the same write", async () => {
-    await seedEvent({ status: "approved", title: "Original title" });
+  it("denies changing a SUSPENDED (but still paid) event's title too — paid is the gate, not status", async () => {
+    await seedEvent({ status: "suspended", paid: true, title: "Original, paid-for title" });
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await assertSucceeds(
-      updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "New title", status: "pending" }),
-    );
+    await assertFails(updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "Changed while suspended" }));
   });
 
   // Matches the app's actual, intentional policy (BusinessEventFormModal's
   // significantChange list) — description/prices/photoUrl/websiteUrl/etc.
-  // are NOT "significant," so editing them shouldn't force re-review. This
-  // fix must not break that legitimate, deliberate behavior.
-  it("allows changing a NON-significant field (description) on an APPROVED event without touching status", async () => {
-    await seedEvent({ status: "approved" });
+  // are NOT "significant," so editing them stays open even on a paid event.
+  it("allows changing a NON-significant field (description) on a PAID event", async () => {
+    await seedEvent({ status: "approved", paid: true });
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
     await assertSucceeds(updateDoc(doc(db, "businessEvents", EVENT_ID), { description: "Updated description" }));
   });
 
-  it("still allows editing any field freely on a PENDING (not yet approved) event", async () => {
-    await seedEvent({ status: "pending", title: "Draft title" });
+  it("still allows editing any field freely on a PENDING (not yet paid) event", async () => {
+    await seedEvent({ status: "pending", paid: false, title: "Draft title" });
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
     await assertSucceeds(updateDoc(doc(db, "businessEvents", EVENT_ID), { title: "Revised draft title" }));
   });

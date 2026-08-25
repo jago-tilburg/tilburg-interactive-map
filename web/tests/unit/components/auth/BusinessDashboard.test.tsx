@@ -170,8 +170,8 @@ describe("BusinessDashboard", () => {
     expect(deleteBusinessEvent).toHaveBeenCalledWith("evt1");
   });
 
-  it("shows the mock-pay button only for an approved, unpaid event, and calls the stub function", async () => {
-    emittedEvents = [makeEvent({ status: "approved", paid: false })];
+  it("shows the mock-pay button only for a pending, unpaid event, and calls the stub function", async () => {
+    emittedEvents = [makeEvent({ status: "pending", paid: false })];
     mockUseAuth.mockReturnValue({ currentBusiness: business });
     const user = userEvent.setup();
     render(<BusinessDashboard open onClose={vi.fn()} />);
@@ -222,7 +222,7 @@ describe("BusinessDashboard", () => {
   });
 
   it("shows an error message when the mock payment call fails", async () => {
-    emittedEvents = [makeEvent({ status: "approved", paid: false })];
+    emittedEvents = [makeEvent({ status: "pending", paid: false })];
     confirmEventPaymentStub.mockRejectedValue(new Error("payment gateway down"));
     mockUseAuth.mockReturnValue({ currentBusiness: business });
     const user = userEvent.setup();
@@ -233,7 +233,7 @@ describe("BusinessDashboard", () => {
   });
 
   it("shows a generic error message when a non-Error is thrown while paying", async () => {
-    emittedEvents = [makeEvent({ status: "approved", paid: false })];
+    emittedEvents = [makeEvent({ status: "pending", paid: false })];
     confirmEventPaymentStub.mockRejectedValue("not an Error instance");
     mockUseAuth.mockReturnValue({ currentBusiness: business });
     const user = userEvent.setup();

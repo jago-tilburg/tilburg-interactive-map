@@ -34,15 +34,14 @@ service cloud.firestore {
 
     // Business-submitted events (distinct from the legacy RTDB `events`
     // node, which stays untouched). `status` and `paid` are the two fields
-    // this whole module exists to make server-authoritative:
-    //  - a client can never set status to 'approved' or 'rejected' — only
-    //    the approveEvent/rejectEvent Cloud Functions can (Admin SDK bypasses
-    //    these rules entirely). The one client-driven transition allowed is
-    //    approved -> pending, so editing a live event's core details pulls
-    //    it back for re-review without needing a dedicated function for that.
-    //  - `paid` can never be set by a direct client write at all — only the
-    //    confirmEventPaymentStub function (or a future real payment webhook)
-    //    can flip it, and only for an already-approved event.
+    // this whole module exists to make server-authoritative — neither can
+    // ever be set by a direct client write, only by Cloud Functions (Admin
+    // SDK bypasses these rules entirely): confirmEventPaymentStub sets both
+    // together (paying publishes an event directly, no separate admin
+    // approval step), and suspendEvent/blockEvent/restoreEvent move status
+    // reactively after the fact. This also means significant content
+    // (title/dates/location) locks the moment an event is paid, not just
+    // while "approved" — see the update rule below.
     match /businessEvents/{eventId} {
       allow read: if resource.data.status == 'approved'
         || (request.auth != null && request.auth.uid == resource.data.ownerId)
@@ -84,23 +83,23 @@ service cloud.firestore {
         && request.auth.uid == resource.data.ownerId
         && request.resource.data.ownerId == resource.data.ownerId
         && request.resource.data.paid == resource.data.paid
+        && request.resource.data.status == resource.data.status
         && request.resource.data.title is string && request.resource.data.title.size() <= 200
-        && (
-          request.resource.data.status == resource.data.status
-          || (resource.data.status == 'approved' && request.resource.data.status == 'pending')
-        )
-        // An approved event's "significant" fields (title/dates/location)
-        // can only change alongside a pull-back to pending — mirrors
-        // BusinessEventFormModal's own significantChange check client-side.
-        // Without this, a direct write bypassing that UI could silently
-        // keep an approved event's headline details live with no
-        // re-review — found via a pen-test. Non-significant fields
+        // A paid event's "significant" fields (title/dates/location) become
+        // immutable via direct write — once a business has committed money
+        // to a listing, its headline facts can't be silently rewritten
+        // client-side (found via a pen-test, originally gated on
+        // status=='approved' with a pull-back-to-'pending' escape hatch;
+        // that escape hatch is gone now that there's no more admin
+        // re-review to pull back into — paid is the more correct gate
+        // anyway, since it also closes a gap the old rule had: a paid event
+        // that gets suspended/blocked, status no longer 'approved', used to
+        // reopen significant-field editing). Non-significant fields
         // (description/prices/photoUrl/websiteUrl/etc.) can still be
-        // edited freely while staying approved, matching the app's actual,
-        // intentional policy — this only closes the gap between that
-        // policy and what the rule previously actually enforced.
-        && (resource.data.status != 'approved'
-          || request.resource.data.status == 'pending'
+        // edited freely regardless, matching the app's actual, intentional
+        // policy — this only closes the gap between that policy and what
+        // the rule enforces.
+        && (!resource.data.paid
           || (request.resource.data.title == resource.data.title
             && request.resource.data.startDate == resource.data.startDate
             && request.resource.data.endDate == resource.data.endDate

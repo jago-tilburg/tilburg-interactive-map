@@ -169,22 +169,10 @@ describe("updateBusinessEvent", () => {
     lng: 5.09,
   };
 
-  it("does not touch status when pullBackToPending is false", async () => {
-    await updateBusinessEvent("evt1", baseInput, { pullBackToPending: false });
+  it("writes the input as-is, with no status field at all", async () => {
+    await updateBusinessEvent("evt1", baseInput);
 
-    expect(updateDoc).toHaveBeenCalledWith(
-      docRef("businessEvents/evt1"),
-      expect.not.objectContaining({ status: expect.anything() }),
-    );
-  });
-
-  it("sets status back to pending when pullBackToPending is true", async () => {
-    await updateBusinessEvent("evt1", baseInput, { pullBackToPending: true });
-
-    expect(updateDoc).toHaveBeenCalledWith(
-      docRef("businessEvents/evt1"),
-      expect.objectContaining({ status: "pending" }),
-    );
+    expect(updateDoc).toHaveBeenCalledWith(docRef("businessEvents/evt1"), baseInput);
   });
 });
 
