@@ -1,11 +1,15 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const { setGlobalOptions } = require('firebase-functions/v2');
+const { logger } = require('firebase-functions');
 // Modular admin SDK (firebase-admin v13+ removed the old admin.firestore()
 // namespace call — `admin.firestore` is now the /firestore submodule
 // itself, not a callable getter — same modular-SDK direction the web/
 // client already moved to).
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
+const sharp = require('sharp');
 
 initializeApp();
 const db = getFirestore();
@@ -110,4 +114,77 @@ exports.confirmEventPaymentStub = onCall(async (request) => {
     paidAt: FieldValue.serverTimestamp(),
   });
   return { ok: true };
+});
+
+// Only the three photo-bearing kinds storage.rules actually grants writes
+// on — anything else in the bucket isn't this pipeline's to touch.
+const PHOTO_PATH = /^(shops|businessEvents|umbrellaEvents)\/[^/]+\/[^/]+\.webp$/;
+const THUMB_WIDTH = 480;
+const DETAIL_WIDTH = 960;
+
+// The derivative-suffix convention this function itself defines and owns —
+// checked first, before any download/decode, so the function never
+// re-triggers on its own writes (onObjectFinalized fires for every object
+// write in the bucket, including these).
+function isDerivative(name) {
+  return name.endsWith('_thumb.webp') || name.endsWith('_detail.webp');
+}
+
+// Explicit bucket name rather than relying on Firebase's default-bucket
+// derivation — this project's bucket uses the newer `.firebasestorage.app`
+// naming (set up manually via the console this session, see storage.rules'
+// history), not the legacy `.appspot.com` convention default derivation
+// would produce, and an explicit name also means this trigger registers
+// correctly without needing GCLOUD_PROJECT/FIREBASE_CONFIG at import time
+// (matters for unit tests, which don't have a live Cloud Functions
+// environment injecting those).
+const PHOTO_BUCKET = 'tilburg-interactive-map-5710f.firebasestorage.app';
+
+// Storage-triggered processing for shop/event photo uploads (GO-LIVE-
+// CHECKLIST.md §5). Two things this does that the client pipeline can't:
+// (1) byte-level validation — storage.rules' contentType check only
+// inspects the client-asserted Content-Type header at upload time, not the
+// actual bytes, so a direct Storage API call could forge `image/webp` on a
+// non-image payload; sharp() throwing on decode is the real check, and a
+// failure deletes the object rather than leaving a broken file live.
+// (2) generates thumbnail/detail WebP derivatives for future consumption
+// (map markers/detail views don't read these yet — that's a separate,
+// deliberately deferred follow-up, same as orphan cleanup and the photoUrl
+// backfill). EXIF stripping needs no extra work here: every original
+// already went through the client's <canvas>.toBlob() re-encode, which
+// drops all embedded metadata by browser design, and sharp's own output
+// never embeds metadata unless .withMetadata() is called.
+exports.processPhotoUpload = onObjectFinalized({ region: 'europe-west1', bucket: PHOTO_BUCKET }, async (event) => {
+  const { bucket: bucketName, name, contentType } = event.data;
+  if (isDerivative(name) || contentType !== 'image/webp' || !PHOTO_PATH.test(name)) return;
+
+  const bucket = getStorage().bucket(bucketName);
+  const file = bucket.file(name);
+  const [buffer] = await file.download();
+
+  let image;
+  try {
+    image = sharp(buffer);
+    await image.metadata();
+  } catch (err) {
+    logger.warn(`processPhotoUpload: ${name} is not a decodable image, deleting`, { error: String(err) });
+    await file.delete();
+    return;
+  }
+
+  const base = name.slice(0, -'.webp'.length);
+  await Promise.all([
+    image
+      .clone()
+      .resize({ width: THUMB_WIDTH, withoutEnlargement: true })
+      .webp({ quality: 70 })
+      .toBuffer()
+      .then((buf) => bucket.file(`${base}_thumb.webp`).save(buf, { contentType: 'image/webp' })),
+    image
+      .clone()
+      .resize({ width: DETAIL_WIDTH, withoutEnlargement: true })
+      .webp({ quality: 75 })
+      .toBuffer()
+      .then((buf) => bucket.file(`${base}_detail.webp`).save(buf, { contentType: 'image/webp' })),
+  ]);
 });
