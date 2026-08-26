@@ -1,0 +1,125 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 480px;
+}
+
+.form label {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: #57534e;
+  margin-top: 0.4rem;
+}
+
+.form input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d2d2d7;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  transition: all 0.2s;
+}
+
+.form input:focus {
+  outline: none;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+
+.form input:disabled {
+  background: #f5f5f4;
+  color: #a8a29e;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.row input {
+  flex: 1;
+}
+
+.row button {
+  padding: 0.75rem 1rem;
+  border: 1px solid #d2d2d7;
+  border-radius: 10px;
+  background: white;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.error {
+  color: #c0392b;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.form > button[type="submit"] {
+  margin-top: 0.5rem;
+  padding: 0.875rem;
+  background: #ff6b35;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.form > button[type="submit"]:hover {
+  background: #e55a28;
+  transform: scale(1.02);
+}
+
+.form > button[type="submit"]:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+}
+
+.dangerZone {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  background: #fef2f2;
+}
+
+.dangerZone h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.9375rem;
+  color: #991b1b;
+}
+
+.dangerZone p {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  color: #7f1d1d;
+}
+
+.deleteButton {
+  padding: 0.6rem 1rem;
+  background: white;
+  color: #dc2626;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.deleteButton:hover {
+  background: #fee2e2;
+}
+
+.deleteButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

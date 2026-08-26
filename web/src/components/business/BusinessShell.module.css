@@ -1,0 +1,78 @@
+.page {
+  min-height: 100vh;
+  background: #faf8f5;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  background: white;
+  border-bottom: 1px solid #eee6da;
+}
+
+.brand {
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: #ff6b35;
+}
+
+.backLink {
+  background: none;
+  border: none;
+  color: #57534e;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.backLink:hover {
+  color: #15803d;
+}
+
+.tabsRoot {
+  padding: 0 1.25rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 1.25rem;
+  border-bottom: 1px solid #eee6da;
+  margin-top: 1rem;
+}
+
+.tab,
+.tabActive {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.75rem 0.1rem;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #78716c;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.tabActive {
+  color: #15803d;
+  border-bottom-color: #22c55e;
+}
+
+.content {
+  padding: 1.25rem 0 3rem;
+  max-width: 960px;
+}
+
+@media (max-width: 640px) {
+  .header {
+    padding: 0.75rem 1rem;
+  }
+
+  .tabsRoot {
+    padding: 0 1rem;
+  }
+}
