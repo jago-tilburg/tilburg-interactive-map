@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { Dialog } from "radix-ui";
 import { useAuth } from "@/hooks/useAuth";
 import { PrivacyModal } from "@/components/common/PrivacyModal";
-import { AdminLoginModal } from "@/components/auth/AdminLoginModal";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { ratingColor } from "@/lib/shops/shopHelpers";
 import { categoryOf, formatBusinessEventSchedule } from "@/lib/events/eventHelpers";
 import {
@@ -70,7 +70,7 @@ export function MenuModal({
     filterState;
   const [sort, setSort] = useState<SortOption>("rating-desc");
   const [privacyOpen, setPrivacyOpen] = useState(false);
-  const [adminLoginOpen, setAdminLoginOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   // See Modal.tsx for why this is needed: Radix's default onCloseAutoFocus
   // tries to refocus its own internal Dialog.Trigger, which is always null
   // here since open/close is controlled externally.
@@ -249,12 +249,17 @@ export function MenuModal({
           ))}
         </div>
 
+        {/* Admin logs in via the same screen as everyone now (no separate
+            admin flow) — this stays a quick-access shortcut from the menu.
+            Skips PostAuthFlow deliberately: a returning admin has long since
+            onboarded, and this isn't the primary sign-in entry point (that's
+            AccountMenu). */}
         {!isAdmin && (
           <button
             type="button"
             className={styles.footerLink}
-            aria-label="Beheerder inloggen"
-            onClick={() => setAdminLoginOpen(true)}
+            aria-label="Inloggen"
+            onClick={() => setAuthOpen(true)}
           >
             🔐
           </button>
@@ -267,7 +272,7 @@ export function MenuModal({
       </Dialog.Portal>
 
       <PrivacyModal open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
-      <AdminLoginModal open={adminLoginOpen} onClose={() => setAdminLoginOpen(false)} />
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onAuthenticated={() => setAuthOpen(false)} />
     </Dialog.Root>
   );
 }

@@ -5,9 +5,8 @@ import type { User } from "firebase/auth";
 
 vi.mock("@/lib/firebase/auth", () => ({
   subscribeToAuthState: vi.fn(),
-  isVisitorMagicLink: vi.fn(() => false),
-  completeVisitorMagicLink: vi.fn(),
-  VISITOR_AUTH_EMAIL_KEY: "tilburg-visitor-pending-email",
+  getGoogleRedirectResult: vi.fn().mockResolvedValue(null),
+  reloadCurrentUser: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/firebase/firestore", () => ({
@@ -34,12 +33,7 @@ vi.mock("@/hooks/useToast", () => ({
 }));
 
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import {
-  subscribeToAuthState,
-  isVisitorMagicLink,
-  completeVisitorMagicLink,
-  VISITOR_AUTH_EMAIL_KEY,
-} from "@/lib/firebase/auth";
+import { subscribeToAuthState, getGoogleRedirectResult, reloadCurrentUser } from "@/lib/firebase/auth";
 import { getVisitorProfile, createVisitorProfile, getBusinessProfile } from "@/lib/firebase/firestore";
 import { isUidAdmin } from "@/lib/firebase/admin";
 import { migrateAnonymousDataToVisitor } from "@/lib/firebase/shops";
@@ -53,7 +47,11 @@ function TestConsumer() {
     isAdmin,
     currentVisitor,
     currentBusiness,
+    emailVerified,
+    refreshEmailVerified,
     refreshCurrentBusiness,
+    refreshCurrentVisitor,
+    needsOnboarding,
     loading,
     suppressAutoProfileLoadRef,
   } = useAuth();
@@ -64,9 +62,14 @@ function TestConsumer() {
       <span data-testid="admin">{String(isAdmin)}</span>
       <span data-testid="visitor">{currentVisitor?.displayName ?? "none"}</span>
       <span data-testid="business">{currentBusiness?.businessName ?? "none"}</span>
+      <span data-testid="verified">{String(emailVerified)}</span>
+      <span data-testid="needs-onboarding">{String(needsOnboarding)}</span>
       <button onClick={() => { suppressAutoProfileLoadRef.current = true; }}>suppress</button>
       <button onClick={() => refreshCurrentBusiness()}>refresh-business</button>
       <button onClick={() => refreshCurrentBusiness("fresh-uid")}>refresh-business-with-uid</button>
+      <button onClick={() => refreshCurrentVisitor()}>refresh-visitor</button>
+      <button onClick={() => refreshCurrentVisitor("fresh-uid")}>refresh-visitor-with-uid</button>
+      <button onClick={() => refreshEmailVerified()}>refresh-verified</button>
     </div>
   );
 }
@@ -85,28 +88,56 @@ function captureAuthCallback(): AuthCallback {
   return (user) => captured(user);
 }
 
-const fakeUser = { uid: "uid-1", email: "user@example.com" } as User;
+const fakeUser = { uid: "uid-1", email: "user@example.com", emailVerified: false } as User;
+
+const noVisitor = null;
+const noBusiness = null;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(isVisitorMagicLink).mockReturnValue(false);
+  vi.mocked(getGoogleRedirectResult).mockResolvedValue(null as never);
   vi.mocked(getAnonUserId).mockReturnValue("anon-1");
   vi.mocked(migrateAnonymousDataToVisitor).mockResolvedValue(0);
-  window.localStorage.clear();
+  vi.mocked(getBusinessProfile).mockResolvedValue(noBusiness);
+  vi.mocked(getVisitorProfile).mockResolvedValue(noVisitor);
 });
 
-describe("AuthProvider account-type resolution priority", () => {
-  it("resolves admin first when admins/{uid} exists", async () => {
+describe("AuthProvider dual-role resolution", () => {
+  it("loads a visitor profile even for an admin — admin is additive, not exclusive", async () => {
     vi.mocked(isUidAdmin).mockResolvedValue(true);
+    vi.mocked(getVisitorProfile).mockResolvedValue({
+      uid: "uid-1",
+      email: "user@example.com",
+      displayName: "admin-visitor",
+      createdAt: null as never,
+    });
     const fire = captureAuthCallback();
     fire(fakeUser);
 
     await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
     expect(screen.getByTestId("admin")).toHaveTextContent("true");
-    expect(screen.getByTestId("business")).toHaveTextContent("none");
-    expect(screen.getByTestId("visitor")).toHaveTextContent("none");
-    expect(getBusinessProfile).not.toHaveBeenCalled();
-    expect(getVisitorProfile).not.toHaveBeenCalled();
+    expect(screen.getByTestId("visitor")).toHaveTextContent("admin-visitor");
+  });
+
+  it("loads a visitor profile alongside a business profile — one account can be both", async () => {
+    vi.mocked(isUidAdmin).mockResolvedValue(false);
+    vi.mocked(getBusinessProfile).mockResolvedValue({
+      uid: "uid-1",
+      businessName: "My Shop",
+      email: "user@example.com",
+      createdAt: null as never,
+    });
+    vi.mocked(getVisitorProfile).mockResolvedValue({
+      uid: "uid-1",
+      email: "user@example.com",
+      displayName: "user",
+      createdAt: null as never,
+    });
+    const fire = captureAuthCallback();
+    fire(fakeUser);
+
+    await waitFor(() => expect(screen.getByTestId("business")).toHaveTextContent("My Shop"));
+    expect(screen.getByTestId("visitor")).toHaveTextContent("user");
   });
 
   // Regression test for a real bug found via a live pen-test: isUidAdmin()
@@ -114,13 +145,8 @@ describe("AuthProvider account-type resolution priority", () => {
   // `allow read, write: if false` for EVERYONE (by design — see admin.ts).
   // That read could never succeed, and the unguarded `await` in this
   // component's auth-state callback meant a rejection there silently broke
-  // sign-in resolution for every account type, not just admins. Confirmed
-  // live: a real business registration completed in Firebase Auth but the
-  // app never showed the dashboard. isUidAdmin() itself is now fixed to
-  // read an actually-accessible source, but this test guards the
-  // independent defense-in-depth fix (.catch(() => false) in useAuth) in
-  // case any future admin check can fail for some other reason.
-  it("still resolves a business/visitor profile even if isUidAdmin() itself rejects", async () => {
+  // sign-in resolution for every account type, not just admins.
+  it("still resolves a business profile even if isUidAdmin() itself rejects", async () => {
     vi.mocked(isUidAdmin).mockRejectedValue(new Error("permission-denied"));
     vi.mocked(getBusinessProfile).mockResolvedValue({
       uid: "uid-1",
@@ -135,25 +161,8 @@ describe("AuthProvider account-type resolution priority", () => {
     expect(screen.getByTestId("admin")).toHaveTextContent("false");
   });
 
-  it("falls back to business when not admin but a businesses/{uid} doc exists", async () => {
+  it("uses an existing visitor profile without creating a new one", async () => {
     vi.mocked(isUidAdmin).mockResolvedValue(false);
-    vi.mocked(getBusinessProfile).mockResolvedValue({
-      uid: "uid-1",
-      businessName: "My Shop",
-      email: "user@example.com",
-      createdAt: null as never,
-    });
-    const fire = captureAuthCallback();
-    fire(fakeUser);
-
-    await waitFor(() => expect(screen.getByTestId("business")).toHaveTextContent("My Shop"));
-    expect(screen.getByTestId("admin")).toHaveTextContent("false");
-    expect(getVisitorProfile).not.toHaveBeenCalled();
-  });
-
-  it("falls back to an existing visitor profile when neither admin nor business", async () => {
-    vi.mocked(isUidAdmin).mockResolvedValue(false);
-    vi.mocked(getBusinessProfile).mockResolvedValue(null);
     vi.mocked(getVisitorProfile).mockResolvedValue({
       uid: "uid-1",
       email: "user@example.com",
@@ -169,8 +178,6 @@ describe("AuthProvider account-type resolution priority", () => {
 
   it("creates a visitor profile on first sign-in when none exists yet", async () => {
     vi.mocked(isUidAdmin).mockResolvedValue(false);
-    vi.mocked(getBusinessProfile).mockResolvedValue(null);
-    vi.mocked(getVisitorProfile).mockResolvedValue(null);
     vi.mocked(createVisitorProfile).mockResolvedValue({
       uid: "uid-1",
       email: "user@example.com",
@@ -186,8 +193,6 @@ describe("AuthProvider account-type resolution priority", () => {
 
   it("creates a visitor profile with an empty email when the Auth user has none (e.g. phone auth)", async () => {
     vi.mocked(isUidAdmin).mockResolvedValue(false);
-    vi.mocked(getBusinessProfile).mockResolvedValue(null);
-    vi.mocked(getVisitorProfile).mockResolvedValue(null);
     vi.mocked(createVisitorProfile).mockResolvedValue({
       uid: "uid-2",
       email: "",
@@ -195,7 +200,7 @@ describe("AuthProvider account-type resolution priority", () => {
       createdAt: null as never,
     });
     const fire = captureAuthCallback();
-    fire({ uid: "uid-2", email: null } as User);
+    fire({ uid: "uid-2", email: null, emailVerified: false } as User);
 
     await waitFor(() => expect(createVisitorProfile).toHaveBeenCalledWith("uid-2", ""));
   });
@@ -209,11 +214,12 @@ describe("AuthProvider account-type resolution priority", () => {
     fire(null);
     await waitFor(() => expect(screen.getByTestId("admin")).toHaveTextContent("false"));
     expect(screen.getByTestId("user")).toHaveTextContent("none");
+    expect(screen.getByTestId("visitor")).toHaveTextContent("none");
+    expect(screen.getByTestId("business")).toHaveTextContent("none");
   });
 
   it("migrates anonymous shop data to the visitor uid and toasts when items were migrated", async () => {
     vi.mocked(isUidAdmin).mockResolvedValue(false);
-    vi.mocked(getBusinessProfile).mockResolvedValue(null);
     vi.mocked(getVisitorProfile).mockResolvedValue({
       uid: "uid-1",
       email: "user@example.com",
@@ -232,7 +238,6 @@ describe("AuthProvider account-type resolution priority", () => {
 
   it("does not toast when the migration finds nothing to migrate", async () => {
     vi.mocked(isUidAdmin).mockResolvedValue(false);
-    vi.mocked(getBusinessProfile).mockResolvedValue(null);
     vi.mocked(getVisitorProfile).mockResolvedValue({
       uid: "uid-1",
       email: "user@example.com",
@@ -248,7 +253,6 @@ describe("AuthProvider account-type resolution priority", () => {
 
   it("logs and does not block sign-in when migration fails", async () => {
     vi.mocked(isUidAdmin).mockResolvedValue(false);
-    vi.mocked(getBusinessProfile).mockResolvedValue(null);
     vi.mocked(getVisitorProfile).mockResolvedValue({
       uid: "uid-1",
       email: "user@example.com",
@@ -265,13 +269,19 @@ describe("AuthProvider account-type resolution priority", () => {
     consoleError.mockRestore();
   });
 
-  it("does not attempt migration for admins or businesses", async () => {
+  it("attempts migration for an admin too, since admin now also gets a visitor profile", async () => {
     vi.mocked(isUidAdmin).mockResolvedValue(true);
+    vi.mocked(getVisitorProfile).mockResolvedValue({
+      uid: "uid-1",
+      email: "user@example.com",
+      displayName: "user",
+      createdAt: null as never,
+    });
     const fire = captureAuthCallback();
     fire(fakeUser);
 
     await waitFor(() => expect(screen.getByTestId("admin")).toHaveTextContent("true"));
-    expect(migrateAnonymousDataToVisitor).not.toHaveBeenCalled();
+    expect(migrateAnonymousDataToVisitor).toHaveBeenCalledWith("anon-1", "uid-1");
   });
 
   it("skips the profile-resolution read while suppressAutoProfileLoadRef is set", async () => {
@@ -285,6 +295,99 @@ describe("AuthProvider account-type resolution priority", () => {
     await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
     expect(getBusinessProfile).not.toHaveBeenCalled();
     expect(getVisitorProfile).not.toHaveBeenCalled();
+  });
+});
+
+describe("emailVerified", () => {
+  it("mirrors the signed-in user's emailVerified flag", async () => {
+    vi.mocked(isUidAdmin).mockResolvedValue(false);
+    const fire = captureAuthCallback();
+    fire({ ...fakeUser, emailVerified: true });
+
+    await waitFor(() => expect(screen.getByTestId("verified")).toHaveTextContent("true"));
+  });
+
+  it("refreshEmailVerified reloads the user and updates state", async () => {
+    vi.mocked(isUidAdmin).mockResolvedValue(false);
+    const user = userEvent.setup();
+    let verifiedNow = false;
+    const liveUser = {
+      ...fakeUser,
+      get emailVerified() {
+        return verifiedNow;
+      },
+    };
+    vi.mocked(reloadCurrentUser).mockImplementation(async () => {
+      verifiedNow = true;
+    });
+    const fire = captureAuthCallback();
+    fire(liveUser as never);
+    await waitFor(() => expect(screen.getByTestId("verified")).toHaveTextContent("false"));
+
+    await user.click(screen.getByText("refresh-verified"));
+    await waitFor(() => expect(screen.getByTestId("verified")).toHaveTextContent("true"));
+    expect(reloadCurrentUser).toHaveBeenCalledWith(liveUser);
+  });
+
+  it("refreshEmailVerified does nothing when signed out", async () => {
+    const user = userEvent.setup();
+    captureAuthCallback();
+    await user.click(screen.getByText("refresh-verified"));
+    expect(reloadCurrentUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("needsOnboarding", () => {
+  it("is true once a visitor profile exists without a marketingConsentAt", async () => {
+    vi.mocked(isUidAdmin).mockResolvedValue(false);
+    vi.mocked(getVisitorProfile).mockResolvedValue({
+      uid: "uid-1",
+      email: "user@example.com",
+      displayName: "user",
+      createdAt: null as never,
+    });
+    const fire = captureAuthCallback();
+    fire(fakeUser);
+
+    await waitFor(() => expect(screen.getByTestId("needs-onboarding")).toHaveTextContent("true"));
+  });
+
+  it("is false once marketingConsentAt is set, even if consent itself is false", async () => {
+    vi.mocked(isUidAdmin).mockResolvedValue(false);
+    vi.mocked(getVisitorProfile).mockResolvedValue({
+      uid: "uid-1",
+      email: "user@example.com",
+      displayName: "user",
+      createdAt: null as never,
+      marketingConsent: false,
+      marketingConsentAt: {} as never,
+    });
+    const fire = captureAuthCallback();
+    fire(fakeUser);
+
+    await waitFor(() => expect(screen.getByTestId("visitor")).toHaveTextContent("user"));
+    expect(screen.getByTestId("needs-onboarding")).toHaveTextContent("false");
+  });
+
+  it("is false while signed out", () => {
+    captureAuthCallback();
+    expect(screen.getByTestId("needs-onboarding")).toHaveTextContent("false");
+  });
+});
+
+describe("Google redirect result", () => {
+  it("checks for a pending redirect result on mount", async () => {
+    captureAuthCallback();
+    await waitFor(() => expect(getGoogleRedirectResult).toHaveBeenCalled());
+  });
+
+  it("toasts an error when the redirect sign-in failed", async () => {
+    vi.mocked(getGoogleRedirectResult).mockRejectedValue({ code: "auth/account-exists-with-different-credential" });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    captureAuthCallback();
+
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("Inloggen met Google is mislukt.", "error"));
+    consoleError.mockRestore();
   });
 });
 
@@ -324,11 +427,7 @@ describe("refreshCurrentBusiness", () => {
   // Regression test for a real bug found live via a pen-test: right after
   // registration, currentUser in this context may not have propagated from
   // the auth-state listener yet (an async React state update racing the
-  // caller) — BusinessAuthModal used to call refreshCurrentBusiness() with
-  // no argument, which silently no-op'd via the branch above, leaving
-  // currentBusiness null even though registration fully succeeded. Passing
-  // the uid explicitly (now what BusinessAuthModal does) must work
-  // regardless of whether currentUser has been set yet.
+  // caller) — passing the uid explicitly must work regardless.
   it("works with an explicit uid even when currentUser hasn't propagated yet", async () => {
     vi.mocked(getBusinessProfile).mockResolvedValue({
       uid: "fresh-uid",
@@ -344,94 +443,51 @@ describe("refreshCurrentBusiness", () => {
   });
 });
 
-describe("magic-link completion on load", () => {
-  it("completes sign-in using the email stashed in localStorage and cleans up", async () => {
-    vi.mocked(isVisitorMagicLink).mockReturnValue(true);
-    vi.mocked(subscribeToAuthState).mockImplementation(() => vi.fn());
-    window.localStorage.setItem(VISITOR_AUTH_EMAIL_KEY, "visitor@example.com");
-    vi.mocked(completeVisitorMagicLink).mockResolvedValue(undefined as never);
+describe("refreshCurrentVisitor", () => {
+  it("re-fetches the signed-in visitor's profile and updates state", async () => {
+    vi.mocked(isUidAdmin).mockResolvedValue(false);
+    vi.mocked(getVisitorProfile).mockResolvedValue({
+      uid: "uid-1",
+      email: "user@example.com",
+      displayName: "user",
+      createdAt: null as never,
+    });
+    const user = userEvent.setup();
+    const fire = captureAuthCallback();
+    fire(fakeUser);
+    await waitFor(() => expect(screen.getByTestId("visitor")).toHaveTextContent("user"));
 
-    render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>,
-    );
+    vi.mocked(getVisitorProfile).mockResolvedValue({
+      uid: "uid-1",
+      email: "user@example.com",
+      displayName: "renamed",
+      createdAt: null as never,
+    });
+    await user.click(screen.getByText("refresh-visitor"));
 
-    await waitFor(() =>
-      expect(completeVisitorMagicLink).toHaveBeenCalledWith("visitor@example.com", window.location.href),
-    );
-    expect(window.localStorage.getItem(VISITOR_AUTH_EMAIL_KEY)).toBeNull();
+    await waitFor(() => expect(screen.getByTestId("visitor")).toHaveTextContent("renamed"));
+    expect(getVisitorProfile).toHaveBeenLastCalledWith("uid-1");
   });
 
-  it("does nothing when the current URL is not a magic link", async () => {
-    vi.mocked(isVisitorMagicLink).mockReturnValue(false);
-    vi.mocked(subscribeToAuthState).mockImplementation(() => vi.fn());
-
-    render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>,
-    );
-
-    await waitFor(() => expect(isVisitorMagicLink).toHaveBeenCalled());
-    expect(completeVisitorMagicLink).not.toHaveBeenCalled();
+  it("does nothing when there is no signed-in user and no uid argument is given", async () => {
+    const user = userEvent.setup();
+    captureAuthCallback();
+    await user.click(screen.getByText("refresh-visitor"));
+    expect(getVisitorProfile).not.toHaveBeenCalled();
   });
 
-  it("logs and swallows an error if completing the magic link fails", async () => {
-    vi.mocked(isVisitorMagicLink).mockReturnValue(true);
-    vi.mocked(subscribeToAuthState).mockImplementation(() => vi.fn());
-    window.localStorage.setItem(VISITOR_AUTH_EMAIL_KEY, "visitor@example.com");
-    vi.mocked(completeVisitorMagicLink).mockRejectedValue(new Error("expired link"));
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>,
-    );
-
-    await waitFor(() => expect(consoleError).toHaveBeenCalledWith("Sign-in link error:", expect.any(Error)));
-    // The stashed email is left in place on failure so a retry can reuse it.
-    expect(window.localStorage.getItem(VISITOR_AUTH_EMAIL_KEY)).toBe("visitor@example.com");
-
-    consoleError.mockRestore();
-  });
-
-  it("falls back to window.prompt for the email when localStorage has none (cross-device link)", async () => {
-    vi.mocked(isVisitorMagicLink).mockReturnValue(true);
-    vi.mocked(subscribeToAuthState).mockImplementation(() => vi.fn());
-    vi.mocked(completeVisitorMagicLink).mockResolvedValue(undefined as never);
-    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("prompted@example.com");
-
-    render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>,
-    );
-
-    await waitFor(() =>
-      expect(completeVisitorMagicLink).toHaveBeenCalledWith("prompted@example.com", window.location.href),
-    );
-    expect(promptSpy).toHaveBeenCalled();
-
-    promptSpy.mockRestore();
-  });
-
-  it("does nothing when localStorage has no email and the user cancels the prompt", async () => {
-    vi.mocked(isVisitorMagicLink).mockReturnValue(true);
-    vi.mocked(subscribeToAuthState).mockImplementation(() => vi.fn());
-    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue(null);
-
-    render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>,
-    );
-
-    await waitFor(() => expect(promptSpy).toHaveBeenCalled());
-    expect(completeVisitorMagicLink).not.toHaveBeenCalled();
-
-    promptSpy.mockRestore();
+  it("works with an explicit uid even when currentUser hasn't propagated yet", async () => {
+    vi.mocked(getVisitorProfile).mockResolvedValue({
+      uid: "fresh-uid",
+      email: "new@example.com",
+      displayName: "Fresh",
+      createdAt: null as never,
+    });
+    const user = userEvent.setup();
+    captureAuthCallback();
+    await user.click(screen.getByText("refresh-visitor-with-uid"));
+    await waitFor(() => expect(screen.getByTestId("visitor")).toHaveTextContent("Fresh"));
+    expect(getVisitorProfile).toHaveBeenCalledWith("fresh-uid");
   });
 });
 

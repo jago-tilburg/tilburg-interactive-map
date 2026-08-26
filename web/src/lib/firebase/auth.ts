@@ -1,9 +1,6 @@
 import {
   getAuth,
   onAuthStateChanged,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
@@ -11,12 +8,18 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
+  sendPasswordResetEmail,
+  sendEmailVerification,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  getAdditionalUserInfo,
   type User,
   type Auth,
+  type UserCredential,
 } from "firebase/auth";
 import { getFirebaseApp } from "./app";
-
-export const VISITOR_AUTH_EMAIL_KEY = "tilburg-visitor-pending-email";
 
 export function getFirebaseAuth(): Auth {
   return getAuth(getFirebaseApp());
@@ -26,46 +29,68 @@ export function subscribeToAuthState(cb: (user: User | null) => void) {
   return onAuthStateChanged(getFirebaseAuth(), cb);
 }
 
-export function visitorActionCodeSettings() {
-  return {
-    url: window.location.origin + window.location.pathname,
-    handleCodeInApp: true,
-  };
-}
-
-export async function sendVisitorMagicLink(email: string) {
-  return sendSignInLinkToEmail(getFirebaseAuth(), email, visitorActionCodeSettings());
-}
-
-export function isVisitorMagicLink(href: string) {
-  return isSignInWithEmailLink(getFirebaseAuth(), href);
-}
-
-export async function completeVisitorMagicLink(email: string, href: string) {
-  return signInWithEmailLink(getFirebaseAuth(), email, href);
-}
-
-export async function loginBusiness(email: string, password: string) {
+export async function signInWithPassword(email: string, password: string) {
   return signInWithEmailAndPassword(getFirebaseAuth(), email, password);
 }
 
-export async function registerBusiness(email: string, password: string) {
+export async function registerWithPassword(email: string, password: string) {
   return createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
 }
 
-// Admin login uses the same Auth instance/flow as business login — admin-ness
-// is resolved post-login by Firestore admins/{uid} membership, not a separate
-// account type. Mirrors the monolith's adminInloggen().
-export async function loginAdmin(email: string, password: string) {
-  return signInWithEmailAndPassword(getFirebaseAuth(), email, password);
+// Popup first, per PLAN-INLOGGEN.md §7 — a full-page redirect is only a
+// fallback for when the popup itself can't be shown (blocked, or the
+// environment doesn't support it at all), not for a user who deliberately
+// closed it. On redirect, this resolves with `null`: the real result lands
+// later via getGoogleRedirectResult(), called once on load by useAuth.
+export async function signInWithGoogle(): Promise<UserCredential | null> {
+  const provider = new GoogleAuthProvider();
+  try {
+    return await signInWithPopup(getFirebaseAuth(), provider);
+  } catch (err) {
+    const code = (err as { code?: string })?.code ?? "";
+    if (code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment") {
+      await signInWithRedirect(getFirebaseAuth(), provider);
+      return null;
+    }
+    throw err;
+  }
+}
+
+// Picks up a sign-in that finished via the signInWithRedirect() fallback
+// above — resolves to null on a plain page load with no pending redirect.
+export async function getGoogleRedirectResult() {
+  return getRedirectResult(getFirebaseAuth());
+}
+
+// Distinguishes a brand-new Google sign-up from a returning Google user —
+// only the former needs a fresh visitor profile explicitly created (and the
+// auth listener's own auto-create suppressed meanwhile, see useAuth.tsx).
+export function isNewGoogleUser(cred: UserCredential): boolean {
+  return getAdditionalUserInfo(cred)?.isNewUser ?? false;
+}
+
+export async function sendPasswordReset(email: string) {
+  return sendPasswordResetEmail(getFirebaseAuth(), email);
+}
+
+export async function sendVerificationEmail(user: User) {
+  return sendEmailVerification(user);
+}
+
+// `user.reload()` mutates the User object in place but does NOT itself
+// trigger a React re-render — callers must follow this with their own state
+// update (see useAuth's `emailVerified` state and PLAN-INLOGGEN.md §3's
+// "valkuil").
+export async function reloadCurrentUser(user: User) {
+  return user.reload();
 }
 
 export async function signOutCurrentUser() {
   return signOut(getFirebaseAuth());
 }
 
-// Deletes the Auth user itself — callers delete the Firestore profile
-// (deleteVisitorProfile / deleteBusinessAccountCascade) first, since that
+// Deletes the Auth user itself — callers delete the Firestore profile(s)
+// (deleteAccountCascade / deleteBusinessProfileCascade) first, since that
 // still has an authenticated uid to work with, then call this last. Can
 // throw `auth/requires-recent-login` if the session is stale; callers
 // should surface that to the user rather than swallow it.
@@ -77,8 +102,9 @@ export async function deleteCurrentUser(user: User) {
 // password update — reauthenticate with the current password first (throws
 // `auth/wrong-password`/`auth/invalid-credential` if it's wrong), same
 // pattern deleteCurrentUser's callers already work around for its own
-// requires-recent-login case.
-export async function changeBusinessPassword(user: User, currentPassword: string, newPassword: string) {
+// requires-recent-login case. A password hangs off the account, not off a
+// role, so this lives in the visitor profile now (PLAN-INLOGGEN.md §9).
+export async function changeAccountPassword(user: User, currentPassword: string, newPassword: string) {
   const credential = EmailAuthProvider.credential(user.email ?? "", currentPassword);
   await reauthenticateWithCredential(user, credential);
   return updatePassword(user, newPassword);

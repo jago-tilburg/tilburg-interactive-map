@@ -33,11 +33,15 @@ vi.mock("@/lib/firebase/app", () => ({
 import {
   getVisitorProfile,
   createVisitorProfile,
+  updateVisitorDisplayName,
+  saveOnboardingConsent,
+  updateMarketingConsent,
   deleteVisitorProfile,
   getBusinessProfile,
   createBusinessProfile,
   updateBusinessProfile,
-  deleteBusinessAccountCascade,
+  deleteBusinessProfileCascade,
+  deleteAccountCascade,
   setEventSaved,
   subscribeVisitorProfile,
 } from "@/lib/firebase/firestore";
@@ -203,7 +207,37 @@ describe("setEventSaved", () => {
   });
 });
 
-describe("deleteBusinessAccountCascade", () => {
+describe("updateVisitorDisplayName", () => {
+  it("updates only displayName on the visitor's own doc", async () => {
+    await updateVisitorDisplayName("uid1", "New Name");
+    expect(updateDoc).toHaveBeenCalledWith(docRef("visitors/uid1"), { displayName: "New Name" });
+  });
+});
+
+describe("saveOnboardingConsent", () => {
+  it("writes displayName, consent and a server-timestamped 'signup' source", async () => {
+    await saveOnboardingConsent("uid1", "Jago", true);
+    expect(updateDoc).toHaveBeenCalledWith(docRef("visitors/uid1"), {
+      displayName: "Jago",
+      marketingConsent: true,
+      marketingConsentAt: "SERVER_TIMESTAMP",
+      marketingConsentSource: "signup",
+    });
+  });
+});
+
+describe("updateMarketingConsent", () => {
+  it("writes consent and a server-timestamped 'profile' source", async () => {
+    await updateMarketingConsent("uid1", false);
+    expect(updateDoc).toHaveBeenCalledWith(docRef("visitors/uid1"), {
+      marketingConsent: false,
+      marketingConsentAt: "SERVER_TIMESTAMP",
+      marketingConsentSource: "profile",
+    });
+  });
+});
+
+describe("deleteBusinessProfileCascade", () => {
   it("batch-deletes owned businessEvents and the business doc", async () => {
     const fakeEventRef = { path: "businessEvents/evt1" };
     vi.mocked(getDocs).mockResolvedValue({
@@ -213,10 +247,37 @@ describe("deleteBusinessAccountCascade", () => {
     const batchCommit = vi.fn().mockResolvedValue(undefined);
     vi.mocked(writeBatch).mockReturnValue({ delete: batchDelete, commit: batchCommit } as never);
 
-    await deleteBusinessAccountCascade("uid1");
+    await deleteBusinessProfileCascade("uid1");
 
     expect(batchDelete).toHaveBeenCalledWith(fakeEventRef);
     expect(batchDelete).toHaveBeenCalledWith(docRef("businesses/uid1"));
     expect(batchCommit).toHaveBeenCalled();
+  });
+});
+
+describe("deleteAccountCascade", () => {
+  it("deletes the business side too when a business profile exists", async () => {
+    vi.mocked(getDoc).mockResolvedValue({
+      exists: () => true,
+      data: () => ({ businessName: "My Shop", email: "biz@example.com", createdAt: "ts" }),
+    } as never);
+    vi.mocked(getDocs).mockResolvedValue({ forEach: () => {} } as never);
+    const batchDelete = vi.fn();
+    const batchCommit = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(writeBatch).mockReturnValue({ delete: batchDelete, commit: batchCommit } as never);
+
+    await deleteAccountCascade("uid1");
+
+    expect(batchDelete).toHaveBeenCalledWith(docRef("businesses/uid1"));
+    expect(deleteDoc).toHaveBeenCalledWith(docRef("visitors/uid1"));
+  });
+
+  it("only deletes the visitor doc when there is no business profile", async () => {
+    vi.mocked(getDoc).mockResolvedValue({ exists: () => false } as never);
+
+    await deleteAccountCascade("uid1");
+
+    expect(writeBatch).not.toHaveBeenCalled();
+    expect(deleteDoc).toHaveBeenCalledWith(docRef("visitors/uid1"));
   });
 });

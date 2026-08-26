@@ -159,8 +159,9 @@ export function MapExperience({ apiKey, initialSelection, paymentStatus }: MapEx
     if (path !== pathname) router.replace(path, { scroll: false });
   }, [selectedShopId, selectedEventId, selectedUmbrellaId, pathname, router]);
 
-  // A return trip from Stripe Checkout (see BusinessDashboard's handlePay
-  // and functions/index.js's createCheckoutSession success_url/cancel_url).
+  // A return trip from Stripe Checkout (see the business dashboard's
+  // handlePay and functions/index.js's createCheckoutSession
+  // success_url/cancel_url).
   // The event isn't necessarily paid *yet* at this exact moment — Stripe's
   // webhook is what actually flips paid/status, asynchronously — this is
   // just user feedback on the redirect itself; the live subscription above

@@ -53,3 +53,58 @@
 .deleteButton {
   color: #dc2626;
 }
+
+.businessLink {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: #15803d;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.businessLink:hover {
+  background: #dcfce7;
+}
+
+.consentRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #44403c;
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+}
+
+.consentRow input {
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+}
+
+.passwordForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.passwordForm label {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: #57534e;
+}
+
+.passwordForm input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d2d2d7;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.875rem;
+}

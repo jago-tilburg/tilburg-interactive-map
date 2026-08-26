@@ -39,3 +39,37 @@
     border-radius: 6px;
   }
 }
+
+.dropdown {
+  background: white;
+  border: 1px solid #e7e5e4;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 0.4rem;
+  min-width: 220px;
+  z-index: 1200;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #1c1917;
+  cursor: pointer;
+  outline: none;
+}
+
+.item:hover,
+.item[data-highlighted] {
+  background: #f0f0ef;
+}
+
+.separator {
+  height: 1px;
+  background: #e7e5e4;
+  margin: 0.4rem 0;
+}

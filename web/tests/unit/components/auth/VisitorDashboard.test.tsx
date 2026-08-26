@@ -1,14 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent } from "@/types/events";
-import type { Visitor } from "@/types/account";
+import type { Visitor, Business } from "@/types/account";
 
 const deleteCurrentUser = vi.fn();
+const changeAccountPassword = vi.fn();
 vi.mock("@/lib/firebase/auth", () => ({
   signOutCurrentUser: vi.fn(),
   deleteCurrentUser: (...a: unknown[]) => deleteCurrentUser(...a),
+  changeAccountPassword: (...a: unknown[]) => changeAccountPassword(...a),
 }));
 
 const mockUseAuth = vi.fn();
@@ -21,11 +23,18 @@ vi.mock("@/hooks/useToast", () => ({
   useToast: () => ({ showToast }),
 }));
 
+const routerPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: routerPush }),
+}));
+
 const subscribeVisitorProfile = vi.fn();
-const deleteVisitorProfile = vi.fn();
+const deleteAccountCascade = vi.fn();
+const updateMarketingConsent = vi.fn();
 vi.mock("@/lib/firebase/firestore", () => ({
   subscribeVisitorProfile: (...a: unknown[]) => subscribeVisitorProfile(...a),
-  deleteVisitorProfile: (...a: unknown[]) => deleteVisitorProfile(...a),
+  deleteAccountCascade: (...a: unknown[]) => deleteAccountCascade(...a),
+  updateMarketingConsent: (...a: unknown[]) => updateMarketingConsent(...a),
 }));
 
 const subscribeShops = vi.fn();
@@ -47,6 +56,13 @@ const visitor: Visitor = {
   displayName: "visitor",
   createdAt: null as never,
   savedEventIds: ["evt1"],
+};
+
+const business: Business = {
+  uid: "u1",
+  businessName: "My Shop",
+  email: "visitor@example.com",
+  createdAt: null as never,
 };
 
 const shop: Shop = {
@@ -89,11 +105,25 @@ const event: BusinessEvent = {
   createdAt: null as never,
 };
 
+const refreshCurrentVisitor = vi.fn();
+
+function authState(overrides: Record<string, unknown> = {}) {
+  return {
+    currentUser: { uid: "u1" },
+    currentVisitor: visitor,
+    currentBusiness: null,
+    refreshCurrentVisitor,
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
-  mockUseAuth.mockReturnValue({ currentUser: { uid: "u1" }, currentVisitor: visitor });
-  deleteVisitorProfile.mockResolvedValue(undefined);
+  mockUseAuth.mockReturnValue(authState());
+  deleteAccountCascade.mockResolvedValue(undefined);
   deleteCurrentUser.mockResolvedValue(undefined);
+  changeAccountPassword.mockResolvedValue(undefined);
+  updateMarketingConsent.mockResolvedValue(undefined);
   subscribeVisitorProfile.mockImplementation((_uid: string, onChange: (v: Visitor | null) => void) => {
     onChange(visitor);
     return vi.fn();
@@ -110,7 +140,7 @@ beforeEach(() => {
 
 describe("VisitorDashboard", () => {
   it("renders nothing when there is no current visitor", () => {
-    mockUseAuth.mockReturnValue({ currentVisitor: null });
+    mockUseAuth.mockReturnValue(authState({ currentVisitor: null }));
     const { container } = render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
     expect(container).toBeEmptyDOMElement();
   });
@@ -154,7 +184,7 @@ describe("VisitorDashboard", () => {
   });
 
   it("shows empty states when the visitor has no likes, ratings, or saved events", () => {
-    mockUseAuth.mockReturnValue({ currentVisitor: { ...visitor, savedEventIds: [] } });
+    mockUseAuth.mockReturnValue(authState({ currentVisitor: { ...visitor, savedEventIds: [] } }));
     subscribeVisitorProfile.mockImplementation((_uid: string, onChange: (v: Visitor | null) => void) => {
       onChange({ ...visitor, savedEventIds: [] });
       return vi.fn();
@@ -182,29 +212,29 @@ describe("VisitorDashboard", () => {
   });
 
   it("no-ops when there is no current auth user", async () => {
-    mockUseAuth.mockReturnValue({ currentUser: null, currentVisitor: visitor });
+    mockUseAuth.mockReturnValue(authState({ currentUser: null }));
     const user = userEvent.setup();
     render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("Account verwijderen"));
 
-    expect(deleteVisitorProfile).not.toHaveBeenCalled();
+    expect(deleteAccountCascade).not.toHaveBeenCalled();
   });
 
-  it("deletes the profile and the auth user, then closes", async () => {
+  it("deletes the whole account (business side too) and the auth user, then closes", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
     render(<VisitorDashboard open onClose={onClose} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("Account verwijderen"));
 
-    expect(deleteVisitorProfile).toHaveBeenCalledWith("u1");
+    expect(deleteAccountCascade).toHaveBeenCalledWith("u1");
     expect(deleteCurrentUser).toHaveBeenCalledWith({ uid: "u1" });
     expect(onClose).toHaveBeenCalled();
   });
 
   it("shows an error when deleting the account fails", async () => {
-    deleteVisitorProfile.mockRejectedValue(new Error("requires recent login"));
+    deleteAccountCascade.mockRejectedValue(new Error("requires recent login"));
     const user = userEvent.setup();
     render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
@@ -214,12 +244,84 @@ describe("VisitorDashboard", () => {
   });
 
   it("shows a generic error when deletion fails with a non-Error", async () => {
-    deleteVisitorProfile.mockRejectedValue("nope");
+    deleteAccountCascade.mockRejectedValue("nope");
     const user = userEvent.setup();
     render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
     await user.click(screen.getByText("Account verwijderen"));
 
     expect(await screen.findByText("Account verwijderen mislukt.")).toBeInTheDocument();
+  });
+
+  it("shows a link to the business environment only when a business profile exists", () => {
+    const { rerender } = render(
+      <VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />,
+    );
+    expect(screen.queryByText("🏢 Naar je bedrijfsomgeving")).not.toBeInTheDocument();
+
+    mockUseAuth.mockReturnValue(authState({ currentBusiness: business }));
+    rerender(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    expect(screen.getByText("🏢 Naar je bedrijfsomgeving")).toBeInTheDocument();
+  });
+
+  it("navigates to /bedrijf and closes when the business link is clicked", async () => {
+    mockUseAuth.mockReturnValue(authState({ currentBusiness: business }));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<VisitorDashboard open onClose={onClose} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+
+    await user.click(screen.getByText("🏢 Naar je bedrijfsomgeving"));
+    expect(routerPush).toHaveBeenCalledWith("/bedrijf");
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("toggles marketing consent and refreshes the visitor profile", async () => {
+    const user = userEvent.setup();
+    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+
+    const checkbox = screen.getByRole("checkbox", { name: /Houd me per e-mail op de hoogte/ });
+    expect(checkbox).not.toBeChecked();
+
+    await user.click(checkbox);
+    expect(updateMarketingConsent).toHaveBeenCalledWith("u1", true);
+    expect(refreshCurrentVisitor).toHaveBeenCalledWith("u1");
+  });
+
+  it("shows a toast when toggling consent fails", async () => {
+    updateMarketingConsent.mockRejectedValue(new Error("offline"));
+    const user = userEvent.setup();
+    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+
+    await user.click(screen.getByRole("checkbox", { name: /Houd me per e-mail op de hoogte/ }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("Wijzigen van toestemming mislukt.", "error"));
+  });
+
+  it("changes the password after reauthenticating", async () => {
+    const user = userEvent.setup();
+    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("Huidig wachtwoord"), "oldpass1");
+    await user.type(screen.getByLabelText("Nieuw wachtwoord"), "newpass1");
+    await user.click(screen.getByText("Wachtwoord wijzigen"));
+
+    expect(changeAccountPassword).toHaveBeenCalledWith({ uid: "u1" }, "oldpass1", "newpass1");
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("Wachtwoord gewijzigd.", "success"));
+  });
+
+  it("shows a friendly error when the current password is wrong", async () => {
+    changeAccountPassword.mockRejectedValue({ code: "auth/wrong-password" });
+    const user = userEvent.setup();
+    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("Huidig wachtwoord"), "wrongpass");
+    await user.type(screen.getByLabelText("Nieuw wachtwoord"), "newpass1");
+    await user.click(screen.getByText("Wachtwoord wijzigen"));
+
+    expect(await screen.findByText("Huidig wachtwoord is onjuist.")).toBeInTheDocument();
+  });
+
+  it("disables the password submit button until both fields are filled", () => {
+    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    expect(screen.getByText("Wachtwoord wijzigen")).toBeDisabled();
   });
 });

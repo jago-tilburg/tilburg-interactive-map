@@ -7,9 +7,15 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
-const loginAdmin = vi.fn();
-vi.mock("@/lib/firebase/auth", () => ({
-  loginAdmin: (...a: unknown[]) => loginAdmin(...a),
+// MenuModal's 🔐 entry just opens the shared AuthModal — that component's
+// own behavior is covered by AuthModal's test file, so it's stubbed here.
+vi.mock("@/components/auth/AuthModal", () => ({
+  AuthModal: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
+    open ? (
+      <div role="dialog" aria-label="AuthModal-stub">
+        <button onClick={onClose}>close-auth-stub</button>
+      </div>
+    ) : null,
 }));
 
 import { MenuModal } from "@/components/menu/MenuModal";
@@ -106,7 +112,6 @@ describe("MenuModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({ isAdmin: false });
-    loginAdmin.mockResolvedValue(undefined);
   });
 
   it("renders nothing when closed", () => {
@@ -297,14 +302,23 @@ describe("MenuModal", () => {
     expect(screen.queryByText("🔐")).not.toBeInTheDocument();
   });
 
-  it("opens and closes the admin login modal from the 🔐 entry", async () => {
+  it("opens and closes the auth modal from the 🔐 entry", async () => {
     const user = userEvent.setup();
     setup();
 
     await user.click(screen.getByText("🔐"));
-    expect(screen.getByRole("dialog", { name: "Admin inloggen" })).toBeInTheDocument();
+    // The stub isn't a real Radix Portal like the component it replaces, so
+    // it stays inside the render container instead of teleporting to body —
+    // MenuModal's own open Dialog then marks that container aria-hidden
+    // (Radix's hideOthers(), portal-aware for real nested dialogs but not
+    // for this plain stub). `hidden: true` includes it anyway, same as the
+    // overlay backdrop query above.
+    expect(screen.getByRole("dialog", { name: "AuthModal-stub", hidden: true })).toBeInTheDocument();
 
-    await user.click(screen.getByText("Annuleren"));
-    expect(screen.queryByRole("dialog", { name: "Admin inloggen" })).not.toBeInTheDocument();
+    // fireEvent, not userEvent, for the same reason as the query above —
+    // userEvent's pointer simulation respects aria-hidden/pointer-events and
+    // would refuse to "see" this non-portaled stub as clickable.
+    fireEvent.click(screen.getByText("close-auth-stub"));
+    expect(screen.queryByRole("dialog", { name: "AuthModal-stub", hidden: true })).not.toBeInTheDocument();
   });
 });

@@ -1,96 +1,123 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { DropdownMenu } from "radix-ui";
 import { useAuth } from "@/hooks/useAuth";
-import { AccountChooserModal } from "./AccountChooserModal";
-import { VisitorAuthModal } from "./VisitorAuthModal";
+import { AuthModal } from "./AuthModal";
+import { PostAuthFlow } from "./PostAuthFlow";
 import { VisitorDashboard } from "./VisitorDashboard";
-import { BusinessAuthModal } from "./BusinessAuthModal";
-import { BusinessDashboard } from "./BusinessDashboard";
 import { AdminPanel } from "@/components/admin/AdminPanel";
+import { signOutCurrentUser } from "@/lib/firebase/auth";
+import type { Visitor } from "@/types/account";
 import styles from "./AccountMenu.module.css";
-
-type ActiveModal =
-  | null
-  | "chooser"
-  | "visitorAuth"
-  | "visitorDashboard"
-  | "businessAuth"
-  | "businessDashboard"
-  | "adminPanel";
 
 interface AccountMenuProps {
   onOpenShop: (shopId: number) => void;
   onOpenEvent: (eventId: string) => void;
 }
 
-// Mirrors the monolith's updateMenuVisibility() + openAccountEntry() —
-// conditional label/entry rendering based on the priority-ordered auth state
-// from useAuth (admin > business > visitor > signed out).
+type PostAuthStep = "onboarding" | "chooser" | "createBusiness";
+
+// A signed-out visitor gets a single "Inloggen" action; once signed in this
+// becomes a menu of everything the account has (PLAN-INLOGGEN.md §10) rather
+// than the old priority-ordered single dashboard (admin > business >
+// visitor).
 export function AccountMenu({ onOpenShop, onOpenEvent }: AccountMenuProps) {
   const { isAdmin, currentVisitor, currentBusiness } = useAuth();
-  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
+  const router = useRouter();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [postAuth, setPostAuth] = useState<PostAuthStep | null>(null);
+  const [visitorDashboardOpen, setVisitorDashboardOpen] = useState(false);
+  const [adminPanelOpen, setAdminPanelOpen] = useState(false);
 
-  function openAccountEntry() {
-    if (isAdmin) {
-      setActiveModal("adminPanel");
-    } else if (currentBusiness) {
-      setActiveModal("businessDashboard");
-    } else if (currentVisitor) {
-      setActiveModal("visitorDashboard");
-    } else {
-      setActiveModal("chooser");
-    }
+  const signedIn = !!currentVisitor;
+
+  function goToBusiness() {
+    router.push("/bedrijf");
   }
 
-  // The button is always just the person glyph — never the role or the
-  // account's own name as visible text. Who you're signed in as moves to the
-  // accessible name instead, so nothing is lost for screen readers while the
-  // button keeps a fixed icon width at every viewport. That width matters:
-  // a business name is arbitrarily long, and as visible text it used to widen
-  // the header until the hamburger was clipped off the right edge of a phone.
-  const accountName = isAdmin
-    ? "Admin"
-    : currentBusiness
-      ? currentBusiness.businessName
-      : currentVisitor
-        ? currentVisitor.displayName
-        : "Account";
+  function handleAuthenticated(visitor: Visitor) {
+    setPostAuth(visitor.marketingConsentAt === undefined ? "onboarding" : "chooser");
+  }
+
+  async function handleLogout() {
+    await signOutCurrentUser();
+  }
+
+  const accountName = isAdmin ? "Admin" : (currentVisitor?.displayName ?? "Account");
 
   return (
     <nav className={styles.menu}>
-      <button
-        type="button"
-        className={styles.accountLink}
-        onClick={openAccountEntry}
-        aria-label={accountName}
-        title={accountName}
-      >
-        👤
-      </button>
+      {signedIn ? (
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button type="button" className={styles.accountLink} aria-label={accountName} title={accountName}>
+              👤
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content className={styles.dropdown} align="end" sideOffset={8}>
+              <DropdownMenu.Item className={styles.item} onSelect={() => setVisitorDashboardOpen(true)}>
+                👤 Mijn profiel
+              </DropdownMenu.Item>
+              {currentBusiness ? (
+                <DropdownMenu.Item className={styles.item} onSelect={goToBusiness}>
+                  🏢 Bedrijfsomgeving
+                </DropdownMenu.Item>
+              ) : (
+                <DropdownMenu.Item className={styles.item} onSelect={() => setPostAuth("createBusiness")}>
+                  🏢 Event-profiel aanmaken
+                </DropdownMenu.Item>
+              )}
+              {isAdmin && (
+                <DropdownMenu.Item className={styles.item} onSelect={() => setAdminPanelOpen(true)}>
+                  🔐 Adminpaneel
+                </DropdownMenu.Item>
+              )}
+              <DropdownMenu.Separator className={styles.separator} />
+              <DropdownMenu.Item className={styles.item} onSelect={handleLogout}>
+                Uitloggen
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+      ) : (
+        <button
+          type="button"
+          className={styles.accountLink}
+          aria-label="Inloggen"
+          title="Inloggen"
+          onClick={() => setAuthOpen(true)}
+        >
+          👤
+        </button>
+      )}
 
-      <AccountChooserModal
-        open={activeModal === "chooser"}
-        onClose={() => setActiveModal(null)}
-        onChooseVisitor={() => setActiveModal("visitorAuth")}
-        onChooseBusiness={() => setActiveModal("businessAuth")}
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onAuthenticated={handleAuthenticated} />
+
+      <PostAuthFlow
+        open={postAuth !== null}
+        onClose={() => setPostAuth(null)}
+        startStep={postAuth ?? "chooser"}
+        onOpenProfile={() => setVisitorDashboardOpen(true)}
+        onGoToBusiness={goToBusiness}
       />
-      <VisitorAuthModal open={activeModal === "visitorAuth"} onClose={() => setActiveModal(null)} />
+
       <VisitorDashboard
-        open={activeModal === "visitorDashboard"}
-        onClose={() => setActiveModal(null)}
+        open={visitorDashboardOpen}
+        onClose={() => setVisitorDashboardOpen(false)}
         onOpenShop={(shopId) => {
-          setActiveModal(null);
+          setVisitorDashboardOpen(false);
           onOpenShop(shopId);
         }}
         onOpenEvent={(eventId) => {
-          setActiveModal(null);
+          setVisitorDashboardOpen(false);
           onOpenEvent(eventId);
         }}
       />
-      <BusinessAuthModal open={activeModal === "businessAuth"} onClose={() => setActiveModal(null)} />
-      <BusinessDashboard open={activeModal === "businessDashboard"} onClose={() => setActiveModal(null)} />
-      <AdminPanel open={activeModal === "adminPanel"} onClose={() => setActiveModal(null)} />
+
+      <AdminPanel open={adminPanelOpen} onClose={() => setAdminPanelOpen(false)} />
     </nav>
   );
 }

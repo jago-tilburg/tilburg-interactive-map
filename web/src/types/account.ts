@@ -6,6 +6,13 @@ export interface Visitor {
   displayName: string;
   createdAt: Timestamp;
   savedEventIds?: string[];
+  // Marketing consent, asked once at onboarding (PLAN-INLOGGEN.md §8). Absent
+  // until the onboarding step completes; `marketingConsentAt` is the signal
+  // for "has this account finished onboarding", not the boolean itself —
+  // false is a valid, deliberate answer.
+  marketingConsent?: boolean;
+  marketingConsentAt?: Timestamp;
+  marketingConsentSource?: "signup" | "profile";
 }
 
 export interface Business {

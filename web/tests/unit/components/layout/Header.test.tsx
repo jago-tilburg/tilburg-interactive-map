@@ -3,11 +3,27 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/hooks/useAuth", () => ({
-  useAuth: () => ({ currentUser: null, isAdmin: false, currentVisitor: null, currentBusiness: null }),
+  useAuth: () => ({
+    currentUser: null,
+    isAdmin: false,
+    currentVisitor: null,
+    currentBusiness: null,
+    emailVerified: false,
+    refreshEmailVerified: vi.fn(),
+    refreshCurrentBusiness: vi.fn(),
+    refreshCurrentVisitor: vi.fn(),
+    needsOnboarding: false,
+    loading: false,
+    suppressAutoProfileLoadRef: { current: false },
+  }),
 }));
 
 vi.mock("@/hooks/useToast", () => ({
   useToast: () => ({ showToast: vi.fn() }),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 
 const submitRequest = vi.fn();
@@ -17,14 +33,23 @@ vi.mock("@/lib/firebase/requests", () => ({
 
 vi.mock("@/lib/firebase/auth", () => ({
   signOutCurrentUser: vi.fn(),
-  sendVisitorMagicLink: vi.fn(),
-  loginBusiness: vi.fn(),
-  registerBusiness: vi.fn(),
-  loginAdmin: vi.fn(),
+  signInWithPassword: vi.fn(),
+  registerWithPassword: vi.fn(),
+  signInWithGoogle: vi.fn(),
+  sendPasswordReset: vi.fn(),
+  sendVerificationEmail: vi.fn(),
+  isNewGoogleUser: vi.fn(),
+  changeAccountPassword: vi.fn(),
+  deleteCurrentUser: vi.fn(),
 }));
 
 vi.mock("@/lib/firebase/firestore", () => ({
   createBusinessProfile: vi.fn(),
+  createVisitorProfile: vi.fn(),
+  getVisitorProfile: vi.fn(),
+  saveOnboardingConsent: vi.fn(),
+  updateMarketingConsent: vi.fn(),
+  deleteAccountCascade: vi.fn(),
   subscribeVisitorProfile: vi.fn(() => vi.fn()),
 }));
 

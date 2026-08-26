@@ -62,6 +62,33 @@ export async function deleteVisitorProfile(uid: string) {
   return deleteDoc(doc(getDb(), "visitors", uid));
 }
 
+export async function updateVisitorDisplayName(uid: string, displayName: string) {
+  return updateDoc(doc(getDb(), "visitors", uid), { displayName });
+}
+
+// The onboarding step (PLAN-INLOGGEN.md §8) — sets the name and the FIRST
+// marketing-consent decision together. marketingConsentAt (not the boolean
+// itself) is what useAuth's needsOnboarding reads, so this is also what
+// marks onboarding as done, even when consent is left unchecked.
+export async function saveOnboardingConsent(uid: string, displayName: string, marketingConsent: boolean) {
+  return updateDoc(doc(getDb(), "visitors", uid), {
+    displayName,
+    marketingConsent,
+    marketingConsentAt: serverTimestamp(),
+    marketingConsentSource: "signup",
+  });
+}
+
+// The profile-tab toggle, after onboarding — same shape, different source,
+// so a later complaint can be traced to where the decision was made.
+export async function updateMarketingConsent(uid: string, marketingConsent: boolean) {
+  return updateDoc(doc(getDb(), "visitors", uid), {
+    marketingConsent,
+    marketingConsentAt: serverTimestamp(),
+    marketingConsentSource: "profile",
+  });
+}
+
 // Saved/favorited business events — a plain array field on the visitor's own
 // profile doc, not a subcollection, since the existing owner-only
 // `visitors/{uid}` update rule already covers arbitrary field writes with no
@@ -96,10 +123,14 @@ export async function updateBusinessProfile(
   return updateDoc(doc(getDb(), "businesses", uid), updates);
 }
 
-// Batch-deletes the business's businessEvents via a query rather than relying
-// on an already-subscribed listener (as the monolith did) — more correct,
-// doesn't silently miss events the listener hadn't loaded yet.
-export async function deleteBusinessAccountCascade(uid: string) {
+// Deletes only the business side of an account: owned businessEvents
+// (batch-deleted via a query rather than relying on an already-subscribed
+// listener, as the monolith did — more correct, doesn't silently miss
+// events the listener hadn't loaded yet) plus the businesses/{uid} doc
+// itself. Leaves the visitor profile (the account itself) untouched —
+// giving up the event-owner role isn't the same as closing the account
+// (PLAN-INLOGGEN.md §9).
+export async function deleteBusinessProfileCascade(uid: string) {
   const db = getDb();
   const eventsSnap = await getDocs(
     query(collection(db, "businessEvents"), where("ownerId", "==", uid)),
@@ -108,4 +139,13 @@ export async function deleteBusinessAccountCascade(uid: string) {
   eventsSnap.forEach((d) => batch.delete(d.ref));
   batch.delete(doc(db, "businesses", uid));
   await batch.commit();
+}
+
+// Closes the whole account: the business side (if any) plus the visitor
+// profile itself. The Auth user is deleted separately, last, by the caller
+// (see deleteCurrentUser's own doc comment for why).
+export async function deleteAccountCascade(uid: string) {
+  const biz = await getBusinessProfile(uid);
+  if (biz) await deleteBusinessProfileCascade(uid);
+  await deleteVisitorProfile(uid);
 }
