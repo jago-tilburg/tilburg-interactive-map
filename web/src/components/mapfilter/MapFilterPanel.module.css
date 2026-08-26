@@ -255,15 +255,14 @@
   cursor: pointer;
 }
 
-.mobileBadge {
-  background: #22c55e;
+/* The whole button goes green while any filter is active — this replaced a
+   count badge sitting next to the label. #15803d rather than the #22c55e
+   used for active pills inside the panel: this is white text at 13.6px
+   bold, which WCAG still counts as normal text (large = 18.66px bold), so
+   it needs 4.5:1 — #22c55e only reaches ~2.3:1, #15803d clears it. */
+.mobileToggleActive {
+  background: #15803d;
   color: white;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 0.1rem 0.45rem;
-  min-width: 18px;
-  text-align: center;
 }
 
 @media (max-width: 768px) {

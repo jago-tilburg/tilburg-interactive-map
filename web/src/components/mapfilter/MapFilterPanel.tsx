@@ -163,9 +163,17 @@ export function MapFilterPanel({
   return (
     <Fragment>
       {!mobileOpen && (
-        <button type="button" className={styles.mobileToggle} onClick={onOpenMobile}>
+        <button
+          type="button"
+          className={`${styles.mobileToggle} ${activeFilterCount > 0 ? styles.mobileToggleActive : ""}`}
+          onClick={onOpenMobile}
+          // Active filters colour the button itself rather than hanging a
+          // count badge off it. The count is still worth having for screen
+          // readers, which get no signal from a background colour, so it
+          // moves into the accessible name.
+          aria-label={activeFilterCount > 0 ? `Filters (${activeFilterCount} actief)` : "Filters"}
+        >
           🔍 Filters
-          {activeFilterCount > 0 && <span className={styles.mobileBadge}>{activeFilterCount}</span>}
         </button>
       )}
 

@@ -277,6 +277,23 @@ describe("MapFilterPanel", () => {
     expect(onOpenMobile).toHaveBeenCalled();
   });
 
+  it("turns the Filters button green instead of showing a count badge", async () => {
+    const user = userEvent.setup();
+    setup();
+
+    const toggle = screen.getByRole("button", { name: "Filters" });
+    expect(toggle.className).not.toMatch(/mobileToggleActive/);
+
+    // Any one active filter is enough — the Broodjes/Events toggle counts.
+    await user.click(screen.getByRole("button", { name: /Broodjes/ }));
+
+    expect(toggle.className).toMatch(/mobileToggleActive/);
+    // The count informs the accessible name only; it must never come back
+    // as a visible badge beside the label.
+    expect(screen.getByRole("button", { name: "Filters (1 actief)" })).toBe(toggle);
+    expect(toggle).toHaveTextContent(/^🔍 Filters$/);
+  });
+
   it("hides the mobile toggle button and shows the mobile close button when open", async () => {
     const user = userEvent.setup();
     const { onCloseMobile } = setup({ mobileOpen: true });

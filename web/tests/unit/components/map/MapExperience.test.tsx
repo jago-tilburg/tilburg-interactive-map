@@ -251,6 +251,27 @@ describe("MapExperience data-loading failures", () => {
     vi.useRealTimers();
   });
 
+  it("names every source when nothing at all arrives", () => {
+    vi.useFakeTimers();
+    const silent = () => vi.fn();
+    subscribeShops.mockImplementation(silent);
+    subscribeApprovedBusinessEvents.mockImplementation(silent);
+    subscribeUmbrellaEvents.mockImplementation(silent);
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(<MapExperience apiKey="k" />);
+    act(() => {
+      vi.advanceTimersByTime(15000);
+    });
+
+    expect(showToast).toHaveBeenCalledWith(
+      "Kon broodjes en events en grote events niet laden. Controleer je verbinding.",
+      "error",
+    );
+    spy.mockRestore();
+    vi.useRealTimers();
+  });
+
   it("stays quiet when everything loads", () => {
     vi.useFakeTimers();
     render(<MapExperience apiKey="k" />);
