@@ -27,7 +27,17 @@ import type { NextConfig } from "next";
 // meaningfully restrictive since they don't have the same requirement.
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://maps.googleapis.com https://www.instagram.com",
+  // *.firebasedatabase.app in script-src is NOT a stray copy of the
+  // connect-src entry below: when a WebSocket can't be established (some
+  // mobile carriers/proxies block them), the RTDB SDK silently falls back
+  // to its long-polling transport, which is JSONP — BrowserPollConnection
+  // literally does createElement('script') against
+  // https://<ns>.<region>.firebasedatabase.app/.lp?... Without this, that
+  // fallback is CSP-blocked, the shops subscription never connects, and
+  // the map renders with zero shop markers while Firestore-backed events
+  // still show (Firestore uses fetch/XHR, so connect-src alone covers it).
+  // Reproduced on a real iPhone on 5G, 2026-08-26.
+  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://maps.googleapis.com https://www.instagram.com https://*.firebasedatabase.app",
   // fonts.googleapis.com: NOT this app's own fonts (those are self-hosted
   // via next/font/google at build time) — the rendered Maps widget itself
   // loads its own UI-chrome stylesheets (map control icons/labels) from
@@ -38,7 +48,11 @@ const csp = [
   "img-src 'self' https: data: blob:",
   "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self' https: wss://*.firebasedatabase.app",
-  "frame-src 'self' https://www.instagram.com",
+  // *.firebasedatabase.app: the same RTDB long-polling fallback described
+  // under script-src also hosts its poll in a hidden iframe, against a
+  // server-assigned shard host (s-gke-euw1-...europe-west1.firebasedatabase.app),
+  // not the namespace host — hence the wildcard rather than an exact origin.
+  "frame-src 'self' https://www.instagram.com https://*.firebasedatabase.app",
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
