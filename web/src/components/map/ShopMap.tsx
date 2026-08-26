@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "@/lib/maps/loadGoogleMaps";
 import {
   buildShopIconDataUrl,
@@ -14,6 +14,15 @@ import {
   DEFAULT_CARD_BORDER,
 } from "@/lib/maps/markerIcons";
 import { categoryOf, isEventHappeningNow } from "@/lib/events/eventHelpers";
+import {
+  DROP_COLLECT_MS,
+  DROP_DURATION_MS,
+  dropBatches,
+  dropEase,
+  dropStartLat,
+  prefersReducedMotion,
+  shuffled,
+} from "@/lib/maps/markerDrop";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./ShopMap.module.css";
@@ -58,8 +67,19 @@ export function ShopMap({
 }: ShopMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const shopMarkersRef = useRef(new Map<number, google.maps.Marker>());
-  const eventMarkersRef = useRef(new Map<string, google.maps.Marker>());
+  // A null value is a *reserved* slot: this id is staged to fall but its
+  // marker doesn't exist yet. Reserving the id up front is what stops the
+  // sync effects below from creating a second, un-animated marker for it
+  // while the drop queue is still working through its batches — the same
+  // trick as the prototype's `pending: true` markerCache placeholders.
+  const shopMarkersRef = useRef(new Map<number, google.maps.Marker | null>());
+  const eventMarkersRef = useRef(new Map<string, google.maps.Marker | null>());
+  // "pending" until the first batch of data has been collected and staged,
+  // "done" from then on — after which every new marker appears silently.
+  // Re-appearing after a filter toggle must not re-trigger the animation.
+  const dropPhaseRef = useRef<"pending" | "done">("pending");
+  // Every timer/rAF the drop owns, so unmounting mid-animation cancels them.
+  const dropTimersRef = useRef<{ timeouts: number[]; frames: number[] }>({ timeouts: [], frames: [] });
   // Resolved photoUrl -> data URL, populated as fetchEventPhotoDataUrl()
   // resolves (see the effect below) so a re-render/rebuild for an
   // already-fetched photo doesn't re-fetch or flash back to the emoji.
@@ -67,6 +87,9 @@ export function ShopMap({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState(13);
+  // Flips once, when the collection window closes — the signal for the drop
+  // effect below to stage everything gathered so far.
+  const [dropReady, setDropReady] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
   // Rebuilds event marker icons every 60s so the "happening now" glow turns
@@ -104,56 +127,33 @@ export function ShopMap({
     };
   }, [apiKey]);
 
-  useEffect(() => {
-    if (!ready || !mapRef.current) return;
-    const map = mapRef.current;
-    const markers = shopMarkersRef.current;
-    const currentIds = new Set(shops.map((s) => s.id));
+  const shopIcon = useCallback(
+    (rating: number, showLabel: boolean): google.maps.Icon => ({
+      url: buildShopIconDataUrl(rating, showLabel),
+      scaledSize: new google.maps.Size(DROP_ICON_SIZE.width, DROP_ICON_SIZE.height),
+      anchor: new google.maps.Point(DROP_ICON_ANCHOR.x, DROP_ICON_ANCHOR.y),
+    }),
+    [],
+  );
 
-    for (const [id, marker] of markers) {
-      if (!currentIds.has(id)) {
-        marker.setMap(null);
-        markers.delete(id);
-      }
-    }
-
-    for (const shop of shops) {
-      const existing = markers.get(shop.id);
-      if (existing) {
-        existing.setPosition({ lat: shop.lat, lng: shop.lng });
-        continue;
-      }
+  const createShopMarker = useCallback(
+    (map: google.maps.Map, shop: Shop, lat: number, showLabel: boolean) => {
       const marker = new google.maps.Marker({
-        position: { lat: shop.lat, lng: shop.lng },
+        position: { lat, lng: shop.lng },
         map,
         title: shop.name,
-        icon: {
-          url: buildShopIconDataUrl(shop.rating),
-          scaledSize: new google.maps.Size(DROP_ICON_SIZE.width, DROP_ICON_SIZE.height),
-          anchor: new google.maps.Point(DROP_ICON_ANCHOR.x, DROP_ICON_ANCHOR.y),
-        },
+        icon: shopIcon(shop.rating, showLabel),
       });
       marker.addListener("click", () => onShopClick(shop.id));
-      markers.set(shop.id, marker);
-    }
-  }, [ready, shops, onShopClick]);
+      shopMarkersRef.current.set(shop.id, marker);
+      return marker;
+    },
+    [onShopClick, shopIcon],
+  );
 
-  useEffect(() => {
-    if (!ready || !mapRef.current) return;
-    const map = mapRef.current;
-    const markers = eventMarkersRef.current;
-    const photoDataCache = eventPhotoDataRef.current;
-    const currentIds = new Set(businessEvents.map((e) => e.id));
-    const { w, h } = computeMarkerSize(zoom);
-
-    for (const [id, marker] of markers) {
-      if (!currentIds.has(id)) {
-        marker.setMap(null);
-        markers.delete(id);
-      }
-    }
-
-    function buildIcon(event: BusinessEvent, photoUrl: string | undefined): google.maps.Icon {
+  const buildEventIcon = useCallback(
+    (event: BusinessEvent, photoUrl: string | undefined): google.maps.Icon => {
+      const { w, h } = computeMarkerSize(zoom);
       const parentUmbrella = event.umbrellaEventId
         ? umbrellaEvents.find((u) => u.id === event.umbrellaEventId)
         : undefined;
@@ -172,25 +172,141 @@ export function ShopMap({
         scaledSize: new google.maps.Size(scaledSize.width, scaledSize.height),
         anchor: new google.maps.Point(anchor.x, anchor.y),
       };
+    },
+    [umbrellaEvents, zoom, now],
+  );
+
+  const createEventMarker = useCallback(
+    (map: google.maps.Map, event: BusinessEvent, lat: number) => {
+      const resolvedPhoto = event.photoUrl ? eventPhotoDataRef.current.get(event.photoUrl) : undefined;
+      const marker = new google.maps.Marker({
+        position: { lat, lng: event.lng },
+        map,
+        title: event.title,
+        icon: buildEventIcon(event, resolvedPhoto),
+      });
+      marker.addListener("click", () => onBusinessEventClick(event.id));
+      eventMarkersRef.current.set(event.id, marker);
+      return marker;
+    },
+    [buildEventIcon, onBusinessEventClick],
+  );
+
+  // One pass over both marker kinds, mirroring the prototype's single
+  // renderMarkersImmediate(): drop stale markers, then either stage the
+  // first-visit animation or reconcile normally. Keeping it in one effect is
+  // what makes the ordering safe — a split version had to bail out of one
+  // effect while the other staged, and needed a state flip to recover.
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    const map = mapRef.current;
+    const shopMarkers = shopMarkersRef.current;
+    const eventMarkers = eventMarkersRef.current;
+    const photoDataCache = eventPhotoDataRef.current;
+
+    const shopIds = new Set(shops.map((s) => s.id));
+    for (const [id, marker] of shopMarkers) {
+      if (!shopIds.has(id)) {
+        marker?.setMap(null);
+        shopMarkers.delete(id);
+      }
+    }
+    const eventIds = new Set(businessEvents.map((e) => e.id));
+    for (const [id, marker] of eventMarkers) {
+      if (!eventIds.has(id)) {
+        marker?.setMap(null);
+        eventMarkers.delete(id);
+      }
+    }
+
+    // The "val uit de lucht" entrance, first visit only — ported from the
+    // prototype's staging block. Shops and events go into ONE shuffled queue
+    // so the two kinds fall mixed rather than in two waves, and
+    // DROP_BATCH_SIZE of them are released every DROP_STAGGER_MS. Each starts
+    // above the viewport's north edge and eases down to its real position.
+    //
+    // Runs once, ever. A marker that reappears later — a filter toggled back
+    // on, a new event going live — comes back quietly instead of raining in.
+    if (dropPhaseRef.current === "pending") {
+      // Nothing is created until the collection window has closed, so shops
+      // (RTDB) and events (Firestore) end up in the same queue.
+      if (!dropReady) return;
+      dropPhaseRef.current = "done";
+      // Someone who asked for less motion gets them placed, not thrown — the
+      // reconcile below then creates them all at their real positions.
+      if (!prefersReducedMotion()) {
+        const timers = dropTimersRef.current;
+        const bounds = map.getBounds();
+        const northEastLat = bounds ? bounds.getNorthEast().lat() : null;
+
+        // Eases one marker's latitude from above the map down to the target.
+        const fall = (
+          marker: google.maps.Marker,
+          startLat: number,
+          targetLat: number,
+          lng: number,
+          onLand?: () => void,
+        ) => {
+          const startedAt = performance.now();
+          const step = (frameTime: number) => {
+            const t = Math.min((frameTime - startedAt) / DROP_DURATION_MS, 1);
+            marker.setPosition({ lat: startLat + (targetLat - startLat) * dropEase(t), lng });
+            if (t < 1) timers.frames.push(requestAnimationFrame(step));
+            else onLand?.();
+          };
+          timers.frames.push(requestAnimationFrame(step));
+        };
+
+        const staged: (() => void)[] = [];
+        for (const shop of shops) {
+          // Reserve the id immediately, so the reconcile below leaves it for
+          // its own batch instead of creating a second, un-animated marker
+          // (the prototype's `pending: true` markerCache placeholder).
+          shopMarkers.set(shop.id, null);
+          staged.push(() => {
+            const startLat = dropStartLat(shop.lat, northEastLat);
+            const marker = createShopMarker(map, shop, startLat, false);
+            // Shops fall label-less and reveal their rating on landing, so
+            // the number doesn't jitter all the way down.
+            fall(marker, startLat, shop.lat, shop.lng, () => marker.setIcon(shopIcon(shop.rating, true)));
+          });
+        }
+        for (const event of businessEvents) {
+          eventMarkers.set(event.id, null);
+          staged.push(() => {
+            const startLat = dropStartLat(event.lat, northEastLat);
+            fall(createEventMarker(map, event, startLat), startLat, event.lat, event.lng);
+          });
+        }
+
+        for (const batch of dropBatches(shuffled(staged))) {
+          timers.timeouts.push(
+            window.setTimeout(() => batch.items.forEach((release) => release()), batch.delayMs),
+          );
+        }
+      }
+    }
+
+    for (const shop of shops) {
+      // has(), not get(): a reserved slot holds null and must be left alone.
+      if (shopMarkers.has(shop.id)) {
+        shopMarkers.get(shop.id)?.setPosition({ lat: shop.lat, lng: shop.lng });
+        continue;
+      }
+      createShopMarker(map, shop, shop.lat, true);
     }
 
     for (const event of businessEvents) {
       const resolvedPhoto = event.photoUrl ? photoDataCache.get(event.photoUrl) : undefined;
-      const icon = buildIcon(event, resolvedPhoto);
 
-      const existing = markers.get(event.id);
-      if (existing) {
-        existing.setPosition({ lat: event.lat, lng: event.lng });
-        existing.setIcon(icon);
+      if (eventMarkers.has(event.id)) {
+        const existing = eventMarkers.get(event.id);
+        if (existing) {
+          existing.setPosition({ lat: event.lat, lng: event.lng });
+          existing.setIcon(buildEventIcon(event, resolvedPhoto));
+        }
       } else {
-        const marker = new google.maps.Marker({
-          position: { lat: event.lat, lng: event.lng },
-          map,
-          title: event.title,
-          icon,
-        });
-        marker.addListener("click", () => onBusinessEventClick(event.id));
-        markers.set(event.id, marker);
+        createEventMarker(map, event, event.lat);
       }
 
       // photoUrl is a plain external URL (not yet a data URL) — kick off the
@@ -202,12 +318,44 @@ export function ShopMap({
         fetchEventPhotoDataUrl(photoUrl).then((dataUrl) => {
           if (!dataUrl) return;
           photoDataCache.set(photoUrl, dataUrl);
-          const marker = markers.get(event.id);
-          marker?.setIcon(buildIcon(event, dataUrl));
+          eventMarkers.get(event.id)?.setIcon(buildEventIcon(event, dataUrl));
         });
       }
     }
-  }, [ready, businessEvents, umbrellaEvents, zoom, now, onBusinessEventClick]);
+  }, [
+    ready,
+    dropReady,
+    shops,
+    businessEvents,
+    shopIcon,
+    createShopMarker,
+    buildEventIcon,
+    createEventMarker,
+  ]);
+
+  // Opens the collection window. Deliberately keyed on data *arriving* rather
+  // than on the map being ready: Maps loads well before RTDB/Firestore do, so
+  // arming this on `ready` alone would let the window close over an empty
+  // queue and every marker would then appear without ever falling. Restarting
+  // on each change is the prototype's own renderMarkers() debounce, and it is
+  // what lets shops and events be staged together.
+  useEffect(() => {
+    if (!ready || dropPhaseRef.current === "done" || dropReady) return;
+    if (shops.length === 0 && businessEvents.length === 0) return;
+    // No reason to hold markers back for a window whose only purpose is
+    // grouping an animation that isn't going to run.
+    const delay = prefersReducedMotion() ? 0 : DROP_COLLECT_MS;
+    const timer = window.setTimeout(() => setDropReady(true), delay);
+    return () => clearTimeout(timer);
+  }, [ready, dropReady, shops, businessEvents]);
+
+  useEffect(() => {
+    const timers = dropTimersRef.current;
+    return () => {
+      timers.timeouts.forEach(clearTimeout);
+      timers.frames.forEach(cancelAnimationFrame);
+    };
+  }, []);
 
   // Admin-only long-press-to-add: hold the map (not a marker) for 800ms to
   // trigger onLongPressAdd at that point. Uses the Maps API's own mouse

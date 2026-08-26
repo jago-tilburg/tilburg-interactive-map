@@ -41,6 +41,13 @@ class FakeMap {
   getZoom() {
     return this.currentZoom;
   }
+  // The drop animation starts markers above the viewport's north edge, so it
+  // asks the map where that edge is. Returns undefined when `bounds` is
+  // cleared, mirroring the real API before the map's first layout settles.
+  bounds: { north: number } | undefined = { north: 51.62 };
+  getBounds() {
+    return this.bounds && { getNorthEast: () => ({ lat: () => this.bounds!.north }) };
+  }
 }
 class FakeSize {
   constructor(
@@ -101,7 +108,19 @@ function makeEvent(overrides: Partial<BusinessEvent> = {}): BusinessEvent {
   };
 }
 
+// Default every test to "reduce motion", so markers are placed directly and
+// assertions can talk about their settled positions. The drop animation gets
+// its own describe block below, which opts back into motion explicitly.
+function setReducedMotion(reduce: boolean) {
+  window.matchMedia = vi.fn().mockReturnValue({
+    matches: reduce,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }) as unknown as typeof window.matchMedia;
+}
+
 beforeEach(() => {
+  setReducedMotion(true);
   vi.clearAllMocks();
   createdMarkers = [];
   createdMaps = [];
@@ -343,8 +362,16 @@ describe("ShopMap", () => {
       render(
         <ShopMap apiKey="test-key" shops={[]} businessEvents={[event]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
       );
+      // ready -> collection window -> staging is a few commits deep, so
+      // clear the whole window rather than a single tick (see markerDrop.ts).
+      // Two passes on purpose: getting to a created marker is map-ready ->
+      // collection window -> stage -> hand back, and each pass flushes one
+      // round of pending timers plus the render they trigger.
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(200);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(200);
       });
       expect(createdMarkers).toHaveLength(1);
 
@@ -396,8 +423,13 @@ describe("ShopMap", () => {
     await Promise.resolve();
     await Promise.resolve();
     const marker = createdMarkers[0];
-    expect(marker.setIcon).not.toHaveBeenCalled();
-    expect(decodeURIComponent((marker.opts.icon as { url: string }).url)).toContain("⚽");
+    const appliedIcons = [
+      (marker.opts.icon as { url: string }).url,
+      ...marker.setIcon.mock.calls.map((c) => (c[0] as { url: string }).url),
+    ].map(decodeURIComponent);
+    // Every icon it ever wore is the emoji fallback; none embeds a photo.
+    expect(appliedIcons.every((url) => url.includes("⚽"))).toBe(true);
+    expect(appliedIcons.some((url) => url.includes("<image"))).toBe(false);
 
     vi.unstubAllGlobals();
   });
@@ -608,5 +640,200 @@ describe("ShopMap", () => {
       unmount();
       expect(window.google.maps.event.removeListener).toHaveBeenCalledTimes(3);
     });
+  });
+});
+
+describe("ShopMap marker drop animation", () => {
+  // Drives rAF manually so a fall can be inspected frame by frame instead of
+  // waiting on the real clock.
+  function withManualRaf() {
+    const frames: FrameRequestCallback[] = [];
+    let clock = 0;
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    vi.spyOn(performance, "now").mockImplementation(() => clock);
+    return {
+      // Runs whatever frames are queued, at the given elapsed time.
+      tick(ms: number) {
+        clock = ms;
+        const queued = frames.splice(0, frames.length);
+        queued.forEach((cb) => cb(clock));
+      },
+      pending: () => frames.length,
+    };
+  }
+
+  async function settleStaging() {
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(200);
+      });
+    }
+  }
+
+  it("starts markers above the viewport and eases them down to their real position", async () => {
+    setReducedMotion(false);
+    vi.useFakeTimers();
+    const raf = withManualRaf();
+    try {
+      render(
+        <ShopMap apiKey="test-key" shops={[makeShop()]} businessEvents={[]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+      );
+      await settleStaging();
+
+      expect(createdMarkers).toHaveLength(1);
+      const marker = createdMarkers[0];
+      // FakeMap reports a north edge of 51.62; the shop's real lat is 51.5.
+      expect((marker.opts.position as { lat: number }).lat).toBeCloseTo(51.65, 10);
+
+      raf.tick(0);
+      const first = marker.setPosition.mock.calls[0][0] as { lat: number };
+      expect(first.lat).toBeCloseTo(51.65, 10);
+
+      // Halfway through the 500ms fall it must be past halfway down (ease-out).
+      raf.tick(250);
+      const mid = marker.setPosition.mock.calls.at(-1)![0] as { lat: number };
+      expect(mid.lat).toBeLessThan((51.65 + 51.5) / 2);
+      expect(mid.lat).toBeGreaterThan(51.5);
+
+      raf.tick(500);
+      const landed = marker.setPosition.mock.calls.at(-1)![0] as { lat: number; lng: number };
+      expect(landed).toEqual({ lat: 51.5, lng: 5.09 });
+      // Landed means done — no further frames requested.
+      expect(raf.pending()).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it("hides the rating while a shop falls and reveals it on landing", async () => {
+    setReducedMotion(false);
+    vi.useFakeTimers();
+    const raf = withManualRaf();
+    try {
+      render(
+        <ShopMap apiKey="test-key" shops={[makeShop({ rating: 8 })]} businessEvents={[]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+      );
+      await settleStaging();
+      const marker = createdMarkers[0];
+
+      expect(decodeURIComponent((marker.opts.icon as { url: string }).url)).not.toContain("8.0");
+
+      raf.tick(0);
+      raf.tick(500);
+      const revealed = marker.setIcon.mock.calls.at(-1)![0] as { url: string };
+      expect(decodeURIComponent(revealed.url)).toContain("8.0");
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it("staggers shops and events into one shared queue rather than two waves", async () => {
+    setReducedMotion(false);
+    vi.useFakeTimers();
+    withManualRaf();
+    try {
+      const shops = [1, 2, 3].map((n) => makeShop({ id: 9000 + n, lat: 51.5 + n / 100 }));
+      const events = ["a", "b", "c"].map((k) => makeEvent({ id: `evt-${k}` }));
+      render(
+        <ShopMap apiKey="test-key" shops={shops} businessEvents={events} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+      );
+      // Step in increments smaller than one 40ms stagger, so the first
+      // marker to appear catches the queue mid-flight.
+      let guard = 0;
+      while (createdMarkers.length === 0 && guard++ < 20) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(20);
+        });
+      }
+      expect(createdMarkers.length).toBeGreaterThan(0);
+      // 6 markers at 2 per turn: they must not all be created at once.
+      expect(createdMarkers.length).toBeLessThan(6);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500);
+      });
+      expect(createdMarkers).toHaveLength(6);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  // The whole point of "first visit only": a marker coming back after a filter
+  // toggle should reappear in place, not sail in from above again.
+  it("does not re-animate a marker that reappears after being filtered out", async () => {
+    setReducedMotion(false);
+    vi.useFakeTimers();
+    const raf = withManualRaf();
+    try {
+      const shop = makeShop();
+      const { rerender } = render(
+        <ShopMap apiKey="test-key" shops={[shop]} businessEvents={[]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+      );
+      await settleStaging();
+      raf.tick(0);
+      raf.tick(500);
+      const droppedCount = createdMarkers.length;
+
+      // Filter it away, then bring it back.
+      rerender(
+        <ShopMap apiKey="test-key" shops={[]} businessEvents={[]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+      );
+      rerender(
+        <ShopMap apiKey="test-key" shops={[shop]} businessEvents={[]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(200);
+      });
+
+      expect(createdMarkers).toHaveLength(droppedCount + 1);
+      const revived = createdMarkers.at(-1)!;
+      expect(revived.opts.position).toEqual({ lat: 51.5, lng: 5.09 });
+      expect(decodeURIComponent((revived.opts.icon as { url: string }).url)).toContain("8.0");
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it("places markers directly when the user prefers reduced motion", async () => {
+    setReducedMotion(true);
+    render(
+      <ShopMap apiKey="test-key" shops={[makeShop()]} businessEvents={[]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(createdMarkers).toHaveLength(1));
+    // Born at its final position, and never moved anywhere else — the sync
+    // effect re-asserting that same position afterwards is not a fall.
+    expect(createdMarkers[0].opts.position).toEqual({ lat: 51.5, lng: 5.09 });
+    const positions = createdMarkers[0].setPosition.mock.calls.map((c) => c[0] as { lat: number });
+    expect(positions.every((pos) => pos.lat === 51.5)).toBe(true);
+  });
+
+  it("falls from above the target when the map has no bounds yet", async () => {
+    setReducedMotion(false);
+    vi.useFakeTimers();
+    withManualRaf();
+    try {
+      render(
+        <ShopMap apiKey="test-key" shops={[makeShop()]} businessEvents={[]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(50);
+      });
+      createdMaps[0].bounds = undefined;
+      await settleStaging();
+
+      expect((createdMarkers[0].opts.position as { lat: number }).lat).toBeCloseTo(51.62, 10);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
   });
 });
