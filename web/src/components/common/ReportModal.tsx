@@ -82,7 +82,7 @@ export function ReportModal({ open, onClose, contentType, contentId }: ReportMod
             value={details}
             onChange={(e) => setDetails(e.target.value)}
           />
-          {error && <p className={styles.error}>{error}</p>}
+          {error && <p className={styles.error} role="alert">{error}</p>}
           <div className={styles.actions}>
             <button type="submit" disabled={sending}>
               Melding versturen

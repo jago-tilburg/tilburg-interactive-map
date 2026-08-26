@@ -230,7 +230,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
           <SocialLinks shopName={shop.name} tiktokUrl={shop.tiktokUrl} instagramUrl={shop.instagramUrl} />
         </div>
 
-        {error && <p className={styles.error}>{error}</p>}
+        {error && <p className={styles.error} role="alert">{error}</p>}
 
         {/* Two columns on desktop (photo/review/rating/interactions/admin
             left, Instagram embed right, sticky) — collapses to one stacked

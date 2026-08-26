@@ -260,6 +260,7 @@ export function BusinessEventFormModal({
           type="text"
           placeholder="Titel"
           aria-label="Titel"
+          required
           value={form.title}
           onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
         />
@@ -280,6 +281,7 @@ export function BusinessEventFormModal({
         <textarea
           placeholder="Beschrijving"
           aria-label="Beschrijving"
+          required
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
         />
@@ -290,6 +292,7 @@ export function BusinessEventFormModal({
             <input
               id="be-start-date"
               type="date"
+              required
               value={form.startDate}
               onChange={(e) => updateDateRange({ startDate: e.target.value })}
             />
@@ -398,6 +401,7 @@ export function BusinessEventFormModal({
           type="text"
           placeholder="Adres"
           aria-label="Adres"
+          required
           value={form.address}
           onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
         />
@@ -457,7 +461,7 @@ export function BusinessEventFormModal({
           </button>
         </div>
 
-        {error && <p className={styles.error}>{error}</p>}
+        {error && <p className={styles.error} role="alert">{error}</p>}
 
         <div className={styles.actions}>
           <button type="submit" disabled={submitting}>

@@ -137,7 +137,7 @@ export function PhotoUploadField({
             onCropComplete={(_area, areaPixels) => setCroppedAreaPixels(areaPixels)}
           />
         </div>
-        {error && <p className={styles.error}>{error}</p>}
+        {error && <p className={styles.error} role="alert">{error}</p>}
         <div className={styles.cropActions}>
           <button type="button" onClick={handleCropConfirm} disabled={busy || !croppedAreaPixels}>
             Bijsnijden bevestigen
@@ -185,7 +185,7 @@ export function PhotoUploadField({
         )}
       </div>
       {busy && <p className={styles.status}>Foto verwerken…</p>}
-      {error && <p className={styles.error}>{error}</p>}
+      {error && <p className={styles.error} role="alert">{error}</p>}
     </div>
   );
 }

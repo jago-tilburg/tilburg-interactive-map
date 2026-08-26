@@ -119,6 +119,7 @@ export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFo
           type="text"
           placeholder="Naam (bv. Tilburgse Kermis 2026)"
           aria-label="Naam"
+          required
           value={form.title}
           onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
         />
@@ -126,12 +127,14 @@ export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFo
           <input
             type="date"
             aria-label="Startdatum"
+            required
             value={form.startDate}
             onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
           />
           <input
             type="date"
             aria-label="Einddatum"
+            required
             value={form.endDate}
             onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
           />
@@ -157,7 +160,7 @@ export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFo
           value={form.color}
           onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
         />
-        {error && <p className={styles.error}>{error}</p>}
+        {error && <p className={styles.error} role="alert">{error}</p>}
         <div className={styles.actions}>
           <button type="submit" disabled={submitting}>
             Opslaan

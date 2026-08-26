@@ -124,7 +124,7 @@ export function VisitorDashboard({ open, onClose, onOpenShop, onOpenEvent }: Vis
         )}
       </div>
 
-      {deleteError && <p className={styles.error}>{deleteError}</p>}
+      {deleteError && <p className={styles.error} role="alert">{deleteError}</p>}
 
       <div className={styles.actions}>
         <button type="button" onClick={handleLogout}>

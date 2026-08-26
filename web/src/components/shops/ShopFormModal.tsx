@@ -146,6 +146,7 @@ export function ShopFormModal({ open, onClose, editingShop, prefill = null }: Sh
           type="text"
           placeholder="Naam Zaak"
           aria-label="Naam Zaak"
+          required
           value={form.name}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
         />
@@ -153,6 +154,7 @@ export function ShopFormModal({ open, onClose, editingShop, prefill = null }: Sh
           type="text"
           placeholder="Adres"
           aria-label="Adres"
+          required
           value={form.address}
           onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
         />
@@ -260,11 +262,12 @@ export function ShopFormModal({ open, onClose, editingShop, prefill = null }: Sh
           placeholder="Je review..."
           aria-label="Je review"
           rows={6}
+          required
           value={form.review}
           onChange={(e) => setForm((f) => ({ ...f, review: e.target.value }))}
         />
 
-        {error && <p className={styles.error}>{error}</p>}
+        {error && <p className={styles.error} role="alert">{error}</p>}
 
         <div className={styles.actions}>
           <button type="submit" disabled={submitting}>

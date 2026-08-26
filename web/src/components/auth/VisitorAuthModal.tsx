@@ -52,7 +52,7 @@ export function VisitorAuthModal({ open, onClose }: VisitorAuthModalProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          {error && <p className={styles.error}>{error}</p>}
+          {error && <p className={styles.error} role="alert">{error}</p>}
           <button type="submit" disabled={sending}>
             Verstuur inloglink
           </button>

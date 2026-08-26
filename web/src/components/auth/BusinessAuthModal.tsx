@@ -126,7 +126,7 @@ export function BusinessAuthModal({ open, onClose }: BusinessAuthModalProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          {error && <p className={styles.error}>{error}</p>}
+          {error && <p className={styles.error} role="alert">{error}</p>}
           <button type="submit" disabled={submitting}>
             Inloggen
           </button>
@@ -158,7 +158,7 @@ export function BusinessAuthModal({ open, onClose }: BusinessAuthModalProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          {error && <p className={styles.error}>{error}</p>}
+          {error && <p className={styles.error} role="alert">{error}</p>}
           <button type="submit" disabled={submitting}>
             Account aanmaken
           </button>

@@ -47,6 +47,7 @@ export function UserReviewModal({ open, onClose, onSubmit, defaultName = "" }: U
           type="text"
           placeholder="Jouw naam"
           aria-label="Jouw naam"
+          required
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -62,10 +63,11 @@ export function UserReviewModal({ open, onClose, onSubmit, defaultName = "" }: U
           placeholder="Je review..."
           aria-label="Je review"
           rows={4}
+          required
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
-        {error && <p className={styles.error}>{error}</p>}
+        {error && <p className={styles.error} role="alert">{error}</p>}
         <div className={styles.actions}>
           <button type="submit">Versturen</button>
           <button type="button" onClick={handleClose}>

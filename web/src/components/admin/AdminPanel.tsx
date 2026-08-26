@@ -281,7 +281,7 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
           </button>
         </div>
 
-        {error && <p className={styles.error}>{error}</p>}
+        {error && <p className={styles.error} role="alert">{error}</p>}
 
         {tab === "shops" && (
           <div className={styles.list}>

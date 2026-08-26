@@ -64,12 +64,15 @@ beforeEach(() => {
 });
 
 describe("UmbrellaFormModal create mode", () => {
-  it("validates required fields", async () => {
+  it("marks title, start date, and end date as required and blocks submission when empty", async () => {
     const user = userEvent.setup();
     render(<UmbrellaFormModal open onClose={vi.fn()} editingUmbrella={null} />);
 
+    expect(screen.getByLabelText("Naam")).toBeRequired();
+    expect(screen.getByLabelText("Startdatum")).toBeRequired();
+    expect(screen.getByLabelText("Einddatum")).toBeRequired();
+
     await user.click(screen.getByText("Opslaan"));
-    expect(screen.getByText("Vul naam, startdatum en einddatum in")).toBeInTheDocument();
     expect(createUmbrellaEvent).not.toHaveBeenCalled();
   });
 

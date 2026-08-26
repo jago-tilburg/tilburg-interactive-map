@@ -57,7 +57,7 @@ export function RequestModal({ open, onClose, onSubmitted }: RequestModalProps) 
           value={shopName}
           onChange={(e) => setShopName(e.target.value)}
         />
-        {error && <p className={styles.error}>{error}</p>}
+        {error && <p className={styles.error} role="alert">{error}</p>}
         <div className={styles.actions}>
           <button type="submit" disabled={submitting}>
             Versturen

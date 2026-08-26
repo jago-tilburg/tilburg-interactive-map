@@ -239,7 +239,7 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
           </button>
         </div>
 
-        {error && <p className={styles.error}>{error}</p>}
+        {error && <p className={styles.error} role="alert">{error}</p>}
 
         {dashTab === "events" ? (
           <>

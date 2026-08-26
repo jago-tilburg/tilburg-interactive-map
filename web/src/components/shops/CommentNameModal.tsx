@@ -40,10 +40,11 @@ export function CommentNameModal({ open, onCancel, onSubmit, defaultName = "" }:
           type="text"
           placeholder="Jouw naam"
           aria-label="Jouw naam"
+          required
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        {error && <p className={styles.error}>{error}</p>}
+        {error && <p className={styles.error} role="alert">{error}</p>}
         <div className={styles.actions}>
           <button type="submit">Versturen</button>
           <button type="button" onClick={handleCancel}>

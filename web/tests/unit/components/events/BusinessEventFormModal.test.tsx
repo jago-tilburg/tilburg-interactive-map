@@ -94,7 +94,7 @@ async function fillMinimalRequiredFields(user: ReturnType<typeof userEvent.setup
 }
 
 describe("BusinessEventFormModal create mode", () => {
-  it("shows a validation error when required fields (incl. lat/lng) are missing", async () => {
+  it("marks title, description, start date, and address as required and blocks submission when empty", async () => {
     const user = userEvent.setup();
     render(
       <BusinessEventFormModal
@@ -106,8 +106,12 @@ describe("BusinessEventFormModal create mode", () => {
       />,
     );
 
+    expect(screen.getByLabelText("Titel")).toBeRequired();
+    expect(screen.getByLabelText("Beschrijving")).toBeRequired();
+    expect(screen.getByLabelText("Startdatum")).toBeRequired();
+    expect(screen.getByLabelText("Adres")).toBeRequired();
+
     await user.click(screen.getByText("Opslaan"));
-    expect(screen.getByText(/Vul alle verplichte velden in/)).toBeInTheDocument();
     expect(createBusinessEvent).not.toHaveBeenCalled();
   });
 

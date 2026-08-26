@@ -85,12 +85,15 @@ async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("ShopFormModal create mode", () => {
-  it("validates required fields", async () => {
+  it("marks name, address, and review as required and blocks submission when empty", async () => {
     const user = userEvent.setup();
     render(<ShopFormModal open onClose={vi.fn()} editingShop={null} />);
 
+    expect(screen.getByLabelText("Naam Zaak")).toBeRequired();
+    expect(screen.getByLabelText("Adres")).toBeRequired();
+    expect(screen.getByLabelText("Je review")).toBeRequired();
+
     await user.click(screen.getByText("Opslaan"));
-    expect(screen.getByText("Vul alle verplichte velden in")).toBeInTheDocument();
     expect(createShop).not.toHaveBeenCalled();
   });
 
