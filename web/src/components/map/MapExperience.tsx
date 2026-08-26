@@ -10,6 +10,7 @@ import { ShopFormModal } from "@/components/shops/ShopFormModal";
 import { BusinessEventDetailModal } from "@/components/events/BusinessEventDetailModal";
 import { UmbrellaEventDetailModal } from "@/components/events/UmbrellaEventDetailModal";
 import { EmailVerifyNotice } from "@/components/auth/EmailVerifyNotice";
+import { SafeAreaDebug } from "@/components/layout/SafeAreaDebug";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { useMapFilterState } from "@/hooks/useMapFilterState";
@@ -209,6 +210,7 @@ export function MapExperience({ apiKey, initialSelection, paymentStatus }: MapEx
 
   return (
     <div className={styles.appContainer}>
+      <SafeAreaDebug />
       <Header
         shops={shops}
         businessEvents={businessEvents}
