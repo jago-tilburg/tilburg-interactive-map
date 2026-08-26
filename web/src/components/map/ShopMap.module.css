@@ -7,6 +7,10 @@
 .map {
   width: 100%;
   height: 100%;
+  /* Overrides body's touch-action: pan-x pan-y (globals.css) back to full
+     native gesture handling — this is the one place on the page pinch-zoom
+     should still work, since it's the map's own zoom control. */
+  touch-action: auto;
 }
 
 .error {
