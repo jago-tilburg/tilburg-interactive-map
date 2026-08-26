@@ -11,7 +11,7 @@
 }
 
 .address:hover {
-  color: #22c55e;
+  color: #15803d;
 }
 
 .badges {
@@ -218,7 +218,7 @@
 
 .btnEdit {
   background: white;
-  color: #22c55e;
+  color: #15803d;
   border-color: #22c55e;
 }
 
@@ -269,7 +269,7 @@
 
 .commentAuthor {
   font-weight: 600;
-  color: #22c55e;
+  color: #15803d;
 }
 
 .commentText {
@@ -311,7 +311,7 @@
 }
 
 .userReviewRating {
-  color: #22c55e;
+  color: #15803d;
   font-weight: 600;
   font-size: 0.875rem;
 }

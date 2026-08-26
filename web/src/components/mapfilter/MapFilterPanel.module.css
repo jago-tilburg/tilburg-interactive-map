@@ -172,7 +172,7 @@
 .groupLabel {
   font-size: 0.65rem;
   font-weight: 700;
-  color: #a8a29e;
+  color: #57534e;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 0.55rem 0.6rem 0.3rem;
@@ -219,7 +219,7 @@
 }
 
 .checkboxCount {
-  color: #a8a29e;
+  color: #57534e;
   font-size: 0.74rem;
   font-weight: 600;
   flex-shrink: 0;
