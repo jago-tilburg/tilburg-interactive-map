@@ -53,9 +53,9 @@ vi.mock("@/lib/firebase/umbrellaEvents", () => ({
   updateUmbrellaEvent: vi.fn(),
 }));
 
-const confirmEventPaymentStub = vi.fn();
+const createCheckoutSession = vi.fn();
 vi.mock("@/lib/firebase/functions", () => ({
-  confirmEventPaymentStub: (...args: [string]) => confirmEventPaymentStub(...args),
+  createCheckoutSession: (...args: [string]) => createCheckoutSession(...args),
 }));
 
 import { BusinessDashboard } from "@/components/auth/BusinessDashboard";
@@ -89,7 +89,7 @@ const refreshCurrentBusiness = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
   emittedEvents = [];
-  confirmEventPaymentStub.mockResolvedValue(undefined);
+  createCheckoutSession.mockResolvedValue("https://checkout.stripe.com/session123");
   deleteBusinessEvent.mockResolvedValue(undefined);
   deleteBusinessAccountCascade.mockResolvedValue(undefined);
   deleteCurrentUser.mockResolvedValue(undefined);
@@ -181,14 +181,24 @@ describe("BusinessDashboard", () => {
     expect(deleteBusinessEvent).toHaveBeenCalledWith("evt1");
   });
 
-  it("shows the mock-pay button only for a pending, unpaid event, and calls the stub function", async () => {
+  it("shows the pay button only for a pending, unpaid event, and redirects to the Stripe Checkout URL", async () => {
     emittedEvents = [makeEvent({ status: "pending", paid: false })];
     mockUseAuth.mockReturnValue({ currentBusiness: business });
     const user = userEvent.setup();
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      value: { ...originalLocation, href: "" },
+      writable: true,
+      configurable: true,
+    });
     render(<BusinessDashboard open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("Nu betalen (mock)"));
-    expect(confirmEventPaymentStub).toHaveBeenCalledWith("evt1");
+    await user.click(screen.getByText("Betalen"));
+
+    expect(createCheckoutSession).toHaveBeenCalledWith("evt1");
+    expect(window.location.href).toBe("https://checkout.stripe.com/session123");
+
+    Object.defineProperty(window, "location", { value: originalLocation, writable: true, configurable: true });
   });
 
   it("shows a paid label instead of the pay button once paid", () => {
@@ -197,7 +207,7 @@ describe("BusinessDashboard", () => {
     render(<BusinessDashboard open onClose={vi.fn()} />);
 
     expect(screen.getByText(/Betaald, live op de kaart/)).toBeInTheDocument();
-    expect(screen.queryByText("Nu betalen (mock)")).not.toBeInTheDocument();
+    expect(screen.queryByText("Betalen")).not.toBeInTheDocument();
   });
 
   it("opens the event detail modal when the title is clicked", async () => {
@@ -232,25 +242,25 @@ describe("BusinessDashboard", () => {
     expect(await screen.findByText("Verwijderen mislukt.")).toBeInTheDocument();
   });
 
-  it("shows an error message when the mock payment call fails", async () => {
+  it("shows an error message when creating the checkout session fails", async () => {
     emittedEvents = [makeEvent({ status: "pending", paid: false })];
-    confirmEventPaymentStub.mockRejectedValue(new Error("payment gateway down"));
+    createCheckoutSession.mockRejectedValue(new Error("payment gateway down"));
     mockUseAuth.mockReturnValue({ currentBusiness: business });
     const user = userEvent.setup();
     render(<BusinessDashboard open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("Nu betalen (mock)"));
+    await user.click(screen.getByText("Betalen"));
     expect(await screen.findByText("payment gateway down")).toBeInTheDocument();
   });
 
   it("shows a generic error message when a non-Error is thrown while paying", async () => {
     emittedEvents = [makeEvent({ status: "pending", paid: false })];
-    confirmEventPaymentStub.mockRejectedValue("not an Error instance");
+    createCheckoutSession.mockRejectedValue("not an Error instance");
     mockUseAuth.mockReturnValue({ currentBusiness: business });
     const user = userEvent.setup();
     render(<BusinessDashboard open onClose={vi.fn()} />);
 
-    await user.click(screen.getByText("Nu betalen (mock)"));
+    await user.click(screen.getByText("Betalen"));
     expect(await screen.findByText("Betalen mislukt.")).toBeInTheDocument();
   });
 

@@ -39,12 +39,12 @@ service cloud.firestore {
     // node, which stays untouched). `status` and `paid` are the two fields
     // this whole module exists to make server-authoritative — neither can
     // ever be set by a direct client write, only by Cloud Functions (Admin
-    // SDK bypasses these rules entirely): confirmEventPaymentStub sets both
-    // together (paying publishes an event directly, no separate admin
-    // approval step), and suspendEvent/blockEvent/restoreEvent move status
-    // reactively after the fact. This also means significant content
-    // (title/dates/location) locks the moment an event is paid, not just
-    // while "approved" — see the update rule below.
+    // SDK bypasses these rules entirely): stripeWebhook sets both together
+    // once Stripe confirms payment (publishing the event directly, no
+    // separate admin approval step), and suspendEvent/blockEvent/restoreEvent
+    // move status reactively after the fact. This also means significant
+    // content (title/dates/location) locks the moment an event is paid, not
+    // just while "approved" — see the update rule below.
     match /businessEvents/{eventId} {
       allow read: if resource.data.status == 'approved'
         || (request.auth != null && request.auth.uid == resource.data.ownerId)

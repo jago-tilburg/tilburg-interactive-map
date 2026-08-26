@@ -7,9 +7,17 @@ export function getFirebaseFunctions(): Functions {
   return getFunctions(getFirebaseApp(), REGION);
 }
 
-export async function confirmEventPaymentStub(eventId: string) {
-  const callable = httpsCallable(getFirebaseFunctions(), "confirmEventPaymentStub");
-  return callable({ eventId });
+// Returns the Stripe Checkout Session URL to redirect the browser to — the
+// event isn't actually marked paid until Stripe's webhook confirms the
+// payment server-side (see functions/index.js's stripeWebhook), not on
+// return from this call.
+export async function createCheckoutSession(eventId: string): Promise<string> {
+  const callable = httpsCallable<{ eventId: string }, { url: string }>(
+    getFirebaseFunctions(),
+    "createCheckoutSession",
+  );
+  const result = await callable({ eventId });
+  return result.data.url;
 }
 
 export async function suspendEvent(eventId: string, reason?: string) {

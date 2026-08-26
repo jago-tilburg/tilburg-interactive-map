@@ -15,6 +15,8 @@ const MODULE_PATHS = {
   firestore: require.resolve("firebase-admin/firestore"),
   storage: require.resolve("firebase-admin/storage"),
   sharp: require.resolve("sharp"),
+  stripe: require.resolve("stripe"),
+  params: require.resolve("firebase-functions/params"),
 };
 
 const realCacheEntries = {};
@@ -38,6 +40,7 @@ export const DELETE_FAILURE_MARKER = "FAIL-DELETE";
 function makeDocRef(path, id) {
   const key = `${path}/${id}`;
   return {
+    id,
     get: async () => ({
       exists: firestoreStore.has(key),
       data: () => firestoreStore.get(key),
@@ -83,6 +86,58 @@ const fakeBucket = {
     }
   },
 };
+
+// Configurable per-test fake Stripe client — see setStripeSessionResult/
+// setStripeWebhookEvent/setStripeWebhookSignatureInvalid below.
+export const stripeSessionsCreateCalls = [];
+let stripeSessionResult = { id: "cs_test_fake", url: "https://checkout.stripe.com/session/cs_test_fake" };
+let stripeWebhookEvent = null;
+let stripeWebhookSignatureInvalid = false;
+
+export function setStripeSessionResult(result) {
+  stripeSessionResult = result;
+}
+
+export function setStripeWebhookEvent(event) {
+  stripeWebhookEvent = event;
+  stripeWebhookSignatureInvalid = false;
+}
+
+export function setStripeWebhookSignatureInvalid() {
+  stripeWebhookSignatureInvalid = true;
+}
+
+function FakeStripe() {
+  return {
+    checkout: {
+      sessions: {
+        create: async (params) => {
+          stripeSessionsCreateCalls.push(params);
+          return stripeSessionResult;
+        },
+      },
+    },
+    webhooks: {
+      constructEvent: (rawBody, signature, secret) => {
+        if (stripeWebhookSignatureInvalid) {
+          throw new Error("No signatures found matching the expected signature for payload");
+        }
+        return stripeWebhookEvent;
+      },
+    },
+  };
+}
+
+// defineSecret/defineString outside a deployed function just print a
+// warning and return "" (secrets) or ignore the `default` option
+// (strings) — noisy and not test-controllable, so faked the same way the
+// admin SDK is: a plain object with the real shape (.value()), nothing more.
+function fakeDefineSecret(name) {
+  return { name, value: () => `fake-${name}` };
+}
+function fakeDefineString(name, options) {
+  return { name, value: () => (options && options.default) || "" };
+}
 
 function fakeSharp(buffer) {
   const isValid = buffer.toString() !== INVALID_IMAGE_MARKER;
@@ -130,6 +185,18 @@ require.cache[MODULE_PATHS.sharp] = {
   filename: MODULE_PATHS.sharp,
   loaded: true,
   exports: fakeSharp,
+};
+require.cache[MODULE_PATHS.stripe] = {
+  id: MODULE_PATHS.stripe,
+  filename: MODULE_PATHS.stripe,
+  loaded: true,
+  exports: FakeStripe,
+};
+require.cache[MODULE_PATHS.params] = {
+  id: MODULE_PATHS.params,
+  filename: MODULE_PATHS.params,
+  loaded: true,
+  exports: { defineSecret: fakeDefineSecret, defineString: fakeDefineString },
 };
 
 export function restoreRealModules() {

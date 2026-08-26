@@ -14,7 +14,7 @@ vi.mock("@/lib/firebase/app", () => ({
 
 import {
   getFirebaseFunctions,
-  confirmEventPaymentStub,
+  createCheckoutSession,
   suspendEvent,
   restoreEvent,
   blockEvent,
@@ -34,11 +34,15 @@ describe("getFirebaseFunctions", () => {
   });
 });
 
-describe("confirmEventPaymentStub", () => {
-  it("calls the confirmEventPaymentStub callable with the eventId", async () => {
-    await confirmEventPaymentStub("evt1");
-    expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "confirmEventPaymentStub");
+describe("createCheckoutSession", () => {
+  it("calls the createCheckoutSession callable with the eventId and returns the session URL", async () => {
+    mockCallable.mockResolvedValue({ data: { url: "https://checkout.stripe.com/session123" } });
+
+    const url = await createCheckoutSession("evt1");
+
+    expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "createCheckoutSession");
     expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1" });
+    expect(url).toBe("https://checkout.stripe.com/session123");
   });
 });
 

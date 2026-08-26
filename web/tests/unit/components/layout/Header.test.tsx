@@ -62,7 +62,7 @@ vi.mock("@/lib/firebase/functions", () => ({
   restoreEvent: vi.fn(),
   blockEvent: vi.fn(),
   adminDeleteEvent: vi.fn(),
-  confirmEventPaymentStub: vi.fn(),
+  createCheckoutSession: vi.fn(),
 }));
 
 import { Header } from "@/components/layout/Header";

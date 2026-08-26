@@ -9,7 +9,7 @@ import { signOutCurrentUser, deleteCurrentUser, changeBusinessPassword } from "@
 import { deleteBusinessAccountCascade, updateBusinessProfile } from "@/lib/firebase/firestore";
 import { subscribeMyBusinessEvents, deleteBusinessEvent } from "@/lib/firebase/businessEvents";
 import { subscribeUmbrellaEvents } from "@/lib/firebase/umbrellaEvents";
-import { confirmEventPaymentStub } from "@/lib/firebase/functions";
+import { createCheckoutSession } from "@/lib/firebase/functions";
 import { extractCoordsFromMapsUrl } from "@/lib/maps/extractCoordsFromUrl";
 import {
   categoryOf,
@@ -122,11 +122,16 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
     }
   }
 
-  async function handlePayMock(eventId: string) {
+  async function handlePay(eventId: string) {
     setError(null);
     try {
-      await confirmEventPaymentStub(eventId);
-      showToast("Betaald! Je evenement is nu live op de kaart.", "success");
+      const url = await createCheckoutSession(eventId);
+      // A real cross-origin redirect to Stripe's hosted Checkout page, not
+      // client-side routing — the toast for a successful payment happens
+      // on return (see the ?payment=success handling in the event page),
+      // not here, since the payment isn't actually confirmed until
+      // Stripe's webhook fires.
+      window.location.href = url;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Betalen mislukt.");
     }
@@ -298,8 +303,8 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
                           Verwijderen
                         </button>
                         {ev.status === "pending" && !ev.paid && (
-                          <button type="button" onClick={() => handlePayMock(ev.id)}>
-                            Nu betalen (mock)
+                          <button type="button" onClick={() => handlePay(ev.id)}>
+                            Betalen
                           </button>
                         )}
                         {ev.paid && <span className={styles.paidLabel}>✅ Betaald, live op de kaart</span>}

@@ -64,7 +64,7 @@ vi.mock("@/lib/firebase/functions", () => ({
   restoreEvent: vi.fn(),
   blockEvent: vi.fn(),
   adminDeleteEvent: vi.fn(),
-  confirmEventPaymentStub: vi.fn(),
+  createCheckoutSession: vi.fn(),
 }));
 
 import { AccountMenu } from "@/components/auth/AccountMenu";

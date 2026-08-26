@@ -10,6 +10,7 @@ import { ShopFormModal } from "@/components/shops/ShopFormModal";
 import { BusinessEventDetailModal } from "@/components/events/BusinessEventDetailModal";
 import { UmbrellaEventDetailModal } from "@/components/events/UmbrellaEventDetailModal";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
 import { useMapFilterState } from "@/hooks/useMapFilterState";
 import { subscribeShops } from "@/lib/firebase/shops";
 import { subscribeApprovedBusinessEvents } from "@/lib/firebase/businessEvents";
@@ -31,14 +32,16 @@ export type InitialSelection =
 interface MapExperienceProps {
   apiKey: string;
   initialSelection?: InitialSelection;
+  paymentStatus?: "success" | "cancelled";
 }
 
 // Selection state tracks ids, not object references, so the detail modals
 // stay live-updated as the shops/(business)events subscriptions push new
 // data (e.g. a like or rating landing right after the modal opened) instead
 // of freezing on a stale snapshot from the moment the marker was clicked.
-export function MapExperience({ apiKey, initialSelection }: MapExperienceProps) {
+export function MapExperience({ apiKey, initialSelection, paymentStatus }: MapExperienceProps) {
   const { isAdmin } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
   const pathname = usePathname();
   // Shared with MenuModal (via Header) — see useMapFilterState's doc comment
@@ -103,6 +106,24 @@ export function MapExperience({ apiKey, initialSelection }: MapExperienceProps) 
             : "/";
     if (path !== pathname) router.replace(path, { scroll: false });
   }, [selectedShopId, selectedEventId, selectedUmbrellaId, pathname, router]);
+
+  // A return trip from Stripe Checkout (see BusinessDashboard's handlePay
+  // and functions/index.js's createCheckoutSession success_url/cancel_url).
+  // The event isn't necessarily paid *yet* at this exact moment — Stripe's
+  // webhook is what actually flips paid/status, asynchronously — this is
+  // just user feedback on the redirect itself; the live subscription above
+  // picks up the real status change whenever the webhook lands. Strips the
+  // query param afterward so a refresh doesn't re-show the toast.
+  useEffect(() => {
+    if (!paymentStatus) return;
+    if (paymentStatus === "success") {
+      showToast("Betaling gelukt — je evenement is nu live op de kaart.", "success");
+    } else {
+      showToast("Betaling geannuleerd.", "info");
+    }
+    router.replace(pathname, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentStatus]);
 
   // Clears a selection that doesn't match any real record, once its data
   // has actually loaded — covers both a stale/bad deep link (e.g. a typo'd

@@ -1,9 +1,11 @@
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const { onValueDeleted } = require('firebase-functions/v2/database');
 const { onDocumentDeleted } = require('firebase-functions/v2/firestore');
 const { setGlobalOptions } = require('firebase-functions/v2');
+const { defineSecret, defineString } = require('firebase-functions/params');
 const { logger } = require('firebase-functions');
+const Stripe = require('stripe');
 // Modular admin SDK (firebase-admin v13+ removed the old admin.firestore()
 // namespace call — `admin.firestore` is now the /firestore submodule
 // itself, not a callable getter — same modular-SDK direction the web/
@@ -17,6 +19,32 @@ initializeApp();
 const db = getFirestore();
 
 setGlobalOptions({ region: 'europe-west1' });
+
+// Google Secret Manager-backed (the modern replacement for the old
+// functions.config()) — values are set via `firebase functions:secrets:set
+// STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`, never committed or passed
+// through chat. Only readable at runtime inside a function bound to them
+// via `secrets: [...]` in its options, not at module load time.
+const stripeSecretKey = defineSecret('STRIPE_SECRET_KEY');
+const stripeWebhookSecret = defineSecret('STRIPE_WEBHOOK_SECRET');
+
+// TEST-MODE PREPARATION — not live. Placeholder price for a single event
+// listing; matches GO-LIVE-CHECKLIST.md §2's "current mock: flat €10/event
+// fee" reference. The real business model (flat fee vs. subscription vs.
+// commission) and the real price are still open decisions — this constant
+// is the one place to change once that's settled, nothing else in this
+// file needs to know the amount.
+const EVENT_LISTING_PRICE_CENTS = 1000;
+
+// Where Stripe Checkout redirects back to after success/cancel — the
+// existing shareable-URL route (see MapExperience's initialSelection) that
+// already opens the right event's detail modal directly. A deploy-time
+// param (not a secret — this is public), defaulted to the current staging
+// URL so it works out of the box; override with `--set-params` if the URL
+// ever changes without needing a code change.
+const appBaseUrl = defineString('APP_BASE_URL', {
+  default: 'https://tilburg-2happies-staging-next--tilburg-interactive-map-5710f.europe-west4.hosted.app',
+});
 
 // Logs every failed admin/ownership check — the actual "auth failures"
 // signal GO-LIVE-CHECKLIST.md §6 asks for. A single suspicious uid showing
@@ -54,8 +82,8 @@ async function getOwnedEvent(auth, eventId) {
 }
 
 // Reactive moderation for a live event — an admin's only lever now that
-// paying is what publishes an event (see confirmEventPaymentStub below),
-// not a pre-publish approval step. Firestore rules never let a client set
+// paying is what publishes an event (see stripeWebhook below), not a
+// pre-publish approval step. Firestore rules never let a client set
 // `status` to any of these values, only these functions can (Admin SDK
 // bypasses rules). No precondition on the event's current status — the
 // admin UI only exposes each action from the states where it makes sense.
@@ -114,41 +142,112 @@ exports.deleteEvent = onCall(async (request) => {
   return { ok: true };
 });
 
-// MOCK — stands in for a real Mollie/Stripe webhook, which needs API
-// credentials this environment doesn't have. Deliberately still enforces
-// the real security property the checklist cares about: `status`/`paid`
-// can only be set here (server-side, ownership + current-status checked),
-// never by a raw client write to the event document. Swapping in a real
-// payment provider later means replacing the body of this function, not
-// the Firestore rules or the client-side contract that calls it.
-//
-// This is also the event's actual publish trigger now — paying an event
-// makes it live directly, no separate admin approval step in between.
-// approveEvent/rejectEvent (and the pending-approval state they used to
-// gate) are gone; suspendEvent/blockEvent above are the admin's lever now,
-// applied reactively to something already live rather than proactively
-// before it ever goes live.
-exports.confirmEventPaymentStub = onCall(async (request) => {
+// Creates a Stripe Checkout Session for a single event listing — TEST-MODE
+// PREPARATION, not live (see STRIPE_SECRET_KEY's own comment above). Still
+// enforces the same security property the mock stub it replaces did:
+// `status`/`paid` are only ever set server-side (here and in
+// stripeWebhook below), never by a raw client write — see
+// firestore.rules' businessEvents rules, which never grant either field.
+// This function only *starts* the payment; stripeWebhook (below) is what
+// actually marks the event paid, once Stripe confirms the money moved.
+exports.createCheckoutSession = onCall({ secrets: [stripeSecretKey] }, async (request) => {
   const ref = await getOwnedEvent(request.auth, request.data && request.data.eventId);
   const snap = await ref.get();
   if (snap.data().status !== 'pending') {
-    // The "payment webhook failure" signal GO-LIVE-CHECKLIST.md §6 asks
-    // for — a real payment provider replacing this stub should keep
-    // logging this same rejection shape (event id, why, who).
-    logger.warn('confirmEventPaymentStub: rejected — event not in a payable state', {
+    logger.warn('createCheckoutSession: rejected — event not in a payable state', {
       eventId: ref.id,
       uid: request.auth.uid,
       status: snap.data().status,
     });
     throw new HttpsError('failed-precondition', 'Evenement kan niet worden betaald vanuit deze status.');
   }
+
+  const stripe = new Stripe(stripeSecretKey.value());
+  const eventUrl = `${appBaseUrl.value()}/event/${ref.id}`;
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    currency: 'eur',
+    // card + ideal — this app's businesses are NL-based. iDEAL only
+    // supports one-time payments, which already matches mode: 'payment'.
+    payment_method_types: ['card', 'ideal'],
+    // Stripe's own built-in coupon-code entry field on the Checkout page —
+    // actual codes are created/managed in the Stripe Dashboard, nothing
+    // here needs to know a code was used beyond the final charged amount.
+    allow_promotion_codes: true,
+    line_items: [
+      {
+        price_data: {
+          currency: 'eur',
+          unit_amount: EVENT_LISTING_PRICE_CENTS,
+          product_data: { name: `Plaatsing: ${snap.data().title}` },
+        },
+        quantity: 1,
+      },
+    ],
+    // The webhook trusts this, not anything the client sends directly —
+    // getOwnedEvent above already verified this caller owns this event.
+    metadata: { eventId: ref.id },
+    success_url: `${eventUrl}?payment=success`,
+    cancel_url: `${eventUrl}?payment=cancelled`,
+  });
+
+  logger.info('createCheckoutSession: session created', { eventId: ref.id, ownerUid: request.auth.uid, sessionId: session.id });
+  return { url: session.url };
+});
+
+// Stripe posts here directly (no Firebase Auth context, hence onRequest
+// rather than onCall) whenever a Checkout Session's status changes.
+// req.rawBody (the exact bytes Stripe signed) is required for signature
+// verification — a re-serialized JSON body would not match the signature
+// even if semantically identical, which is why this can't be an onCall.
+exports.stripeWebhook = onRequest({ secrets: [stripeWebhookSecret, stripeSecretKey] }, async (req, res) => {
+  const stripe = new Stripe(stripeSecretKey.value());
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.rawBody, req.headers['stripe-signature'], stripeWebhookSecret.value());
+  } catch (err) {
+    logger.warn('stripeWebhook: signature verification failed', { message: err.message });
+    res.status(400).send('Invalid signature');
+    return;
+  }
+
+  if (event.type !== 'checkout.session.completed') {
+    res.status(200).send('Ignored');
+    return;
+  }
+
+  const session = event.data.object;
+  const eventId = session.metadata && session.metadata.eventId;
+  if (!eventId) {
+    logger.warn('stripeWebhook: checkout.session.completed with no metadata.eventId', { sessionId: session.id });
+    res.status(200).send('No eventId');
+    return;
+  }
+
+  const ref = db.collection('businessEvents').doc(eventId);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    logger.warn('stripeWebhook: event not found', { eventId, sessionId: session.id });
+    res.status(200).send('Event not found');
+    return;
+  }
+  // Idempotent — Stripe can and does redeliver webhooks (retries on a slow
+  // response, duplicate delivery, etc.). Without this check, a redelivered
+  // event would stamp a fresh paidAt over the real one.
+  if (snap.data().paid === true) {
+    logger.info('stripeWebhook: event already paid, ignoring redelivered webhook', { eventId, sessionId: session.id });
+    res.status(200).send('Already paid');
+    return;
+  }
+
   await ref.update({
     status: 'approved',
     paid: true,
     paidAt: FieldValue.serverTimestamp(),
+    stripeSessionId: session.id,
   });
-  logger.info('confirmEventPaymentStub: event paid and published', { eventId: ref.id, ownerUid: request.auth.uid });
-  return { ok: true };
+  logger.info('stripeWebhook: event paid and published', { eventId, sessionId: session.id });
+  res.status(200).send('OK');
 });
 
 // Only the three photo-bearing kinds storage.rules actually grants writes

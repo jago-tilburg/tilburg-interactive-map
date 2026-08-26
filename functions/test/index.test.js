@@ -1,10 +1,18 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 // See testFakes.js for why index.js's plain CommonJS require() calls need
 // this require.cache-patching approach instead of vi.mock.
-import { firestoreStore as store, restoreRealModules } from "./testFakes.js";
+import {
+  firestoreStore as store,
+  restoreRealModules,
+  stripeSessionsCreateCalls,
+  setStripeSessionResult,
+  setStripeWebhookEvent,
+  setStripeWebhookSignatureInvalid,
+} from "./testFakes.js";
 
 const {
-  confirmEventPaymentStub,
+  createCheckoutSession,
+  stripeWebhook,
   suspendEvent,
   restoreEvent,
   blockEvent,
@@ -20,7 +28,30 @@ const OTHER_UID = "other-uid";
 beforeEach(() => {
   store.clear();
   store.set(`admins/${ADMIN_UID}`, { email: "admin@example.com" });
+  stripeSessionsCreateCalls.length = 0;
 });
+
+function fakeWebhookRequest(overrides = {}) {
+  return {
+    headers: { "stripe-signature": "t=1,v1=fake" },
+    rawBody: Buffer.from("{}"),
+    ...overrides,
+  };
+}
+
+function fakeWebhookResponse() {
+  return {
+    _code: null,
+    _body: null,
+    status(code) {
+      this._code = code;
+      return this;
+    },
+    send(body) {
+      this._body = body;
+    },
+  };
+}
 
 describe("suspendEvent", () => {
   it("throws unauthenticated when there is no auth context", async () => {
@@ -188,16 +219,16 @@ describe("deleteEvent", () => {
   });
 });
 
-describe("confirmEventPaymentStub", () => {
+describe("createCheckoutSession", () => {
   it("throws unauthenticated when there is no auth context", async () => {
     await expect(
-      confirmEventPaymentStub.run({ data: { eventId: "evt1" }, auth: undefined }),
+      createCheckoutSession.run({ data: { eventId: "evt1" }, auth: undefined }),
     ).rejects.toMatchObject({ code: "unauthenticated" });
   });
 
   it("throws not-found when the event doc does not exist (including when eventId/data is missing)", async () => {
     await expect(
-      confirmEventPaymentStub.run({ data: undefined, auth: { uid: OWNER_UID } }),
+      createCheckoutSession.run({ data: undefined, auth: { uid: OWNER_UID } }),
     ).rejects.toMatchObject({ code: "not-found" });
   });
 
@@ -205,7 +236,7 @@ describe("confirmEventPaymentStub", () => {
     store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID });
 
     await expect(
-      confirmEventPaymentStub.run({ data: { eventId: "evt1" }, auth: { uid: OTHER_UID } }),
+      createCheckoutSession.run({ data: { eventId: "evt1" }, auth: { uid: OTHER_UID } }),
     ).rejects.toMatchObject({ code: "permission-denied" });
   });
 
@@ -213,7 +244,7 @@ describe("confirmEventPaymentStub", () => {
     store.set("businessEvents/evt1", { status: "approved", paid: true, ownerId: OWNER_UID });
 
     await expect(
-      confirmEventPaymentStub.run({ data: { eventId: "evt1" }, auth: { uid: OWNER_UID } }),
+      createCheckoutSession.run({ data: { eventId: "evt1" }, auth: { uid: OWNER_UID } }),
     ).rejects.toMatchObject({ code: "failed-precondition" });
   });
 
@@ -221,23 +252,113 @@ describe("confirmEventPaymentStub", () => {
     store.set("businessEvents/evt1", { status: "blocked", ownerId: OWNER_UID });
 
     await expect(
-      confirmEventPaymentStub.run({ data: { eventId: "evt1" }, auth: { uid: OWNER_UID } }),
+      createCheckoutSession.run({ data: { eventId: "evt1" }, auth: { uid: OWNER_UID } }),
     ).rejects.toMatchObject({ code: "failed-precondition" });
   });
 
-  it("pays and publishes the event directly for its pending, owning caller — no separate approval step", async () => {
-    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID });
+  it("creates a Stripe Checkout Session for its pending, owning caller and returns the session URL", async () => {
+    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID, title: "Kermis" });
+    setStripeSessionResult({ id: "cs_test_1", url: "https://checkout.stripe.com/session/cs_test_1" });
 
-    const result = await confirmEventPaymentStub.run({
+    const result = await createCheckoutSession.run({
       data: { eventId: "evt1" },
       auth: { uid: OWNER_UID },
     });
 
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ url: "https://checkout.stripe.com/session/cs_test_1" });
+    expect(stripeSessionsCreateCalls).toHaveLength(1);
+    const params = stripeSessionsCreateCalls[0];
+    expect(params.mode).toBe("payment");
+    expect(params.payment_method_types).toEqual(["card", "ideal"]);
+    expect(params.allow_promotion_codes).toBe(true);
+    expect(params.metadata).toEqual({ eventId: "evt1" });
+    // Event doc's own paid/status are untouched here — only the webhook
+    // (once Stripe confirms the money moved) is allowed to change them.
+    expect(store.get("businessEvents/evt1")).toMatchObject({ status: "pending" });
+    expect(store.get("businessEvents/evt1").paid).toBeUndefined();
+  });
+});
+
+describe("stripeWebhook", () => {
+  it("rejects an invalid signature with 400 and does not touch the event", async () => {
+    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID });
+    setStripeWebhookSignatureInvalid();
+
+    const res = fakeWebhookResponse();
+    await stripeWebhook(fakeWebhookRequest(), res);
+
+    expect(res._code).toBe(400);
+    expect(store.get("businessEvents/evt1")).toMatchObject({ status: "pending" });
+  });
+
+  it("ignores event types other than checkout.session.completed", async () => {
+    setStripeWebhookEvent({ type: "payment_intent.created", data: { object: {} } });
+
+    const res = fakeWebhookResponse();
+    await stripeWebhook(fakeWebhookRequest(), res);
+
+    expect(res._code).toBe(200);
+  });
+
+  it("is a no-op (200, logged) when checkout.session.completed has no metadata.eventId", async () => {
+    setStripeWebhookEvent({
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_test_2", metadata: {} } },
+    });
+
+    const res = fakeWebhookResponse();
+    await stripeWebhook(fakeWebhookRequest(), res);
+
+    expect(res._code).toBe(200);
+  });
+
+  it("is a no-op (200) when the referenced event doc does not exist", async () => {
+    setStripeWebhookEvent({
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_test_3", metadata: { eventId: "does-not-exist" } } },
+    });
+
+    const res = fakeWebhookResponse();
+    await stripeWebhook(fakeWebhookRequest(), res);
+
+    expect(res._code).toBe(200);
+  });
+
+  it("pays and publishes the event directly — no separate approval step", async () => {
+    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID });
+    setStripeWebhookEvent({
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_test_4", metadata: { eventId: "evt1" } } },
+    });
+
+    const res = fakeWebhookResponse();
+    await stripeWebhook(fakeWebhookRequest(), res);
+
+    expect(res._code).toBe(200);
     expect(store.get("businessEvents/evt1")).toMatchObject({
       status: "approved",
       paid: true,
       paidAt: "SERVER_TIMESTAMP",
+      stripeSessionId: "cs_test_4",
     });
+  });
+
+  it("is idempotent — a redelivered webhook for an already-paid event does not re-stamp paidAt", async () => {
+    store.set("businessEvents/evt1", {
+      status: "approved",
+      paid: true,
+      paidAt: "ORIGINAL_TIMESTAMP",
+      ownerId: OWNER_UID,
+    });
+    setStripeWebhookEvent({
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_test_5", metadata: { eventId: "evt1" } } },
+    });
+
+    const res = fakeWebhookResponse();
+    await stripeWebhook(fakeWebhookRequest(), res);
+
+    expect(res._code).toBe(200);
+    expect(store.get("businessEvents/evt1").paidAt).toBe("ORIGINAL_TIMESTAMP");
   });
 });
