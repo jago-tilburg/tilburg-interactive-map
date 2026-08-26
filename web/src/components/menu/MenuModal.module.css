@@ -85,7 +85,7 @@
 
 .filterBtn:hover {
   border-color: #22c55e;
-  color: #22c55e;
+  color: #15803d;
 }
 
 .filterBtnActive {
@@ -265,7 +265,7 @@
 }
 
 .footerLink:hover {
-  color: #22c55e;
+  color: #15803d;
 }
 
 @media (max-width: 768px) {

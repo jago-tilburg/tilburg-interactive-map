@@ -26,7 +26,7 @@
 }
 
 .tabActive {
-  color: #22c55e;
+  color: #15803d;
   border-bottom-color: #22c55e;
 }
 
@@ -106,7 +106,7 @@
 
 .rowActions button:hover {
   border-color: #22c55e;
-  color: #22c55e;
+  color: #15803d;
 }
 
 .rejectionReason {
