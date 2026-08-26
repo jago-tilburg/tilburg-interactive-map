@@ -15,7 +15,14 @@ service cloud.firestore {
         // legitimate signup is never rejected — same philosophy as
         // businessEvents' create rule below.
         && request.resource.data.email is string && request.resource.data.email.size() <= 320
-        && request.resource.data.displayName is string && request.resource.data.displayName.size() <= 200;
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() <= 200
+        // marketingConsent itself is set later via update (the onboarding
+        // step, PLAN-INLOGGEN.md §8) — update stays intentionally
+        // unconstrained like businesses/{uid}'s (see input-validation
+        // history), but a create that happens to include it up front still
+        // gets typed-checked.
+        && (!('marketingConsent' in request.resource.data)
+          || request.resource.data.marketingConsent is bool);
     }
 
     // Business account profiles. Same owner-only shape as visitors/{uid}.

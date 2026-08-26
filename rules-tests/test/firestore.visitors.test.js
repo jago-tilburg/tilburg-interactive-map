@@ -56,6 +56,21 @@ describe("visitors/{uid} create", () => {
     const db = testEnv.authenticatedContext(UID).firestore();
     await assertSucceeds(setDoc(doc(db, "visitors", UID), validProfile));
   });
+
+  it("allows create without marketingConsent", async () => {
+    const db = testEnv.authenticatedContext(UID).firestore();
+    await assertSucceeds(setDoc(doc(db, "visitors", UID), validProfile));
+  });
+
+  it("allows create with a boolean marketingConsent", async () => {
+    const db = testEnv.authenticatedContext(UID).firestore();
+    await assertSucceeds(setDoc(doc(db, "visitors", UID), { ...validProfile, marketingConsent: true }));
+  });
+
+  it("denies create with a non-boolean marketingConsent", async () => {
+    const db = testEnv.authenticatedContext(UID).firestore();
+    await assertFails(setDoc(doc(db, "visitors", UID), { ...validProfile, marketingConsent: "yes" }));
+  });
 });
 
 describe("visitors/{uid} read", () => {

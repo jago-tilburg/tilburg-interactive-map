@@ -37,7 +37,11 @@ const csp = [
   // the map renders with zero shop markers while Firestore-backed events
   // still show (Firestore uses fetch/XHR, so connect-src alone covers it).
   // Reproduced on a real iPhone on 5G, 2026-08-26.
-  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://maps.googleapis.com https://www.instagram.com https://*.firebasedatabase.app",
+  // apis.google.com + accounts.google.com: the Google Identity/GSI SDK that
+  // signInWithPopup()/signInWithRedirect() load for "Doorgaan met Google"
+  // (PLAN-INLOGGEN.md §7) — without these the popup script itself is
+  // CSP-blocked before Google's own auth flow ever runs.
+  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://maps.googleapis.com https://www.instagram.com https://*.firebasedatabase.app https://apis.google.com https://accounts.google.com",
   // fonts.googleapis.com: NOT this app's own fonts (those are self-hosted
   // via next/font/google at build time) — the rendered Maps widget itself
   // loads its own UI-chrome stylesheets (map control icons/labels) from
@@ -52,7 +56,13 @@ const csp = [
   // under script-src also hosts its poll in a hidden iframe, against a
   // server-assigned shard host (s-gke-euw1-...europe-west1.firebasedatabase.app),
   // not the namespace host — hence the wildcard rather than an exact origin.
-  "frame-src 'self' https://www.instagram.com https://*.firebasedatabase.app",
+  // *.firebaseapp.com + accounts.google.com: the Google sign-in popup/
+  // redirect (PLAN-INLOGGEN.md §7) — its OAuth handshake round-trips through
+  // Firebase's own /__/auth/handler page on the authDomain (default
+  // <project>.firebaseapp.com; wildcarded rather than hardcoded so this
+  // doesn't need updating if authDomain ever moves to a 2happies.nl
+  // subdomain) and through accounts.google.com's own consent screen.
+  "frame-src 'self' https://www.instagram.com https://*.firebasedatabase.app https://*.firebaseapp.com https://accounts.google.com",
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",

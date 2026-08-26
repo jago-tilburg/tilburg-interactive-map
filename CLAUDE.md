@@ -2,7 +2,19 @@
 
 Single-file food/shop map for Tilburg. Live at **https://2happies.nl**.
 
-## Architecture
+## Two codebases in this repo
+
+- **`main`** (prod, what's actually live): the description below — everything in
+  `public/index.html`, no build step.
+- **`staging-next`**: a from-scratch React/Next.js/TypeScript rewrite in `web/`, not yet
+  merged to `main` or live. Has its own build step, its own tests (`web/tests/`, run via
+  `npm test` inside `web/`), and its own Firestore-backed data model alongside the legacy
+  RTDB one. See `PLAN-INLOGGEN.md` in the repo root for the login rework currently in
+  progress there. If you're working in `web/`, this file's Architecture/Deployment
+  sections below don't apply — nothing in `web/` touches `public/index.html`, and pushing
+  `staging-next` does not deploy anything (only `main` does, via the Action below).
+
+## Architecture (main / prod)
 
 - Everything lives in `public/index.html` — HTML/CSS/JS combined, no build step, no framework, no `node_modules`.
 - Google Maps JS API (Places lib) for the map.
