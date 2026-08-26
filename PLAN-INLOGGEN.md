@@ -21,7 +21,9 @@ wachtwoord + Google — zie §1 voor waarom.
 | Inzicht-tab | Statistiekkaarten bovenaan, eigen eventlijst eronder |
 | Nieuw-event-tab | Formulier **direct op de pagina**, geen venster |
 | Marketingtoestemming | Aan **iedereen** gevraagd bij de eerste keer inloggen |
+| E-mailverificatie | Verificatiemail bij registratie + een blijvende herinnering in de app. **Niet blokkerend.** |
 | Magic link | Gaat eruit — één inlogflow voor iedereen |
+| Bestaande testaccounts | **Worden gewist** — geen migratiepad nodig |
 
 ### Aanname die ik zelf heb ingevuld
 Op het keuzescherm staat de derde knop er **altijd**. Heb je nog geen event-profiel, dan leest
@@ -101,12 +103,33 @@ in `web/src/types/account.ts` blijft precies zoals het is.
   bijhoudt in plaats van alleen de laatste stand. Nu overkill, maar noem het als je ooit een
   klacht moet kunnen navertellen.
 
-### Eén ding dat je met wachtwoorden erbij krijgt: onbevestigde adressen
+### E-mailverificatie
 Bij een code-inlog wás het adres bewezen — je had de code immers. Bij wachtwoordregistratie is
-`emailVerified` **onwaar**, en dan zit je met een marketingtoestemming op een adres dat niemand
-heeft bevestigd. Voorstel: bij registratie `sendEmailVerification` sturen (Firebase doet dat
-zelf), het gebruik van de app er **niet** op blokkeren, maar in een toekomstige mailinglijst
-alleen bevestigde adressen meenemen. Google-gebruikers zijn per definitie al bevestigd.
+`emailVerified` **onwaar**, en dan zou je een marketingtoestemming hebben op een adres dat
+niemand heeft bevestigd.
+
+Daarom: **bij registratie `sendEmailVerification`** (Firebase verstuurt die mail zelf, geen
+provider nodig), en daarna een blijvende herinnering in de app tot het gebeurd is. **Niet
+blokkerend** — je kunt de app volledig gebruiken met een onbevestigd adres. Wel blijft staan dat
+een toekomstige mailinglijst alleen bevestigde adressen meeneemt; dát is waar de verificatie
+z'n werk doet.
+
+Google-gebruikers zijn per definitie al bevestigd en zien de herinnering nooit.
+
+Wil je later tóch een harde grens, dan is de natuurlijke plek het **aanmaken van een event** —
+daar zit geld en een openbare vermelding aan vast. Niet nu inbouwen, maar wel de plek om het te
+zetten als je erop terugkomt.
+
+#### De valkuil: `emailVerified` verandert niet vanzelf
+De gebruiker klikt de link in z'n mailprogramma, en dat gebeurt buiten je app om. Het
+`User`-object in de lopende sessie merkt daar **niets** van: `user.emailVerified` blijft `false`
+tot je expliciet `user.reload()` aanroept. Zonder dat blijft de herinnering staan terwijl het
+adres al bevestigd is — en dat is precies het soort ding dat een gebruiker drie keer laat
+klikken en dan opgeeft.
+
+Dus: `reload()` bij het terugkeren naar het tabblad (`visibilitychange`), plus een knop
+"Ik heb het bevestigd" die hetzelfde doet. Firebase knijpt `sendEmailVerification` ook af bij
+te vaak versturen, dus de "opnieuw versturen"-knop krijgt een aftelblokkade van 60 seconden.
 
 ---
 
@@ -140,6 +163,8 @@ geschikt voor "later aangemaakt op een bestaand account".
 - `signInWithGoogle()` — popup, met redirect als terugval
 - `sendPasswordReset(email)` — `sendPasswordResetEmail`
 - `sendVerificationEmail(user)` — `sendEmailVerification`
+- `reloadCurrentUser()` — `user.reload()`, nodig om een inmiddels bevestigd adres op te pikken
+  (zie §3)
 
 **Omgedoopt:**
 - `loginBusiness` → `signInWithPassword` — het is geen bedrijfsdinges meer, het is *de* inlog
@@ -177,9 +202,11 @@ wachtwoordregistratie logt de client zichzelf in vóórdat het profiel bestaat, 
 dat ref-veld afdekt (uitvoerig beschreven op `useAuth.tsx:38-44` en
 `BusinessAuthModal.tsx:88-98`) blijft echt bestaan. Niet weghalen.
 
-Erbij in de context: `refreshCurrentVisitor` naast de bestaande `refreshCurrentBusiness`, en
-`needsOnboarding` — waar of onwaar op basis van "heeft dit bezoekersprofiel al een
-`marketingConsent`-veld".
+Erbij in de context: `refreshCurrentVisitor` naast de bestaande `refreshCurrentBusiness`,
+`needsOnboarding` (waar of onwaar op basis van "heeft dit bezoekersprofiel al een
+`marketingConsent`-veld"), en `emailVerified` — die laatste als eigen state, niet als
+`currentUser.emailVerified`, want dat veld verandert pas na een `reload()` en een React-state
+buiten het `User`-object om is de enige manier waarop een hertekening ook echt volgt.
 
 ---
 
@@ -285,6 +312,29 @@ je bedrijfsnaam (`createBusinessProfile`, bestaat al) voordat hij je naar `/bedr
 Dit is één component met drie standen (`onboarding` → `chooser` → `createBusiness`) in hetzelfde
 venster als het inlogscherm. Geen route-gedoe, geen flits van de kaart ertussen.
 
+### De verificatieherinnering
+Nieuw component `components/auth/EmailVerifyNotice.tsx`. Zichtbaar zolang je ingelogd bent met
+een onbevestigd adres — dus niet voor Google-gebruikers, en niet voor uitgelogde bezoekers.
+
+```
+  ┌────────────────────────────────────────┐
+  │ ✉  Bevestig je e-mailadres             │
+  │    We hebben een link gestuurd naar    │
+  │    jago@example.nl                     │
+  │    [ Ik heb het bevestigd ]            │
+  │    [ Opnieuw versturen (58s) ]      ✕  │
+  └────────────────────────────────────────┘
+```
+
+Twee plekken, want dat is waar je bent:
+- als strook onder de header op de kaart
+- als strook boven de tabs op `/bedrijf`
+
+Wegklikken met ✕ verbergt hem voor de rest van de sessie (`sessionStorage`, niet
+`localStorage` — bij de volgende keer dat je de app opent hoort hij er weer te zijn, anders is
+het geen herinnering meer). "Ik heb het bevestigd" doet `reload()` en laat een toast zien als het
+adres nog steeds onbevestigd is; anders verdwijnt de strook.
+
 ---
 
 ## 9. `/bedrijf` — de schermvullende bedrijfsomgeving
@@ -374,20 +424,35 @@ rollen hebt ook bedrijfsomgeving en adminpaneel.
 
 ---
 
-## 11. Wat er met bestaande accounts gebeurt
+## 11. Bestaande accounts: wissen
 
-Prod draait nog de oude monoliet op RTDB, dus er zijn **geen echte accounts** die dit raakt —
-alleen testaccounts op staging.
+Prod draait nog de oude monoliet op RTDB, dus er zijn **geen echte accounts** die dit raakt.
+Alles wat er op staging staat is testmateriaal en mag weg. Daarmee verdwijnt het enige
+migratiepunt dat dit plan had — magic-link-accounts zonder wachtwoord hoeven nergens naartoe
+gered te worden.
 
-- **Bestaande bedrijfsaccounts** (met wachtwoord) blijven gewoon werken. Geen migratie.
-- **Bestaande bezoekersaccounts uit de magic-link-flow hebben geen wachtwoord.** Dat is het enige
-  echte migratiepunt van dit plan. In theorie zet "wachtwoord vergeten" er een op — een
-  magic-link-user valt onder dezelfde Email/Password-provider — maar **dat moet je live
-  verifiëren voordat de magic link eruit gaat**, want als `sendPasswordResetEmail` op zo'n
-  account `auth/user-not-found` teruggeeft, kunnen die accounts nergens meer bij. Terugvalpaden
-  als het misgaat: die gebruikers via Google laten inloggen, of eenmalig een wachtwoord zetten
-  met de Admin SDK. Het gaat om een handvol testaccounts, dus dit is klein — maar niet iets om
-  aan te nemen.
+Eenmalig Admin-SDK-scriptje in `scripts/`, in deze volgorde:
+
+1. **`businessEvents`** waarvan de `ownerId` bij een te wissen account hoort, doc per doc.
+   Niet in bulk via `firebase firestore:delete`, en niet ná de accounts — want deze deletes
+   moeten `cleanupBusinessEventPhotos` afvuren, en dat is de enige manier waarop de bijbehorende
+   foto's uit Storage verdwijnen. Wis je de accounts eerst, dan weet je niet meer welke events
+   erbij hoorden en houd je zwevende foto's over die niets meer opruimt.
+2. **`visitors/*` en `businesses/*`** — die zijn niet aan triggers gekoppeld, dus bulk mag.
+3. **De Auth-users**, met `listUsers()` + `deleteUsers()` in batches.
+
+**Let op met het adminaccount.** Admin-zijn hangt aan `admins/{uid}`, en die uid is de
+Auth-uid. Wis je je eigen adminaccount mee, dan maak je een nieuwe user aan met een **nieuwe
+uid** en werkt dat `admins`-document niet meer — en `admins` is client-side niet schrijfbaar
+(`allow read, write: if false`), dus je kunt het ook niet even vanuit de app rechtzetten. Twee
+opties: het adminaccount uitzonderen van de wipe, of hem meewissen en direct daarna met de
+Admin SDK een nieuw `admins/{nieuwe-uid}`-document schrijven. De eerste is minder spannend.
+
+Wat er **niet** gewist wordt: de 62 echte winkels in RTDB, en de `umbrellaEvents`. Die hangen
+niet aan een account.
+
+Het script draait één keer, tegen staging, en gaat daarna weg — geen permanent stukje
+gereedschap dat per ongeluk tegen prod kan wijzen.
 
 ---
 
@@ -405,6 +470,9 @@ alleen testaccounts op staging.
 - `/bedrijf`: zonder bedrijfsprofiel word je weggestuurd
 - `BusinessShell`: tabs wisselen, tabstand uit de URL
 - `BusinessEventForm`: de bestaande modal-tests moeten **ongewijzigd** groen blijven
+- `EmailVerifyNotice`: onzichtbaar bij een bevestigd adres en bij Google; "Ik heb het bevestigd"
+  roept `reload()` aan; blijft staan mét toast als het adres nóg niet bevestigd is; wegklikken
+  houdt binnen de sessie stand maar niet erbuiten; de hersturen-blokkade telt af en laat weer los
 
 **Rules (`rules-tests/`)** — let op: `export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"` nodig
 - `visitors` create met, zonder, en met een niet-boolean `marketingConsent`
@@ -415,9 +483,10 @@ wachtwoord kan volledig geautomatiseerd, zonder testmodus of achterdeur in een C
 Alleen Google blijft handwerk.
 
 **Live op staging**, met een echt weggooi-adres. Minimaal: registreren, inloggen, wachtwoord
-vergeten, Google op een nieuw adres, Google op een adres dat al een wachtwoord had (de
-koppeling), een magic-link-account uit de oude flow (zie §11), event-profiel erbij maken, en
-`/bedrijf` op een telefoon.
+vergeten, **de verificatiemail daadwerkelijk ontvangen en de link aanklikken** (en dan kijken of
+de strook ook echt verdwijnt — zie de valkuil in §3), Google op een nieuw adres, Google op een
+adres dat al een wachtwoord had (de koppeling), event-profiel erbij maken, en `/bedrijf` op een
+telefoon.
 
 ---
 
@@ -428,10 +497,12 @@ koppeling), een magic-link-account uit de oude flow (zie §11), event-profiel er
 2. **Authorized domains** nakijken voor staging én 2happies.nl — dit is eerder al een keer
    stukgelopen.
 3. Eventueel `authDomain` naar een subdomein van 2happies.nl verleggen, voor Safari.
-4. Optioneel: de Firebase-mailtemplates voor wachtwoord-reset en e-mailverificatie in het
-   Nederlands zetten. Standaard zijn ze Engels en komen ze van
-   `noreply@<project>.firebaseapp.com`; een eigen afzenderdomein vereist DNS-records, maar dat
-   is nu een verfraaiing en geen blokkade.
+4. **De Firebase-mailtemplates in het Nederlands zetten** — verificatie én wachtwoord-reset.
+   Standaard zijn ze Engels en komen ze van `noreply@<project>.firebaseapp.com`. Dit stond
+   eerst als "optioneel", maar nu de app iedereen actief om verificatie vraagt, is die mail
+   onderdeel van de flow geworden en niet langer een uithoek: een Engelse mail van een
+   `firebaseapp.com`-afzender ziet uit als phishing en wordt niet aangeklikt. Een eigen
+   afzenderdomein vereist DNS-records en is nog steeds optioneel; de Nederlandse tekst niet.
 
 Geen Resend, geen secrets, geen TTL-policy. Dat is de winst van deze keuze.
 
@@ -441,15 +512,21 @@ Geen Resend, geen secrets, geen TTL-policy. Dat is de winst van deze keuze.
 
 | Fase | Wat | Los te verifiëren? |
 |---|---|---|
+| 0 | Testaccounts wissen (§11) | Ja — tellen in de console |
 | 1 | `auth.ts` opschonen + `useAuth.tsx` naar dubbele rol | Ja — units |
 | 2 | Inlogscherm in login7-layout, drie standen, + Google | Ja — live op staging |
-| 3 | Onboarding + toestemming + keuzescherm | Ja |
-| 4 | `/bedrijf`, tabs, formulier uit z'n venster | Ja |
-| 5 | Oude componenten weg, CSP, `PrivacyModal`, docs, live-verificatie | — |
+| 3 | Verificatiemail + herinneringsstrook | Ja — live, met een echte mail |
+| 4 | Onboarding + toestemming + keuzescherm | Ja |
+| 5 | `/bedrijf`, tabs, formulier uit z'n venster | Ja |
+| 6 | Oude componenten weg, CSP, `PrivacyModal`, docs, live-verificatie | — |
+
+Fase 0 eerst, en niet later: zolang er nog magic-link-accounts zonder wachtwoord in Auth staan,
+test je in fase 2 tegen accounts die in de nieuwe flow niet kunnen bestaan, en jaag je op fouten
+die na de wipe verdwenen zouden zijn.
 
 Elke fase is los te deployen zonder de app kapot te laten staan, mits het oude inlogscherm pas
-in fase 5 weggaat. Er zit **niets** meer in dit plan dat op een externe dienst of op
-DNS-propagatie wacht — dat was de hele reden voor de koerswijziging.
+in fase 6 weggaat. Er zit **niets** in dit plan dat op een externe dienst of op DNS-propagatie
+wacht — dat was de hele reden voor de koerswijziging.
 
 ---
 
@@ -457,15 +534,16 @@ DNS-propagatie wacht — dat was de hele reden voor de koerswijziging.
 
 | Risico | Hoe erg | Wat we eraan doen |
 |---|---|---|
-| Magic-link-accounts kunnen geen wachtwoord zetten | die accounts onbereikbaar | live verifiëren vóór de magic link eruit gaat (§11); terugval via Google of Admin SDK |
+| De wipe neemt je eigen adminaccount mee | `admins/{uid}` wijst naar een dode uid en is client-side niet te repareren | adminaccount uitzonderen, of direct erna met de Admin SDK een nieuw `admins`-doc schrijven (§11) |
+| Events eerst wissen wordt vergeten | zwevende foto's in Storage die niets meer opruimt | doc-per-doc en vóór de accounts, zodat `cleanupBusinessEventPhotos` afvuurt (§11) |
+| `emailVerified` blijft `false` in de sessie | strook blijft staan na een geslaagde verificatie | `reload()` op `visibilitychange` + "Ik heb het bevestigd"-knop (§3) |
+| Verificatiemail leest als phishing | niemand klikt, dus niemand verifieert | Nederlandse templates (§13); eventueel eigen afzenderdomein |
 | Google-koppeling op een bestaand wachtwoord-account faalt | inlog stuk voor die groep | live testen in fase 2, vóór het oude scherm weggaat |
 | Safari-redirect faalt door storage partitioning | Google werkt niet op iOS | popup eerst; `authDomain` verleggen |
-| Marketingtoestemming op een onbevestigd adres | juridisch wankel | verificatiemail bij registratie; alleen bevestigde adressen in een mailinglijst |
 | Formuliersplitsing sloopt het adminpaneel | 30+ tests, admin-flow | de wrapper houdt dezelfde props; `AdminPanel` wordt niet aangeraakt |
 | Zwakke wachtwoorden | account-overname | minimaal 8 tekens in de UI (Firebase eist er maar 6) |
 | login7 is betaalde code | licentie | layout nabouwen in CSS Modules, hun code niet importeren |
 | Iedereen krijgt een bezoekersprofiel, ook admins | ruis in `visitors` | bewust; het bezoekersprofiel *is* het account |
-```
 
 Twee dingen uit dit plan zijn niet zomaar een detail: **CLAUDE.md in de reporoot beschrijft nog
 de oude monoliet** (`public/index.html`, "geen build step") en klopt niet meer met wat hier
