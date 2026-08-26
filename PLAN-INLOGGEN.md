@@ -441,18 +441,51 @@ Eenmalig Admin-SDK-scriptje in `scripts/`, in deze volgorde:
 2. **`visitors/*` en `businesses/*`** — die zijn niet aan triggers gekoppeld, dus bulk mag.
 3. **De Auth-users**, met `listUsers()` + `deleteUsers()` in batches.
 
-**Let op met het adminaccount.** Admin-zijn hangt aan `admins/{uid}`, en die uid is de
-Auth-uid. Wis je je eigen adminaccount mee, dan maak je een nieuwe user aan met een **nieuwe
-uid** en werkt dat `admins`-document niet meer — en `admins` is client-side niet schrijfbaar
-(`allow read, write: if false`), dus je kunt het ook niet even vanuit de app rechtzetten. Twee
-opties: het adminaccount uitzonderen van de wipe, of hem meewissen en direct daarna met de
-Admin SDK een nieuw `admins/{nieuwe-uid}`-document schrijven. De eerste is minder spannend.
+**Het adminaccount blijft staan** en wordt expliciet uitgezonderd van de wipe. Dat is geen
+gemak maar noodzaak: admin-zijn hangt aan `admins/{uid}` en die uid is de Auth-uid. Wis je hem
+mee, dan krijg je bij het opnieuw aanmaken een **nieuwe uid**, wijst dat `admins`-document naar
+een dode uid, en is `admins` client-side niet schrijfbaar (`allow read, write: if false`) — dus
+je kunt het ook niet even vanuit de app rechtzetten. De uitzonderingslijst in het script gaat
+op **uid**, niet op e-mailadres, zodat een typefout in een adres niet stilletjes je admin
+opruimt.
 
-Wat er **niet** gewist wordt: de 62 echte winkels in RTDB, en de `umbrellaEvents`. Die hangen
-niet aan een account.
+Wat er **niet** gewist wordt: het adminaccount, de 62 echte winkels in RTDB, en de
+`umbrellaEvents`. Die laatste twee hangen niet aan een account.
+
+### Testaccounts die het script daarna aanmaakt
+
+De oude accounts komen uit de magic-link-flow en hebben geen wachtwoord, dus die zijn onbruikbaar
+om mee te testen — ze worden niet gered maar **vers opgebouwd**, met wachtwoorden die je kent:
+
+| Account | Rollen | `emailVerified` | Waarvoor |
+|---|---|---|---|
+| admin *(behouden)* | admin + bezoeker | zoals het is | adminpaneel, en het feit dat admin nu óók een bezoekersprofiel krijgt |
+| test-bezoeker | alleen bezoeker | **false** | de "Event-profiel aanmaken"-tak van het keuzescherm, en de verificatiestrook in levende lijve |
+| test-owner | bezoeker + event owner | true | de dubbele rol, het volledige keuzescherm met drie knoppen, en `/bedrijf` |
+
+Twee dingen over die tabel die de moeite zijn:
+
+**Een event-owner-zonder-bezoekersprofiel bestaat niet meer.** Dat is geen omissie in de
+testdata maar het model zelf: iedereen die inlogt krijgt een bezoekersprofiel, en het
+event-profiel komt erbovenop. Er is dus geen vierde rij, en als er ooit een account opduikt met
+alleen `businesses/{uid}`, is dat een bug.
+
+**`emailVerified: false` op de bezoeker is opzet.** Anders zie je de verificatiestrook nooit
+tijdens het bouwen, en dan merk je de valkuil uit §3 — dat het veld niet vanzelf bijwerkt — pas
+als een echte gebruiker erover struikelt. Gebruik voor beide adressen een inbox die je echt kunt
+openen (plus-adressering op een adres dat je al hebt werkt; Firebase ziet `naam+a@` en `naam+b@`
+als twee losse accounts).
+
+**En test-owner krijgt events**, anders is de Inzicht-tab een leeg vlak en kun je niets zien
+werken: minimaal één `approved` + `paid` event (zodat de LIVE-status en de statistiekkaarten
+iets tonen), één `pending` event (de onbetaalde tak), en op één ervan wat views/clicks/shares
+zodat de cijfers niet allemaal 0 zijn. Die velden zijn server-autoritair en client-side niet
+te zetten, maar de Admin SDK gaat langs de rules heen, dus het seed-script kan ze direct
+schrijven.
 
 Het script draait één keer, tegen staging, en gaat daarna weg — geen permanent stukje
-gereedschap dat per ongeluk tegen prod kan wijzen.
+gereedschap dat per ongeluk tegen prod kan wijzen. Vóór het wist, print het wat het gaat wissen
+en wat het overslaat, en wacht op een bevestiging.
 
 ---
 
@@ -482,7 +515,8 @@ gereedschap dat per ongeluk tegen prod kan wijzen.
 wachtwoord kan volledig geautomatiseerd, zonder testmodus of achterdeur in een Cloud Function.
 Alleen Google blijft handwerk.
 
-**Live op staging**, met een echt weggooi-adres. Minimaal: registreren, inloggen, wachtwoord
+**Live op staging**, met de drie accounts uit §11 plus een vers weggooi-adres voor de
+registratieflow zelf. Minimaal: registreren, inloggen, wachtwoord
 vergeten, **de verificatiemail daadwerkelijk ontvangen en de link aanklikken** (en dan kijken of
 de strook ook echt verdwijnt — zie de valkuil in §3), Google op een nieuw adres, Google op een
 adres dat al een wachtwoord had (de koppeling), event-profiel erbij maken, en `/bedrijf` op een
@@ -512,7 +546,7 @@ Geen Resend, geen secrets, geen TTL-policy. Dat is de winst van deze keuze.
 
 | Fase | Wat | Los te verifiëren? |
 |---|---|---|
-| 0 | Testaccounts wissen (§11) | Ja — tellen in de console |
+| 0 | Testaccounts wissen + drie verse aanmaken met events (§11) | Ja — tellen in de console |
 | 1 | `auth.ts` opschonen + `useAuth.tsx` naar dubbele rol | Ja — units |
 | 2 | Inlogscherm in login7-layout, drie standen, + Google | Ja — live op staging |
 | 3 | Verificatiemail + herinneringsstrook | Ja — live, met een echte mail |
@@ -534,7 +568,7 @@ wacht — dat was de hele reden voor de koerswijziging.
 
 | Risico | Hoe erg | Wat we eraan doen |
 |---|---|---|
-| De wipe neemt je eigen adminaccount mee | `admins/{uid}` wijst naar een dode uid en is client-side niet te repareren | adminaccount uitzonderen, of direct erna met de Admin SDK een nieuw `admins`-doc schrijven (§11) |
+| De wipe neemt het adminaccount mee | `admins/{uid}` wijst naar een dode uid en is client-side niet te repareren | uitgezonderd op **uid**, niet op e-mailadres (§11); droogloop-uitdraai vóór het wissen |
 | Events eerst wissen wordt vergeten | zwevende foto's in Storage die niets meer opruimt | doc-per-doc en vóór de accounts, zodat `cleanupBusinessEventPhotos` afvuurt (§11) |
 | `emailVerified` blijft `false` in de sessie | strook blijft staan na een geslaagde verificatie | `reload()` op `visibilitychange` + "Ik heb het bevestigd"-knop (§3) |
 | Verificatiemail leest als phishing | niemand klikt, dus niemand verifieert | Nederlandse templates (§13); eventueel eigen afzenderdomein |
