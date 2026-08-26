@@ -264,6 +264,17 @@ describe("AdminPanel shops tab", () => {
     await user.click(screen.getByText("Reviews (1)"));
     expect(screen.getByText(/Test Shop/)).toBeInTheDocument();
   });
+
+  it("switches tabs via the right-arrow key (Radix Tabs keyboard nav)", async () => {
+    emittedShops = [makeShop({ userRatings: [] })];
+    const user = userEvent.setup();
+    render(<AdminPanel open onClose={vi.fn()} />);
+
+    screen.getByText("Reviews (1)").focus();
+    await user.keyboard("{ArrowRight}");
+
+    expect(screen.getByText("Nog geen ratings van gebruikers ⭐")).toBeInTheDocument();
+  });
 });
 
 describe("AdminPanel userRatings tab", () => {

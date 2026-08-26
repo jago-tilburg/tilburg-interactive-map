@@ -125,6 +125,17 @@ describe("BusinessDashboard", () => {
     expect(screen.getByText(/Nog geen evenementen/)).toBeInTheDocument();
   });
 
+  it("switches to the settings tab via the right-arrow key (Radix Tabs keyboard nav)", async () => {
+    mockUseAuth.mockReturnValue({ currentBusiness: business });
+    const user = userEvent.setup();
+    render(<BusinessDashboard open onClose={vi.fn()} />);
+
+    screen.getByText("Events").focus();
+    await user.keyboard("{ArrowRight}");
+
+    expect(screen.getByLabelText("Bedrijfsnaam")).toBeInTheDocument();
+  });
+
   it("lists events with status and schedule, and opens the create form", async () => {
     emittedEvents = [makeEvent()];
     mockUseAuth.mockReturnValue({ currentBusiness: business });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Tabs } from "radix-ui";
 import { Modal } from "@/components/common/Modal";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
@@ -222,26 +223,25 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
           </div>
         </div>
 
-        <div className={styles.dashTabs}>
-          <button
-            type="button"
+        <Tabs.Root value={dashTab} onValueChange={(v) => setDashTab(v as "events" | "settings")}>
+        <Tabs.List className={styles.dashTabs}>
+          <Tabs.Trigger
+            value="events"
             className={dashTab === "events" ? styles.dashTabActive : styles.dashTab}
-            onClick={() => setDashTab("events")}
           >
             Events
-          </button>
-          <button
-            type="button"
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="settings"
             className={dashTab === "settings" ? styles.dashTabActive : styles.dashTab}
-            onClick={() => setDashTab("settings")}
           >
             Instellingen
-          </button>
-        </div>
+          </Tabs.Trigger>
+        </Tabs.List>
 
         {error && <p className={styles.error} role="alert">{error}</p>}
 
-        {dashTab === "events" ? (
+        <Tabs.Content value="events">
           <>
             <button type="button" className={styles.newEventButton} onClick={openCreateForm}>
               + Nieuw evenement
@@ -310,7 +310,9 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
               )}
             </div>
           </>
-        ) : (
+        </Tabs.Content>
+
+        <Tabs.Content value="settings">
           <form className={styles.settingsForm} onSubmit={handleSaveSettings}>
             <label htmlFor="biz-settings-name">Bedrijfsnaam</label>
             <input
@@ -366,7 +368,8 @@ export function BusinessDashboard({ open, onClose }: BusinessDashboardProps) {
               {settingsSaving ? "Opslaan…" : "Instellingen opslaan"}
             </button>
           </form>
-        )}
+        </Tabs.Content>
+        </Tabs.Root>
 
         <div className={styles.footerActions}>
           <button type="button" onClick={handleLogout}>

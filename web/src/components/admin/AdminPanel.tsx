@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Tabs } from "radix-ui";
 import { Modal } from "@/components/common/Modal";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
@@ -240,50 +241,46 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
         onClose={onClose}
         title="Beheerpaneel"
       >
-        <div className={styles.tabs}>
-          <button type="button" className={tab === "shops" ? styles.tabActive : styles.tab} onClick={() => setTab("shops")}>
+        <Tabs.Root value={tab} onValueChange={(v) => setTab(v as Tab)}>
+        <Tabs.List className={styles.tabs}>
+          <Tabs.Trigger value="shops" className={tab === "shops" ? styles.tabActive : styles.tab}>
             Reviews ({shops.length})
-          </button>
-          <button
-            type="button"
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="userRatings"
             className={tab === "userRatings" ? styles.tabActive : styles.tab}
-            onClick={() => setTab("userRatings")}
           >
             ⭐ User Ratings ({allRatings.length})
-          </button>
-          <button
-            type="button"
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="requests"
             className={tab === "requests" ? styles.tabActive : styles.tab}
-            onClick={() => setTab("requests")}
           >
             🥪 Aanvragen ({requests.length})
-          </button>
-          <button
-            type="button"
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="businessEvents"
             className={tab === "businessEvents" ? styles.tabActive : styles.tab}
-            onClick={() => setTab("businessEvents")}
           >
             🎉 Bedrijfsevents ({events.length})
-          </button>
-          <button
-            type="button"
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="umbrellaEvents"
             className={tab === "umbrellaEvents" ? styles.tabActive : styles.tab}
-            onClick={() => setTab("umbrellaEvents")}
           >
             🎪 Grote evenementen ({umbrellas.length})
-          </button>
-          <button
-            type="button"
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="reports"
             className={tab === "reports" ? styles.tabActive : styles.tab}
-            onClick={() => setTab("reports")}
           >
             🚩 Meldingen ({openReports.length})
-          </button>
-        </div>
+          </Tabs.Trigger>
+        </Tabs.List>
 
         {error && <p className={styles.error} role="alert">{error}</p>}
 
-        {tab === "shops" && (
+        <Tabs.Content value="shops">
           <div className={styles.list}>
             <button
               type="button"
@@ -320,10 +317,10 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
               </div>
             ))}
           </div>
-        )}
+        </Tabs.Content>
 
-        {tab === "userRatings" &&
-          (allRatings.length === 0 ? (
+        <Tabs.Content value="userRatings">
+          {allRatings.length === 0 ? (
             <p className={styles.empty}>Nog geen ratings van gebruikers ⭐</p>
           ) : (
             <div className={styles.list}>
@@ -338,10 +335,11 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
                 </div>
               ))}
             </div>
-          ))}
+          )}
+        </Tabs.Content>
 
-        {tab === "requests" &&
-          (sortedRequests.length === 0 ? (
+        <Tabs.Content value="requests">
+          {sortedRequests.length === 0 ? (
             <p className={styles.empty}>Nog geen aanvragen 🥪</p>
           ) : (
             <div className={styles.list}>
@@ -359,9 +357,10 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
                 </div>
               ))}
             </div>
-          ))}
+          )}
+        </Tabs.Content>
 
-        {tab === "businessEvents" && (
+        <Tabs.Content value="businessEvents">
           <div className={styles.list}>
             {currentUser && (
               <button type="button" className={styles.addButton} onClick={() => setQuickEventFormOpen(true)}>
@@ -469,9 +468,9 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
               })
             )}
           </div>
-        )}
+        </Tabs.Content>
 
-        {tab === "umbrellaEvents" && (
+        <Tabs.Content value="umbrellaEvents">
           <div className={styles.list}>
             <button
               type="button"
@@ -508,10 +507,10 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
               </div>
             ))}
           </div>
-        )}
+        </Tabs.Content>
 
-        {tab === "reports" &&
-          (sortedReports.length === 0 ? (
+        <Tabs.Content value="reports">
+          {sortedReports.length === 0 ? (
             <p className={styles.empty}>Nog geen meldingen 🚩</p>
           ) : (
             <div className={styles.list}>
@@ -545,7 +544,9 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
                 </div>
               ))}
             </div>
-          ))}
+          )}
+        </Tabs.Content>
+        </Tabs.Root>
       </Modal>
 
       <ShopFormModal open={shopFormOpen} onClose={() => setShopFormOpen(false)} editingShop={editingShop} />
