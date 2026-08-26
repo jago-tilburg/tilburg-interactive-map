@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import { Fraunces, Paytone_One, DM_Sans } from "next/font/google";
 import Script from "next/script";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -27,18 +27,6 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "2happies (staging-next)",
   description: "2happies.nl Next.js rewrite — staging",
-};
-
-// viewportFit: "cover" lets the page draw under the iOS status bar/notch
-// instead of Safari leaving a default margin — required for
-// env(safe-area-inset-*) to report real (non-zero) values at all. Without
-// it, Header.module.css's safe-area padding below would be a no-op and the
-// header's account/hamburger buttons render under the status bar on iPhones
-// with a notch/Dynamic Island (found live: reported as "header is hidden").
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
