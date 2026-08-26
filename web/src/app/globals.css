@@ -32,6 +32,13 @@
 
 html {
   height: 100%;
+  /* Belt-and-braces with body's own touch-action below — pinch-zoom
+     started working again live once viewport-fit=cover + a sticky header
+     landed (2026-08-26), and touch-action set only on body wasn't enough
+     to keep blocking it on every element once that changed something about
+     how Safari dispatches the gesture. Setting it here too didn't make
+     things worse and is the standard "belt and braces" placement. */
+  touch-action: pan-x pan-y;
 }
 
 html,

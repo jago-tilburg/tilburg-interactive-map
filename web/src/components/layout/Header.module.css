@@ -26,6 +26,13 @@
      changes nothing visually besides (hopefully) fixing the inset. */
   position: sticky;
   top: 0;
+  /* Pinch-zoom started working again live the moment this became
+     position: sticky — a sticky element can get its own compositing layer
+     in Safari, and that layer didn't reliably inherit body's touch-action
+     block on the gesture. Redundant with html/body's own touch-action
+     (globals.css) but that's the point — this is the element that actually
+     regressed. */
+  touch-action: pan-x pan-y;
 }
 
 /* The title is the only part of the header allowed to give up space, so the
