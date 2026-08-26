@@ -56,6 +56,22 @@ describe("businesses/{uid} create", () => {
     const db = testEnv.authenticatedContext(UID).firestore();
     await assertSucceeds(setDoc(doc(db, "businesses", UID), validProfile));
   });
+
+  // The dual-role model (PLAN-INLOGGEN.md §6): everyone who signs in gets a
+  // visitors/{uid} doc first, and an event-profile is added on top of that
+  // same account later — an existing visitor profile at this uid must never
+  // block creating a business one.
+  it("allows create on a uid that already has a visitor profile", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "visitors", UID), {
+        email: "biz@example.com",
+        displayName: "biz",
+        createdAt: Date.now(),
+      });
+    });
+    const db = testEnv.authenticatedContext(UID).firestore();
+    await assertSucceeds(setDoc(doc(db, "businesses", UID), validProfile));
+  });
 });
 
 describe("businesses/{uid} read", () => {
