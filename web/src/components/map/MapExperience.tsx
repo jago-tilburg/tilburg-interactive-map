@@ -9,6 +9,7 @@ import { ShopDetailModal } from "@/components/shops/ShopDetailModal";
 import { ShopFormModal } from "@/components/shops/ShopFormModal";
 import { BusinessEventDetailModal } from "@/components/events/BusinessEventDetailModal";
 import { UmbrellaEventDetailModal } from "@/components/events/UmbrellaEventDetailModal";
+import { EmailVerifyNotice } from "@/components/auth/EmailVerifyNotice";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { useMapFilterState } from "@/hooks/useMapFilterState";
@@ -217,6 +218,7 @@ export function MapExperience({ apiKey, initialSelection, paymentStatus }: MapEx
         loading={!shopsLoaded || !eventsLoaded}
         filterState={filterState}
       />
+      <EmailVerifyNotice />
 
       <div className={styles.mainContent}>
         <ShopMap

@@ -31,7 +31,11 @@ interface AuthState {
   // field only updates in place after an explicit reload(), which doesn't
   // itself trigger a React re-render (PLAN-INLOGGEN.md §3's "valkuil").
   emailVerified: boolean;
-  refreshEmailVerified: () => Promise<void>;
+  // Returns the freshly-reloaded value directly — callers that need to
+  // react to the result (e.g. "still not verified, check your inbox")
+  // can't rely on reading `emailVerified` in the same tick, since the
+  // state update above it hasn't committed yet.
+  refreshEmailVerified: () => Promise<boolean>;
   // Re-fetches the signed-in business's own profile doc — currentBusiness is
   // a one-time read (not a live subscription), so a Settings-tab save needs
   // this to make the update visible without a full re-login.
@@ -145,10 +149,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentVisitor(visitor);
   }
 
-  async function refreshEmailVerified() {
-    if (!currentUser) return;
+  async function refreshEmailVerified(): Promise<boolean> {
+    if (!currentUser) return false;
     await reloadCurrentUser(currentUser);
     setEmailVerified(currentUser.emailVerified);
+    return currentUser.emailVerified;
   }
 
   const needsOnboarding = !loading && !!currentVisitor && currentVisitor.marketingConsentAt === undefined;

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useState } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { User } from "firebase/auth";
@@ -55,6 +56,7 @@ function TestConsumer() {
     loading,
     suppressAutoProfileLoadRef,
   } = useAuth();
+  const [lastVerifiedResult, setLastVerifiedResult] = useState<string>("unset");
   return (
     <div>
       <span data-testid="loading">{String(loading)}</span>
@@ -64,12 +66,15 @@ function TestConsumer() {
       <span data-testid="business">{currentBusiness?.businessName ?? "none"}</span>
       <span data-testid="verified">{String(emailVerified)}</span>
       <span data-testid="needs-onboarding">{String(needsOnboarding)}</span>
+      <span data-testid="verified-result">{lastVerifiedResult}</span>
       <button onClick={() => { suppressAutoProfileLoadRef.current = true; }}>suppress</button>
       <button onClick={() => refreshCurrentBusiness()}>refresh-business</button>
       <button onClick={() => refreshCurrentBusiness("fresh-uid")}>refresh-business-with-uid</button>
       <button onClick={() => refreshCurrentVisitor()}>refresh-visitor</button>
       <button onClick={() => refreshCurrentVisitor("fresh-uid")}>refresh-visitor-with-uid</button>
-      <button onClick={() => refreshEmailVerified()}>refresh-verified</button>
+      <button onClick={() => refreshEmailVerified().then((v) => setLastVerifiedResult(String(v)))}>
+        refresh-verified
+      </button>
     </div>
   );
 }
@@ -327,13 +332,15 @@ describe("emailVerified", () => {
     await user.click(screen.getByText("refresh-verified"));
     await waitFor(() => expect(screen.getByTestId("verified")).toHaveTextContent("true"));
     expect(reloadCurrentUser).toHaveBeenCalledWith(liveUser);
+    expect(screen.getByTestId("verified-result")).toHaveTextContent("true");
   });
 
-  it("refreshEmailVerified does nothing when signed out", async () => {
+  it("refreshEmailVerified does nothing and resolves false when signed out", async () => {
     const user = userEvent.setup();
     captureAuthCallback();
     await user.click(screen.getByText("refresh-verified"));
     expect(reloadCurrentUser).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByTestId("verified-result")).toHaveTextContent("false"));
   });
 });
 
