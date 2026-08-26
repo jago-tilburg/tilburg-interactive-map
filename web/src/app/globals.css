@@ -32,12 +32,9 @@
 
 html {
   height: 100%;
-  /* Belt-and-braces with body's own touch-action below — pinch-zoom
-     started working again live once viewport-fit=cover + a sticky header
-     landed (2026-08-26), and touch-action set only on body wasn't enough
-     to keep blocking it on every element once that changed something about
-     how Safari dispatches the gesture. Setting it here too didn't make
-     things worse and is the standard "belt and braces" placement. */
+  /* Belt-and-braces with body's own touch-action below — kept after a live
+     regression (2026-08-26) where a since-reverted position: sticky header
+     stopped inheriting body's pinch-zoom block. Harmless here either way. */
   touch-action: pan-x pan-y;
 }
 
@@ -57,6 +54,15 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Insets the whole app shell below the iOS status bar/notch — 0 on
+     anything without one, and everywhere unless layout.tsx's viewport
+     export sets viewportFit: "cover". Applied here (not on Header directly)
+     after three live rounds of a position: sticky Header fix each trading
+     one Safari bug for another (missed inset, then broke pinch-zoom, then
+     collapsed the header) — this is the plain, well-tested version of the
+     same fix. Trade-off: Header's own gradient no longer runs under the
+     notch, this background color does instead. */
+  padding-top: env(safe-area-inset-top, 0px);
   /* Disables pinch/double-tap zoom on the app shell (mobile) without the
      accessibility downside of `user-scalable=no` in the viewport meta tag —
      touch-action is per-element, so the map re-enables it on itself below
