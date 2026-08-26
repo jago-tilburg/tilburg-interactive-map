@@ -233,6 +233,8 @@ export function MapFilterPanel({
         <button
           type="button"
           className={filtersExpanded ? styles.collapseBtnOpen : styles.collapseBtn}
+          aria-label="Meer filters"
+          aria-expanded={filtersExpanded}
           onClick={(e) => {
             e.stopPropagation();
             setFiltersExpanded((v) => !v);

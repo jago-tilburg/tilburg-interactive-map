@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { PrivacyModal } from "@/components/common/PrivacyModal";
 import { AdminLoginModal } from "@/components/auth/AdminLoginModal";
 import { ratingColor } from "@/lib/shops/shopHelpers";
@@ -70,6 +71,12 @@ export function MenuModal({
   const [sort, setSort] = useState<SortOption>("rating-desc");
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [adminLoginOpen, setAdminLoginOpen] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Gated on the nested modals below (mirrors ShopDetailModal's
+  // open={open && !nestedOpen} pattern) so Escape/Tab only ever affect the
+  // topmost open dialog — otherwise this dialog's own trap would stay hot
+  // while PrivacyModal/AdminLoginModal are open on top of it.
+  useFocusTrap(dialogRef, open && !privacyOpen && !adminLoginOpen, onClose);
 
   if (!open) return null;
 
@@ -105,7 +112,15 @@ export function MenuModal({
 
   return (
     <div className={styles.overlay} role="presentation" onClick={onClose}>
-      <div className={styles.container} role="dialog" aria-label="Alle 2 Happies" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className={styles.container}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Alle 2 Happies"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={styles.header}>
           <h2>ALLE 2 HAPPIES</h2>
           <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Sluiten">
@@ -223,7 +238,12 @@ export function MenuModal({
         </div>
 
         {!isAdmin && (
-          <button type="button" className={styles.footerLink} onClick={() => setAdminLoginOpen(true)}>
+          <button
+            type="button"
+            className={styles.footerLink}
+            aria-label="Beheerder inloggen"
+            onClick={() => setAdminLoginOpen(true)}
+          >
             🔐
           </button>
         )}

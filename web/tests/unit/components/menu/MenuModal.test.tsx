@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockUseAuth = vi.fn();
@@ -144,6 +144,17 @@ describe("MenuModal", () => {
     const { onSelectEvent } = setup();
     await user.click(screen.getByText("Kermis Rit"));
     expect(onSelectEvent).toHaveBeenCalledWith("evt1");
+  });
+
+  it("has aria-modal set on the dialog", () => {
+    setup();
+    expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
+  });
+
+  it("closes on Escape", () => {
+    const { onClose } = setup();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("closes when the close button is clicked", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import styles from "./Modal.module.css";
 
 interface ModalProps {
@@ -26,6 +27,8 @@ const SWIPE_CLOSE_THRESHOLD_PX = 110;
 export function Modal({ open, onClose, title, children, variant = "default" }: ModalProps) {
   const [dragOffset, setDragOffset] = useState(0);
   const dragStartYRef = useRef<number | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open, onClose);
 
   if (!open) return null;
 
@@ -52,6 +55,8 @@ export function Modal({ open, onClose, title, children, variant = "default" }: M
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className={`${styles.dialog} ${variant === "detail" ? styles.detailDialog : ""}`}
         role="dialog"
         aria-modal="true"
