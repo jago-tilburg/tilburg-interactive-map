@@ -21,3 +21,9 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Firebase Functions deploy-time params (non-secret, must be committed for a
+# reproducible deploy). Narrowly re-included by exact filename because the
+# machine-global ~/.gitignore_global ignores `.env.*` wholesale — that guard
+# stays in force for every other .env file, including any future prod one.
+!functions/.env.tilburg-interactive-map-5710f
