@@ -24,6 +24,11 @@ import styles from "./MapExperience.module.css";
 // /event/[id] /umbrella/[id] route (see app/_components/MapPageShell.tsx) —
 // opens that item's detail modal immediately, before any marker is ever
 // clicked.
+// How long a subscription may stay silent before the UI calls it stalled.
+// Generous on purpose — this has to clear a cold start on a slow mobile
+// connection, since a false alarm here is worse than a late one.
+const LOAD_STALL_MS = 15000;
+
 export type InitialSelection =
   | { type: "shop"; id: number }
   | { type: "event"; id: string }
@@ -72,24 +77,71 @@ export function MapExperience({ apiKey, initialSelection, paymentStatus }: MapEx
   const [umbrellasLoaded, setUmbrellasLoaded] = useState(false);
 
   useEffect(() => {
-    const unsubShops = subscribeShops((next) => {
-      setShops(next);
-      setShopsLoaded(true);
-    });
-    const unsubEvents = subscribeApprovedBusinessEvents((next) => {
-      setBusinessEvents(next);
-      setEventsLoaded(true);
-    });
-    const unsubUmbrellas = subscribeUmbrellaEvents((next) => {
-      setUmbrellaEvents(next);
-      setUmbrellasLoaded(true);
-    });
+    // Firebase reports a rejected subscription through a callback rather
+    // than by throwing, and both wrappers always hand the SDK a cancel
+    // callback — which also suppresses the SDK's own console warning. With
+    // no handler passed, a failure was doubly invisible: no UI, no log.
+    // At most one toast per mount, since three simultaneous failures (an
+    // offline device) would otherwise stack three notifications over the
+    // map; the console still gets every one of them, including retries.
+    let toasted = false;
+    const handleError = (source: string, message: string) => (error: Error) => {
+      console.error(`[2happies] ${source} subscription failed:`, error);
+      if (toasted) return;
+      toasted = true;
+      showToast(message, "error");
+    };
+
+    const unsubShops = subscribeShops(
+      (next) => {
+        setShops(next);
+        setShopsLoaded(true);
+      },
+      handleError("shops", "Broodjes konden niet worden geladen. Ververs de pagina."),
+    );
+    const unsubEvents = subscribeApprovedBusinessEvents(
+      (next) => {
+        setBusinessEvents(next);
+        setEventsLoaded(true);
+      },
+      handleError("businessEvents", "Events konden niet worden geladen. Ververs de pagina."),
+    );
+    const unsubUmbrellas = subscribeUmbrellaEvents(
+      (next) => {
+        setUmbrellaEvents(next);
+        setUmbrellasLoaded(true);
+      },
+      handleError("umbrellaEvents", "Grote events konden niet worden geladen. Ververs de pagina."),
+    );
     return () => {
       unsubShops();
       unsubEvents();
       unsubUmbrellas();
     };
-  }, []);
+  }, [showToast]);
+
+  // The handlers above only fire for a subscription the backend *rejects*
+  // (bad rules, a cancelled listener). A transport that can never connect
+  // isn't an error to the SDK at all — it retries forever and the callback
+  // never fires. That's exactly how CSP-blocking the RTDB long-polling
+  // fallback (see next.config.ts's script-src comment) hid every shop on
+  // mobile with nothing logged anywhere. So treat the silence itself as the
+  // signal: whatever hasn't arrived by now almost certainly isn't coming.
+  // Re-armed whenever one of the three lands, so a slow-but-working
+  // connection finishes quietly and only a genuinely stalled one warns.
+  useEffect(() => {
+    if (shopsLoaded && eventsLoaded && umbrellasLoaded) return;
+    const timer = setTimeout(() => {
+      const stalled = [
+        !shopsLoaded && "broodjes",
+        !eventsLoaded && "events",
+        !umbrellasLoaded && "grote events",
+      ].filter(Boolean);
+      console.error(`[2happies] no data after ${LOAD_STALL_MS}ms: ${stalled.join(", ")}`);
+      showToast(`Kon ${stalled.join(" en ")} niet laden. Controleer je verbinding.`, "error");
+    }, LOAD_STALL_MS);
+    return () => clearTimeout(timer);
+  }, [shopsLoaded, eventsLoaded, umbrellasLoaded, showToast]);
 
   // Keeps the URL in sync with whichever detail modal (if any) is open —
   // replace, not push, so clicking through several markers in a row

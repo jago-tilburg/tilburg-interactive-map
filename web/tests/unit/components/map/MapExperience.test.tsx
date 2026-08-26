@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { render, screen, within, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
@@ -9,8 +9,9 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+const showToast = vi.fn();
 vi.mock("@/hooks/useToast", () => ({
-  useToast: () => ({ showToast: vi.fn() }),
+  useToast: () => ({ showToast }),
 }));
 
 // routerReplace updates the mocked pathname too, mirroring how a real
@@ -104,12 +105,12 @@ const umbrella: UmbrellaEvent = {
   createdAt: null as never,
 };
 
-const subscribeShops = vi.fn((onChange: (s: Shop[]) => void) => {
+const subscribeShops = vi.fn((onChange: (s: Shop[]) => void, _onError?: (e: Error) => void) => {
   onChange([shop]);
   return vi.fn();
 });
 vi.mock("@/lib/firebase/shops", () => ({
-  subscribeShops: (...a: [(s: Shop[]) => void]) => subscribeShops(...a),
+  subscribeShops: (...a: [(s: Shop[]) => void, ((e: Error) => void)?]) => subscribeShops(...a),
   trackShopView: vi.fn().mockResolvedValue(1),
   getShopViews: vi.fn().mockResolvedValue(0),
   setShopLike: vi.fn(),
@@ -123,12 +124,14 @@ vi.mock("@/lib/firebase/shops", () => ({
   updateShop: vi.fn(),
 }));
 
-const subscribeApprovedBusinessEvents = vi.fn((onChange: (e: BusinessEvent[]) => void) => {
-  onChange([businessEvent]);
-  return vi.fn();
-});
+const subscribeApprovedBusinessEvents = vi.fn(
+  (onChange: (e: BusinessEvent[]) => void, _onError?: (e: Error) => void) => {
+    onChange([businessEvent]);
+    return vi.fn();
+  },
+);
 vi.mock("@/lib/firebase/businessEvents", () => ({
-  subscribeApprovedBusinessEvents: (...a: [(e: BusinessEvent[]) => void]) =>
+  subscribeApprovedBusinessEvents: (...a: [(e: BusinessEvent[]) => void, ((e: Error) => void)?]) =>
     subscribeApprovedBusinessEvents(...a),
   trackEventView: vi.fn().mockResolvedValue(undefined),
   incrementEventInterest: vi.fn().mockResolvedValue(undefined),
@@ -139,12 +142,13 @@ vi.mock("@/lib/firebase/firestore", () => ({
   setEventSaved: vi.fn().mockResolvedValue(undefined),
 }));
 
-const subscribeUmbrellaEvents = vi.fn((onChange: (u: UmbrellaEvent[]) => void) => {
+const subscribeUmbrellaEvents = vi.fn((onChange: (u: UmbrellaEvent[]) => void, _onError?: (e: Error) => void) => {
   onChange([umbrella]);
   return vi.fn();
 });
 vi.mock("@/lib/firebase/umbrellaEvents", () => ({
-  subscribeUmbrellaEvents: (...a: [(u: UmbrellaEvent[]) => void]) => subscribeUmbrellaEvents(...a),
+  subscribeUmbrellaEvents: (...a: [(u: UmbrellaEvent[]) => void, ((e: Error) => void)?]) =>
+    subscribeUmbrellaEvents(...a),
 }));
 
 vi.mock("@/lib/shops/anonUserId", () => ({
@@ -184,6 +188,80 @@ beforeEach(() => {
   });
   submitRequest.mockResolvedValue(undefined);
   reverseGeocode.mockResolvedValue("Heuvelplein 1, Tilburg");
+});
+
+describe("MapExperience data-loading failures", () => {
+  it("toasts and logs when the shops subscription is rejected", () => {
+    const err = new Error("permission_denied");
+    subscribeShops.mockImplementation((_onChange, onError) => {
+      onError?.(err);
+      return vi.fn();
+    });
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(<MapExperience apiKey="k" />);
+
+    expect(showToast).toHaveBeenCalledWith(
+      "Broodjes konden niet worden geladen. Ververs de pagina.",
+      "error",
+    );
+    expect(spy).toHaveBeenCalledWith("[2happies] shops subscription failed:", err);
+    spy.mockRestore();
+  });
+
+  // Three simultaneous failures (an offline device) must not stack three
+  // notifications over the map — the console still records all of them.
+  it("shows at most one toast when every subscription fails at once", () => {
+    const reject = (_onChange: unknown, onError?: (e: Error) => void) => {
+      onError?.(new Error("offline"));
+      return vi.fn();
+    };
+    subscribeShops.mockImplementation(reject);
+    subscribeApprovedBusinessEvents.mockImplementation(reject);
+    subscribeUmbrellaEvents.mockImplementation(reject);
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(<MapExperience apiKey="k" />);
+
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledTimes(3);
+    spy.mockRestore();
+  });
+
+  // The real regression this guards: a transport that never connects is not
+  // an error to the SDK, so onError never fires and the old code sat there
+  // silently forever. Silence itself has to raise the alarm.
+  it("warns when a subscription never delivers and never errors either", () => {
+    vi.useFakeTimers();
+    subscribeShops.mockImplementation(() => vi.fn());
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(<MapExperience apiKey="k" />);
+    expect(showToast).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(15000);
+    });
+
+    expect(showToast).toHaveBeenCalledWith(
+      "Kon broodjes niet laden. Controleer je verbinding.",
+      "error",
+    );
+    spy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("stays quiet when everything loads", () => {
+    vi.useFakeTimers();
+    render(<MapExperience apiKey="k" />);
+
+    act(() => {
+      vi.advanceTimersByTime(15000);
+    });
+
+    expect(showToast).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
 });
 
 describe("MapExperience", () => {
