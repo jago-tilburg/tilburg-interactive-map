@@ -71,7 +71,6 @@ export function MapFilterPanel({
     clearAll,
   } = filterState;
   const [filtersExpanded, setFiltersExpanded] = useState(false);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   // A groot event (umbrella) never contains shops, so filtering on one hides
   // shops entirely, regardless of the Broodjes/Events toggle — mirrors the
@@ -326,18 +325,10 @@ export function MapFilterPanel({
                   </label>
                 )}
               </div>
-              <div className={styles.datePickerAnchor}>
-                <button
-                  type="button"
-                  className={isCustomDate ? styles.typeBtnActive : styles.typeBtn}
-                  style={{ width: "100%" }}
-                  onClick={() => setDatePickerOpen((v) => !v)}
-                >
-                  📅 {isCustomDate ? dateFilter : "Kies specifieke datum"}
-                </button>
+              <div className={styles.datePickerRow}>
                 <DatePickerPopover
-                  open={datePickerOpen}
-                  onClose={() => setDatePickerOpen(false)}
+                  triggerClassName={isCustomDate ? styles.typeBtnActive : styles.typeBtn}
+                  triggerLabel={`📅 ${isCustomDate ? dateFilter : "Kies specifieke datum"}`}
                   events={businessEvents}
                   today={today}
                   onSelectDate={setDateFilter}

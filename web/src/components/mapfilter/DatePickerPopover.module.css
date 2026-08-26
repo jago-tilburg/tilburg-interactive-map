@@ -4,65 +4,134 @@
   border-radius: var(--radius-card, 16px);
   padding: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  width: 260px;
+  z-index: 2000;
 }
 
-.header {
+.rdpRoot {
+  width: 100%;
+}
+
+.rdpMonths {
+  position: relative;
+}
+
+.rdpMonth {
+  width: 100%;
+}
+
+/* react-day-picker renders .rdpNav as a sibling of .rdpMonth (not nested
+   inside the caption), so it's overlaid via absolute positioning — the same
+   approach react-day-picker's own default stylesheet uses. */
+.rdpNav {
+  position: absolute;
+  inset: 0;
+  top: 0;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-weight: 700;
-  font-size: 0.85rem;
-  margin-bottom: 8px;
-  text-transform: capitalize;
+  pointer-events: none;
 }
 
-.header button {
+.rdpNavButton {
+  pointer-events: auto;
   border: none;
   background: var(--color-surface-alt, #f0ebe4);
   width: 28px;
   height: 28px;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 1rem;
-}
-
-.weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  font-size: 0.7rem;
-  color: var(--color-text-secondary, #57534e);
-  text-align: center;
-  margin-bottom: 4px;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-}
-
-.blank {
-  aspect-ratio: 1;
-}
-
-.day {
-  position: relative;
-  aspect-ratio: 1;
-  border: none;
-  background: none;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 0.8rem;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.day:hover {
+.rdpNavButton svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  margin-bottom: 8px;
+}
+
+.captionLabel {
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: capitalize;
+}
+
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.weekdays {
+  display: table-row;
+}
+
+.weekday {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--color-text-secondary, #57534e);
+  text-align: center;
+  padding-bottom: 4px;
+}
+
+.weeks {
+  display: table-row-group;
+}
+
+.week {
+  display: table-row;
+}
+
+.day {
+  display: table-cell;
+  text-align: center;
+  padding: 1px;
+}
+
+.dayButton {
+  position: relative;
+  aspect-ratio: 1;
+  width: 100%;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.dayButton:hover {
   background: var(--color-surface-hover, #f9f6f2);
 }
 
-.dot {
+.dayOutside .dayButton {
+  color: var(--color-text-secondary, #57534e);
+  opacity: 0.4;
+}
+
+.daySelected .dayButton {
+  background: var(--color-green, #22c55e);
+  color: white;
+}
+
+.dayToday .dayButton {
+  font-weight: 700;
+}
+
+/* The "has an event on this day" indicator — a dot rendered via a
+   pseudo-element rather than an extra DOM node, since react-day-picker's
+   modifiersClassNames only adds a class, not custom children. */
+.hasEvent .dayButton::after {
+  content: "";
   position: absolute;
   bottom: 3px;
   left: 50%;
@@ -71,4 +140,8 @@
   height: 4px;
   border-radius: 50%;
   background: var(--color-green, #22c55e);
+}
+
+.daySelected.hasEvent .dayButton::after {
+  background: white;
 }

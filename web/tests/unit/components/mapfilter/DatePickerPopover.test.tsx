@@ -25,79 +25,96 @@ function makeEvent(overrides: Partial<BusinessEvent> = {}): BusinessEvent {
   };
 }
 
+function setup(props: Partial<Parameters<typeof DatePickerPopover>[0]> = {}) {
+  const onSelectDate = vi.fn();
+  render(
+    <DatePickerPopover
+      triggerLabel="📅 Kies specifieke datum"
+      triggerClassName="trigger"
+      events={[]}
+      today="2026-09-01"
+      onSelectDate={onSelectDate}
+      {...props}
+    />,
+  );
+  return { onSelectDate };
+}
+
 describe("DatePickerPopover", () => {
-  it("renders nothing when closed", () => {
-    const { container } = render(
-      <DatePickerPopover open={false} onClose={vi.fn()} events={[]} today="2026-09-01" onSelectDate={vi.fn()} />,
-    );
-    expect(container).toBeEmptyDOMElement();
+  it("shows only the trigger button when closed", () => {
+    setup();
+    expect(screen.getByRole("button", { name: /Kies specifieke datum/ })).toBeInTheDocument();
+    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
   });
 
-  it("opens on the current month and shows a dot on days with events", () => {
-    render(
-      <DatePickerPopover
-        open
-        onClose={vi.fn()}
-        events={[makeEvent({ startDate: "2026-09-05", endDate: "2026-09-05" })]}
-        today="2026-09-01"
-        onSelectDate={vi.fn()}
-      />,
-    );
-
+  it("opens the calendar on the current month when the trigger is clicked", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole("button", { name: /Kies specifieke datum/ }));
     expect(screen.getByText("september 2026")).toBeInTheDocument();
-    const day5 = screen.getByText("5").closest("button")!;
-    expect(day5.querySelector('[aria-hidden="true"]')).not.toBeNull();
-    const day6 = screen.getByText("6").closest("button")!;
-    expect(day6.querySelector('[aria-hidden="true"]')).toBeNull();
   });
 
-  it("marks every day of a multi-day event", () => {
-    render(
-      <DatePickerPopover
-        open
-        onClose={vi.fn()}
-        events={[makeEvent({ startDate: "2026-09-03", endDate: "2026-09-06" })]}
-        today="2026-09-01"
-        onSelectDate={vi.fn()}
-      />,
-    );
+  it("marks a day with an event", async () => {
+    const user = userEvent.setup();
+    setup({ events: [makeEvent({ startDate: "2026-09-05", endDate: "2026-09-05" })] });
+    await user.click(screen.getByRole("button", { name: /Kies specifieke datum/ }));
 
-    for (const day of ["3", "4", "5", "6"]) {
-      const cell = screen.getByText(day).closest("button")!;
-      expect(cell.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    const day5 = screen.getByRole("button", { name: /\b5 september 2026/ }).closest("td")!;
+    const day6 = screen.getByRole("button", { name: /\b6 september 2026/ }).closest("td")!;
+    expect(day5.className).toMatch(/hasEvent/);
+    expect(day6.className).not.toMatch(/hasEvent/);
+  });
+
+  it("marks every day of a multi-day event", async () => {
+    const user = userEvent.setup();
+    setup({ events: [makeEvent({ startDate: "2026-09-03", endDate: "2026-09-06" })] });
+    await user.click(screen.getByRole("button", { name: /Kies specifieke datum/ }));
+
+    for (const day of [3, 4, 5, 6]) {
+      const cell = screen.getByRole("button", { name: new RegExp(`\\b${day} september 2026`) }).closest("td")!;
+      expect(cell.className).toMatch(/hasEvent/);
     }
   });
 
   it("selects a date and closes", async () => {
-    const onSelectDate = vi.fn();
-    const onClose = vi.fn();
     const user = userEvent.setup();
-    render(
-      <DatePickerPopover open onClose={onClose} events={[]} today="2026-09-01" onSelectDate={onSelectDate} />,
-    );
+    const { onSelectDate } = setup();
+    await user.click(screen.getByRole("button", { name: /Kies specifieke datum/ }));
 
-    await user.click(screen.getByText("15"));
+    await user.click(screen.getByRole("button", { name: /15 september 2026/ }));
     expect(onSelectDate).toHaveBeenCalledWith("2026-09-15");
-    expect(onClose).toHaveBeenCalled();
+    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
   });
 
   it("navigates to the next and previous month", async () => {
     const user = userEvent.setup();
-    render(<DatePickerPopover open onClose={vi.fn()} events={[]} today="2026-09-01" onSelectDate={vi.fn()} />);
+    setup();
+    await user.click(screen.getByRole("button", { name: /Kies specifieke datum/ }));
 
-    await user.click(screen.getByLabelText("Volgende maand"));
+    await user.click(screen.getByRole("button", { name: "Volgende maand" }));
     expect(screen.getByText("oktober 2026")).toBeInTheDocument();
 
-    await user.click(screen.getByLabelText("Vorige maand"));
-    await user.click(screen.getByLabelText("Vorige maand"));
+    await user.click(screen.getByRole("button", { name: "Vorige maand" }));
+    await user.click(screen.getByRole("button", { name: "Vorige maand" }));
     expect(screen.getByText("augustus 2026")).toBeInTheDocument();
   });
 
   it("navigates across a year boundary", async () => {
     const user = userEvent.setup();
-    render(<DatePickerPopover open onClose={vi.fn()} events={[]} today="2026-12-01" onSelectDate={vi.fn()} />);
+    setup({ today: "2026-12-01" });
+    await user.click(screen.getByRole("button", { name: /Kies specifieke datum/ }));
 
-    await user.click(screen.getByLabelText("Volgende maand"));
+    await user.click(screen.getByRole("button", { name: "Volgende maand" }));
     expect(screen.getByText("januari 2027")).toBeInTheDocument();
+  });
+
+  it("closes when clicking outside", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole("button", { name: /Kies specifieke datum/ }));
+    expect(screen.getByText("september 2026")).toBeInTheDocument();
+
+    await user.click(document.body);
+    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
   });
 });

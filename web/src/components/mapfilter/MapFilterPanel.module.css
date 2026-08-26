@@ -225,17 +225,10 @@
   flex-shrink: 0;
 }
 
-.datePickerAnchor {
-  position: relative;
+/* Radix's Popover now owns its own positioning (collision-aware, portaled)
+   — this just keeps the same horizontal padding the row had before. */
+.datePickerRow {
   padding: 0 0.6rem 0.4rem;
-}
-
-.datePickerAnchor > div {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0.6rem;
-  z-index: 10;
-  width: 260px;
 }
 
 .mobileFooter {
