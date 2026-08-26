@@ -4,18 +4,26 @@
   gap: 0.75rem;
 }
 
+/* Icon-only, and therefore a fixed square at every viewport — deliberately
+   the same footprint as Header's .menuBtn so the two sit as a matched pair.
+   Never give this a text label or intrinsic width: the header's fit on a
+   phone depends on this button not growing with the account's name. */
 .accountLink {
   background: #22c55e;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 8px;
-  padding: 0 1rem;
+  padding: 0;
+  width: 44px;
   height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   color: white;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 1.5rem;
+  line-height: 1;
   font-family: inherit;
-  white-space: nowrap;
   transition: all 0.2s;
 }
 
@@ -25,8 +33,9 @@
 
 @media (max-width: 768px) {
   .accountLink {
+    width: 36px;
     height: 36px;
-    font-size: 0.6875rem;
+    font-size: 1.125rem;
     border-radius: 6px;
   }
 }

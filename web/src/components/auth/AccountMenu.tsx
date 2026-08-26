@@ -43,18 +43,30 @@ export function AccountMenu({ onOpenShop, onOpenEvent }: AccountMenuProps) {
     }
   }
 
-  const label = isAdmin
-    ? "🛠️ Admin"
+  // The button is always just the person glyph — never the role or the
+  // account's own name as visible text. Who you're signed in as moves to the
+  // accessible name instead, so nothing is lost for screen readers while the
+  // button keeps a fixed icon width at every viewport. That width matters:
+  // a business name is arbitrarily long, and as visible text it used to widen
+  // the header until the hamburger was clipped off the right edge of a phone.
+  const accountName = isAdmin
+    ? "Admin"
     : currentBusiness
-      ? `🎉 ${currentBusiness.businessName}`
+      ? currentBusiness.businessName
       : currentVisitor
-        ? `👤 ${currentVisitor.displayName}`
-        : "👤 Account";
+        ? currentVisitor.displayName
+        : "Account";
 
   return (
     <nav className={styles.menu}>
-      <button type="button" className={styles.accountLink} onClick={openAccountEntry}>
-        {label}
+      <button
+        type="button"
+        className={styles.accountLink}
+        onClick={openAccountEntry}
+        aria-label={accountName}
+        title={accountName}
+      >
+        👤
       </button>
 
       <AccountChooserModal

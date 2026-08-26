@@ -89,7 +89,7 @@ describe("AccountMenu label + entry point priority", () => {
   it("shows the admin label when isAdmin is true", () => {
     mockUseAuth.mockReturnValue(baseAuth({ isAdmin: true, currentUser: { uid: "u1" } }));
     render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
-    expect(screen.getByText("🛠️ Admin")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Admin" })).toBeInTheDocument();
   });
 
   it("opens and closes the admin events panel when isAdmin is true", async () => {
@@ -97,7 +97,7 @@ describe("AccountMenu label + entry point priority", () => {
     const user = userEvent.setup();
     render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
-    await user.click(screen.getByText("🛠️ Admin"));
+    await user.click(screen.getByRole("button", { name: "Admin" }));
     expect(screen.getByRole("dialog", { name: "Beheerpaneel" })).toBeInTheDocument();
 
     await user.click(screen.getByLabelText("Sluiten"));
@@ -113,9 +113,9 @@ describe("AccountMenu label + entry point priority", () => {
     );
     const user = userEvent.setup();
     render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
-    expect(screen.getByText("🎉 My Shop")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "My Shop" })).toBeInTheDocument();
 
-    await user.click(screen.getByText("🎉 My Shop"));
+    await user.click(screen.getByRole("button", { name: "My Shop" }));
     expect(screen.getByRole("dialog", { name: "My Shop" })).toBeInTheDocument();
   });
 
@@ -128,9 +128,9 @@ describe("AccountMenu label + entry point priority", () => {
     );
     const user = userEvent.setup();
     render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
-    expect(screen.getByText("👤 v")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "v" })).toBeInTheDocument();
 
-    await user.click(screen.getByText("👤 v"));
+    await user.click(screen.getByRole("button", { name: "v" }));
     expect(screen.getByRole("dialog", { name: "Mijn account" })).toBeInTheDocument();
   });
 
@@ -169,7 +169,7 @@ describe("AccountMenu label + entry point priority", () => {
     const user = userEvent.setup();
     render(<AccountMenu onOpenShop={onOpenShop} onOpenEvent={vi.fn()} />);
 
-    await user.click(screen.getByText("👤 v"));
+    await user.click(screen.getByRole("button", { name: "v" }));
     await user.click(screen.getByText("Liked Shop"));
 
     expect(onOpenShop).toHaveBeenCalledWith(42);
@@ -180,9 +180,9 @@ describe("AccountMenu label + entry point priority", () => {
     mockUseAuth.mockReturnValue(baseAuth());
     const user = userEvent.setup();
     render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
-    expect(screen.getByText("👤 Account")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Account" })).toBeInTheDocument();
 
-    await user.click(screen.getByText("👤 Account"));
+    await user.click(screen.getByRole("button", { name: "Account" }));
     expect(screen.getByRole("dialog", { name: "👋 Account" })).toBeInTheDocument();
   });
 
@@ -191,7 +191,7 @@ describe("AccountMenu label + entry point priority", () => {
     const user = userEvent.setup();
     render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
-    await user.click(screen.getByText("👤 Account"));
+    await user.click(screen.getByRole("button", { name: "Account" }));
     expect(screen.getByRole("dialog", { name: "👋 Account" })).toBeInTheDocument();
 
     await user.click(screen.getByText("Annuleren"));
@@ -208,7 +208,7 @@ describe("AccountMenu label + entry point priority", () => {
     const user = userEvent.setup();
     render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
-    await user.click(screen.getByText("🎉 My Shop"));
+    await user.click(screen.getByRole("button", { name: "My Shop" }));
     await user.click(screen.getByText("Sluiten"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -218,7 +218,7 @@ describe("AccountMenu label + entry point priority", () => {
     const user = userEvent.setup();
     render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
-    await user.click(screen.getByText("👤 Account"));
+    await user.click(screen.getByRole("button", { name: "Account" }));
     await user.click(screen.getByText("👤 Ik ben bezoeker"));
     expect(screen.getByRole("dialog", { name: "Inloggen als bezoeker" })).toBeInTheDocument();
 
@@ -231,7 +231,7 @@ describe("AccountMenu label + entry point priority", () => {
     const user = userEvent.setup();
     render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
-    await user.click(screen.getByText("👤 Account"));
+    await user.click(screen.getByRole("button", { name: "Account" }));
     await user.click(screen.getByText("🎉 Ik ben Event Owner"));
     expect(screen.getByRole("dialog", { name: "Inloggen" })).toBeInTheDocument();
 
@@ -252,7 +252,7 @@ describe("AccountMenu label + entry point priority", () => {
     const user = userEvent.setup();
     render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
 
-    await user.click(screen.getByText("👤 v"));
+    await user.click(screen.getByRole("button", { name: "v" }));
     await user.click(screen.getByText("Sluiten"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

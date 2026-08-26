@@ -8,7 +8,7 @@ import { test, expect } from "@playwright/test";
 test("account chooser opens and the visitor email-submit step renders", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("button", { name: "👤 Account" }).click();
+  await page.getByRole("button", { name: "Account" }).click();
   await expect(page.getByRole("dialog", { name: "Wie ben je?" })).toBeVisible();
 
   await page.getByText("👤 Ik ben bezoeker").click();
