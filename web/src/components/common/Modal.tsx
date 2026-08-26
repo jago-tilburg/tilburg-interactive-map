@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
-import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useLayoutEffect, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
+import { Dialog } from "radix-ui";
 import styles from "./Modal.module.css";
 
 interface ModalProps {
@@ -19,18 +19,30 @@ interface ModalProps {
 
 const SWIPE_CLOSE_THRESHOLD_PX = 110;
 
-// Swipe-to-close, mobile only in practice (the drag handle is CSS-hidden on
-// desktop): dragging the header down past the threshold closes the modal,
-// mirroring the prototype's setupShopDetailSwipeToClose(). Scoped to the
-// header rather than the whole dialog so it never fights with scrolling a
-// long body (comment lists, forms, etc).
+// Built on Radix's Dialog primitive for focus trap/initial focus/Escape/
+// outside-click-close/focus-restoration — see this session's earlier
+// hand-rolled useFocusTrap.ts for what this replaces. Swipe-to-close (mobile
+// only in practice — the drag handle is CSS-hidden on desktop) is app-
+// specific behavior Radix doesn't provide, so it's kept as manual touch
+// handlers scoped to the header, mirroring the prototype's
+// setupShopDetailSwipeToClose(). Scoped to the header rather than the whole
+// dialog so it never fights with scrolling a long body (comment lists,
+// forms, etc).
 export function Modal({ open, onClose, title, children, variant = "default" }: ModalProps) {
   const [dragOffset, setDragOffset] = useState(0);
   const dragStartYRef = useRef<number | null>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(dialogRef, open, onClose);
-
-  if (!open) return null;
+  // Radix's default onCloseAutoFocus tries to refocus its own internal
+  // Dialog.Trigger — which is always null here, since open/close is
+  // controlled externally rather than via a Dialog.Trigger rendered inside
+  // this tree — and unconditionally preventDefaults, which blocks
+  // FocusScope's own "restore to whatever was focused before" fallback too.
+  // A layout effect (not a regular effect) guarantees this runs before
+  // Radix's own focus-scope passive effect moves focus into the dialog,
+  // regardless of tree position.
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (open) previouslyFocusedRef.current = document.activeElement as HTMLElement;
+  }, [open]);
 
   function handleTouchStart(e: ReactTouchEvent) {
     dragStartYRef.current = e.touches[0].clientY;
@@ -49,35 +61,40 @@ export function Modal({ open, onClose, title, children, variant = "default" }: M
   }
 
   return (
-    <div
-      className={`${styles.overlay} ${variant === "detail" ? styles.detailOverlay : ""}`}
-      role="presentation"
-      onClick={onClose}
-    >
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className={`${styles.dialog} ${variant === "detail" ? styles.detailDialog : ""}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onClick={(e) => e.stopPropagation()}
-        style={dragOffset ? { transform: `translateY(${dragOffset}px)`, transition: "none" } : undefined}
-      >
-        <div
-          className={styles.header}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          <span className={styles.dragHandle} aria-hidden="true" />
-          <h2>{title}</h2>
-          <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Sluiten">
-            ×
-          </button>
+    <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay role="presentation" className={styles.backdrop} />
+        <div className={`${styles.overlay} ${variant === "detail" ? styles.detailOverlay : ""}`}>
+          <Dialog.Content
+            className={`${styles.dialog} ${variant === "detail" ? styles.detailDialog : ""}`}
+            aria-describedby={undefined}
+            aria-modal="true"
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              previouslyFocusedRef.current?.focus();
+            }}
+            style={dragOffset ? { transform: `translateY(${dragOffset}px)`, transition: "none" } : undefined}
+          >
+            <div
+              className={styles.header}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              <span className={styles.dragHandle} aria-hidden="true" />
+              <Dialog.Title asChild>
+                <h2>{title}</h2>
+              </Dialog.Title>
+              <Dialog.Close asChild>
+                <button type="button" className={styles.closeButton} aria-label="Sluiten">
+                  ×
+                </button>
+              </Dialog.Close>
+            </div>
+            <div className={styles.body}>{children}</div>
+          </Dialog.Content>
         </div>
-        <div className={styles.body}>{children}</div>
-      </div>
-    </div>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

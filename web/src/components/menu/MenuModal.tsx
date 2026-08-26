@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { Dialog } from "radix-ui";
 import { useAuth } from "@/hooks/useAuth";
-import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { PrivacyModal } from "@/components/common/PrivacyModal";
 import { AdminLoginModal } from "@/components/auth/AdminLoginModal";
 import { ratingColor } from "@/lib/shops/shopHelpers";
@@ -71,13 +71,18 @@ export function MenuModal({
   const [sort, setSort] = useState<SortOption>("rating-desc");
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [adminLoginOpen, setAdminLoginOpen] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  // Gated on the nested modals below (mirrors ShopDetailModal's
-  // open={open && !nestedOpen} pattern) so Escape/Tab only ever affect the
-  // topmost open dialog — otherwise this dialog's own trap would stay hot
-  // while PrivacyModal/AdminLoginModal are open on top of it.
-  useFocusTrap(dialogRef, open && !privacyOpen && !adminLoginOpen, onClose);
+  // See Modal.tsx for why this is needed: Radix's default onCloseAutoFocus
+  // tries to refocus its own internal Dialog.Trigger, which is always null
+  // here since open/close is controlled externally.
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (open) previouslyFocusedRef.current = document.activeElement as HTMLElement;
+  }, [open]);
 
+  // Bail out before the filtering work below, not just before the JSX —
+  // this render body does real computation, unlike Modal.tsx's plain
+  // pass-through, so this still matters for perf even though Dialog.Root
+  // itself would also skip rendering Content when closed.
   if (!open) return null;
 
   // A groot event never contains shops — mirrors MapFilterPanel's showShops.
@@ -111,21 +116,28 @@ export function MenuModal({
   const resultsEmpty = filteredShops.length === 0 && filteredEvents.length === 0 && visibleUmbrellas.length === 0;
 
   return (
-    <div className={styles.overlay} role="presentation" onClick={onClose}>
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className={styles.container}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Alle 2 Happies"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay role="presentation" className={styles.backdrop} />
+        <div className={styles.overlay}>
+        <Dialog.Content
+          className={styles.container}
+          aria-describedby={undefined}
+          aria-modal="true"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            previouslyFocusedRef.current?.focus();
+          }}
+        >
         <div className={styles.header}>
-          <h2>ALLE 2 HAPPIES</h2>
-          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Sluiten">
-            ×
-          </button>
+          <Dialog.Title asChild>
+            <h2>ALLE 2 HAPPIES</h2>
+          </Dialog.Title>
+          <Dialog.Close asChild>
+            <button type="button" className={styles.closeBtn} aria-label="Sluiten">
+              ×
+            </button>
+          </Dialog.Close>
         </div>
 
         <div className={styles.filterRow}>
@@ -250,10 +262,12 @@ export function MenuModal({
         <button type="button" className={styles.footerLink} onClick={() => setPrivacyOpen(true)}>
           📜 Privacy
         </button>
-      </div>
+        </Dialog.Content>
+        </div>
+      </Dialog.Portal>
 
       <PrivacyModal open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
       <AdminLoginModal open={adminLoginOpen} onClose={() => setAdminLoginOpen(false)} />
-    </div>
+    </Dialog.Root>
   );
 }

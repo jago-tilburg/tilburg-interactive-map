@@ -1,13 +1,30 @@
-.overlay {
+/* Radix's Dialog.Overlay and Dialog.Content are siblings (not nested, as
+   they were in the pre-Radix hand-rolled markup this replaces) — so
+   centering can no longer rely on .dialog being a flex child of .overlay.
+   .backdrop is the actual Dialog.Overlay (just the dimmed background);
+   .overlay is now a separate full-viewport flex wrapper around
+   Dialog.Content that recreates the same centering/padding/stretch
+   behavior. It's pointer-events:none (see .dialog's override below) so
+   clicks in its padding gutter fall through to .backdrop underneath,
+   which Radix's own outside-click detection already treats as "outside
+   Content" and closes on — no manual onClick needed here. */
+.backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(10px);
+  z-index: 2000;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
   padding: 0.75rem;
+  pointer-events: none;
 }
 
 .dialog {
@@ -23,6 +40,7 @@
   animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   transition: transform 0.2s ease;
   position: relative;
+  pointer-events: auto;
 }
 
 @keyframes slideUp {

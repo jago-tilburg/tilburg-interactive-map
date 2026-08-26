@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { useState } from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Modal } from "@/components/common/Modal";
 
@@ -11,7 +11,7 @@ describe("Modal", () => {
         body
       </Modal>,
     );
-    expect(screen.getByRole("dialog")).toHaveFocus();
+    expect(screen.getByRole("dialog")).toContainElement(document.activeElement as HTMLElement);
   });
 
   it("calls onClose on Escape", () => {
@@ -25,7 +25,7 @@ describe("Modal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("restores focus to the trigger element after closing", () => {
+  it("restores focus to the trigger element after closing", async () => {
     function Wrapper() {
       const [open, setOpen] = useState(false);
       return (
@@ -39,13 +39,13 @@ describe("Modal", () => {
         </>
       );
     }
+    const user = userEvent.setup();
     render(<Wrapper />);
     const opener = screen.getByRole("button", { name: "Open" });
-    opener.focus();
-    fireEvent.click(opener);
-    expect(screen.getByRole("dialog")).toHaveFocus();
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(opener).toHaveFocus();
+    await user.click(opener);
+    expect(screen.getByRole("dialog")).toContainElement(document.activeElement as HTMLElement);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(opener).toHaveFocus());
   });
 
   it("renders nothing when closed", () => {
@@ -75,7 +75,7 @@ describe("Modal", () => {
         body
       </Modal>,
     );
-    await user.click(screen.getByRole("presentation"));
+    await user.click(screen.getByRole("presentation", { hidden: true }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -116,9 +116,9 @@ describe("Modal", () => {
         </Modal>,
       );
 
-      fireEvent.touchStart(header(), { touches: [{ clientY: 100 }] });
-      fireEvent.touchMove(header(), { touches: [{ clientY: 250 }] });
-      fireEvent.touchEnd(header());
+      fireEvent.touchStart(header(), { touches: [{ clientX: 0, clientY: 100 }], changedTouches: [{ clientX: 0, clientY: 100 }] });
+      fireEvent.touchMove(header(), { touches: [{ clientX: 0, clientY: 250 }], changedTouches: [{ clientX: 0, clientY: 250 }] });
+      fireEvent.touchEnd(header(), { changedTouches: [{ clientX: 0, clientY: 0 }] });
 
       expect(onClose).toHaveBeenCalledTimes(1);
     });
@@ -131,9 +131,9 @@ describe("Modal", () => {
         </Modal>,
       );
 
-      fireEvent.touchStart(header(), { touches: [{ clientY: 100 }] });
-      fireEvent.touchMove(header(), { touches: [{ clientY: 150 }] });
-      fireEvent.touchEnd(header());
+      fireEvent.touchStart(header(), { touches: [{ clientX: 0, clientY: 100 }], changedTouches: [{ clientX: 0, clientY: 100 }] });
+      fireEvent.touchMove(header(), { touches: [{ clientX: 0, clientY: 150 }], changedTouches: [{ clientX: 0, clientY: 150 }] });
+      fireEvent.touchEnd(header(), { changedTouches: [{ clientX: 0, clientY: 0 }] });
 
       expect(onClose).not.toHaveBeenCalled();
     });
@@ -146,9 +146,9 @@ describe("Modal", () => {
         </Modal>,
       );
 
-      fireEvent.touchStart(header(), { touches: [{ clientY: 200 }] });
-      fireEvent.touchMove(header(), { touches: [{ clientY: 50 }] });
-      fireEvent.touchEnd(header());
+      fireEvent.touchStart(header(), { touches: [{ clientX: 0, clientY: 200 }], changedTouches: [{ clientX: 0, clientY: 200 }] });
+      fireEvent.touchMove(header(), { touches: [{ clientX: 0, clientY: 50 }], changedTouches: [{ clientX: 0, clientY: 50 }] });
+      fireEvent.touchEnd(header(), { changedTouches: [{ clientX: 0, clientY: 0 }] });
 
       expect(onClose).not.toHaveBeenCalled();
     });
@@ -161,8 +161,8 @@ describe("Modal", () => {
         </Modal>,
       );
 
-      fireEvent.touchMove(header(), { touches: [{ clientY: 250 }] });
-      fireEvent.touchEnd(header());
+      fireEvent.touchMove(header(), { touches: [{ clientX: 0, clientY: 250 }], changedTouches: [{ clientX: 0, clientY: 250 }] });
+      fireEvent.touchEnd(header(), { changedTouches: [{ clientX: 0, clientY: 0 }] });
 
       expect(onClose).not.toHaveBeenCalled();
     });

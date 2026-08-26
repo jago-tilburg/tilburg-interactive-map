@@ -1,13 +1,26 @@
-.overlay {
+/* See Modal.module.css's identical split for why: Radix's Dialog.Overlay
+   and Dialog.Content are siblings, not nested, so .backdrop is the actual
+   Dialog.Overlay while .overlay is a separate pointer-events:none flex
+   wrapper around Dialog.Content that recreates the old centering — clicks
+   in its padding gutter fall through to .backdrop, which Radix already
+   treats as "outside Content" and closes on. */
+.backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(10px);
+  z-index: 2000;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
   padding: 1rem;
+  pointer-events: none;
 }
 
 .container {
@@ -20,6 +33,7 @@
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   overflow: hidden;
+  pointer-events: auto;
 }
 
 .header {

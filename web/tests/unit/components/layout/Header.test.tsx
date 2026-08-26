@@ -112,7 +112,7 @@ describe("Header", () => {
     const user = userEvent.setup();
     setup();
     await user.click(screen.getByLabelText("Alle 2 Happies"));
-    expect(screen.getByRole("dialog", { name: "Alle 2 Happies" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "ALLE 2 HAPPIES" })).toBeInTheDocument();
   });
 
   it("selects a shop from the menu and closes it", async () => {
@@ -142,7 +142,7 @@ describe("Header", () => {
     await user.click(screen.getByText("Café Zuid"));
 
     expect(onSelectShop).toHaveBeenCalledWith(9001);
-    expect(screen.queryByRole("dialog", { name: "Alle 2 Happies" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "ALLE 2 HAPPIES" })).not.toBeInTheDocument();
   });
 
   it("selects an event from the menu and closes it", async () => {
@@ -170,15 +170,15 @@ describe("Header", () => {
     await user.click(screen.getByText("Kermis Rit"));
 
     expect(onSelectEvent).toHaveBeenCalledWith("evt1");
-    expect(screen.queryByRole("dialog", { name: "Alle 2 Happies" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "ALLE 2 HAPPIES" })).not.toBeInTheDocument();
   });
 
   it("closes the menu via its own close button", async () => {
     const user = userEvent.setup();
     setup();
     await user.click(screen.getByLabelText("Alle 2 Happies"));
-    await user.click(within(screen.getByRole("dialog", { name: "Alle 2 Happies" })).getByLabelText("Sluiten"));
-    expect(screen.queryByRole("dialog", { name: "Alle 2 Happies" })).not.toBeInTheDocument();
+    await user.click(within(screen.getByRole("dialog", { name: "ALLE 2 HAPPIES" })).getByLabelText("Sluiten"));
+    expect(screen.queryByRole("dialog", { name: "ALLE 2 HAPPIES" })).not.toBeInTheDocument();
   });
 
   it("cancels the request modal without submitting", async () => {

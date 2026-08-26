@@ -312,7 +312,7 @@ describe("MapExperience", () => {
     await user.click(screen.getByText("Test Shop"));
 
     expect(screen.getByRole("dialog", { name: "Test Shop" })).toBeInTheDocument();
-    expect(screen.queryByRole("dialog", { name: "Alle 2 Happies" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "ALLE 2 HAPPIES" })).not.toBeInTheDocument();
   });
 });
 

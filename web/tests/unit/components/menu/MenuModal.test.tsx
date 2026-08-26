@@ -169,7 +169,7 @@ describe("MenuModal", () => {
     const { onClose } = setup();
     await user.click(screen.getByRole("dialog"));
     expect(onClose).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("presentation"));
+    await user.click(screen.getByRole("presentation", { hidden: true }));
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -257,11 +257,14 @@ describe("MenuModal", () => {
   });
 
   it("shows skeleton rows instead of the list while loading", () => {
-    const { container } = setup({ loading: true });
+    setup({ loading: true });
     expect(screen.queryByText("Café Zuid")).not.toBeInTheDocument();
     expect(screen.queryByText("Kermis")).not.toBeInTheDocument();
     expect(screen.queryByText("Nog geen reviews beschikbaar")).not.toBeInTheDocument();
-    expect(container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(5);
+    // Content is portaled outside the render container, and Radix adds its
+    // own aria-hidden focus-guard elements outside the dialog — scope the
+    // query to inside the dialog itself to count only the skeleton rows.
+    expect(screen.getByRole("dialog").querySelectorAll('[aria-hidden="true"]')).toHaveLength(5);
   });
 
   it("opens and closes the privacy modal from the footer link", async () => {
