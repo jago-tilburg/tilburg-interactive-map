@@ -8,6 +8,8 @@ import {
   setStripeSessionResult,
   setStripeWebhookEvent,
   setStripeWebhookSignatureInvalid,
+  resendSendCalls,
+  setResendSendError,
 } from "./testFakes.js";
 
 const {
@@ -17,6 +19,7 @@ const {
   restoreEvent,
   blockEvent,
   deleteEvent,
+  notifyAdminsOfNewReport,
 } = await import("../index.js");
 
 afterAll(restoreRealModules);
@@ -29,6 +32,8 @@ beforeEach(() => {
   store.clear();
   store.set(`admins/${ADMIN_UID}`, { email: "admin@example.com" });
   stripeSessionsCreateCalls.length = 0;
+  resendSendCalls.length = 0;
+  setResendSendError(null);
 });
 
 function fakeWebhookRequest(overrides = {}) {
@@ -360,5 +365,106 @@ describe("stripeWebhook", () => {
 
     expect(res._code).toBe(200);
     expect(store.get("businessEvents/evt1").paidAt).toBe("ORIGINAL_TIMESTAMP");
+  });
+
+  it("emails the business a payment confirmation when its email is on file", async () => {
+    store.set("businessEvents/evt1", { title: "Kermis", status: "pending", ownerId: OWNER_UID });
+    store.set(`businesses/${OWNER_UID}`, { email: "owner@example.com" });
+    setStripeWebhookEvent({
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_test_6", metadata: { eventId: "evt1" } } },
+    });
+
+    await stripeWebhook(fakeWebhookRequest(), fakeWebhookResponse());
+
+    expect(resendSendCalls).toHaveLength(1);
+    expect(resendSendCalls[0].to).toBe("owner@example.com");
+    expect(resendSendCalls[0].subject).toContain("Kermis");
+    expect(resendSendCalls[0].html).toContain("Kermis");
+  });
+
+  it("still pays and publishes the event even when there is no business email to notify", async () => {
+    store.set("businessEvents/evt1", { title: "Kermis", status: "pending", ownerId: OWNER_UID });
+    setStripeWebhookEvent({
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_test_7", metadata: { eventId: "evt1" } } },
+    });
+
+    const res = fakeWebhookResponse();
+    await stripeWebhook(fakeWebhookRequest(), res);
+
+    expect(res._code).toBe(200);
+    expect(store.get("businessEvents/evt1")).toMatchObject({ status: "approved", paid: true });
+    expect(resendSendCalls).toHaveLength(0);
+  });
+
+  it("still pays and publishes the event even when the confirmation email send fails", async () => {
+    store.set("businessEvents/evt1", { title: "Kermis", status: "pending", ownerId: OWNER_UID });
+    store.set(`businesses/${OWNER_UID}`, { email: "owner@example.com" });
+    setResendSendError({ message: "simulated Resend failure" });
+    setStripeWebhookEvent({
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_test_8", metadata: { eventId: "evt1" } } },
+    });
+
+    const res = fakeWebhookResponse();
+    await stripeWebhook(fakeWebhookRequest(), res);
+
+    expect(res._code).toBe(200);
+    expect(store.get("businessEvents/evt1")).toMatchObject({ status: "approved", paid: true });
+  });
+});
+
+describe("notifyAdminsOfNewReport", () => {
+  it("emails every admin on file when a report is created", async () => {
+    store.set(`admins/${OTHER_UID}`, { email: "second-admin@example.com" });
+
+    await notifyAdminsOfNewReport.run({
+      params: { reportId: "r1" },
+      data: {
+        data: () => ({
+          contentType: "businessEvent",
+          contentId: "evt1",
+          reason: "spam",
+          reporterId: "reporter-uid",
+        }),
+      },
+    });
+
+    expect(resendSendCalls).toHaveLength(1);
+    expect(resendSendCalls[0].to).toEqual(["admin@example.com", "second-admin@example.com"]);
+    expect(resendSendCalls[0].subject).toContain("businessEvent");
+    expect(resendSendCalls[0].subject).toContain("spam");
+    expect(resendSendCalls[0].html).toContain("evt1");
+  });
+
+  it("includes details and parentId in the email body when present", async () => {
+    await notifyAdminsOfNewReport.run({
+      params: { reportId: "r2" },
+      data: {
+        data: () => ({
+          contentType: "comment",
+          contentId: "c1",
+          parentId: "shop1",
+          reason: "offensive",
+          details: "Bevat scheldwoorden",
+          reporterId: "reporter-uid",
+        }),
+      },
+    });
+
+    expect(resendSendCalls[0].html).toContain("shop1");
+    expect(resendSendCalls[0].html).toContain("Bevat scheldwoorden");
+  });
+
+  it("does nothing when there are no admins on file", async () => {
+    store.clear();
+
+    await notifyAdminsOfNewReport.run({
+      params: { reportId: "r3" },
+      data: { data: () => ({ contentType: "shop", contentId: "s1", reason: "spam", reporterId: "x" }) },
+    });
+
+    expect(resendSendCalls).toHaveLength(0);
   });
 });

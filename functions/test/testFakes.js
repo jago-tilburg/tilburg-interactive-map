@@ -16,6 +16,7 @@ const MODULE_PATHS = {
   storage: require.resolve("firebase-admin/storage"),
   sharp: require.resolve("sharp"),
   stripe: require.resolve("stripe"),
+  resend: require.resolve("resend"),
   params: require.resolve("firebase-functions/params"),
 };
 
@@ -58,6 +59,17 @@ function makeDocRef(path, id) {
 const fakeDb = {
   collection: (path) => ({
     doc: (id) => makeDocRef(path, id),
+    // Only a plain "get everything in this collection" — no query
+    // operators — since that's all notifyAdminsOfNewReport needs so far.
+    get: async () => {
+      const docs = [];
+      for (const [key, value] of firestoreStore.entries()) {
+        if (key.startsWith(`${path}/`)) {
+          docs.push({ id: key.slice(path.length + 1), data: () => value });
+        }
+      }
+      return { docs, size: docs.length };
+    },
   }),
 };
 
@@ -128,6 +140,31 @@ function FakeStripe() {
   };
 }
 
+// Configurable per-test fake Resend client — mirrors the Stripe fake above.
+// resendSendCalls records every send attempt (to/subject/html) so a test can
+// assert on email content without a real network call.
+export const resendSendCalls = [];
+let resendSendError = null;
+
+export function setResendSendError(error) {
+  resendSendError = error;
+}
+
+class FakeResend {
+  constructor(apiKey) {
+    this.apiKey = apiKey;
+  }
+  get emails() {
+    return {
+      send: async (params) => {
+        resendSendCalls.push(params);
+        if (resendSendError) return { data: null, error: resendSendError };
+        return { data: { id: "email_fake_id" }, error: null };
+      },
+    };
+  }
+}
+
 // defineSecret/defineString outside a deployed function just print a
 // warning and return "" (secrets) or ignore the `default` option
 // (strings) — noisy and not test-controllable, so faked the same way the
@@ -191,6 +228,12 @@ require.cache[MODULE_PATHS.stripe] = {
   filename: MODULE_PATHS.stripe,
   loaded: true,
   exports: FakeStripe,
+};
+require.cache[MODULE_PATHS.resend] = {
+  id: MODULE_PATHS.resend,
+  filename: MODULE_PATHS.resend,
+  loaded: true,
+  exports: { Resend: FakeResend },
 };
 require.cache[MODULE_PATHS.params] = {
   id: MODULE_PATHS.params,

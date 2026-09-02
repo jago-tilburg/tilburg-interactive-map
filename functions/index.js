@@ -1,11 +1,12 @@
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const { onValueDeleted } = require('firebase-functions/v2/database');
-const { onDocumentDeleted } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentDeleted } = require('firebase-functions/v2/firestore');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { defineSecret, defineString } = require('firebase-functions/params');
 const { logger } = require('firebase-functions');
 const Stripe = require('stripe');
+const { Resend } = require('resend');
 // Modular admin SDK (firebase-admin v13+ removed the old admin.firestore()
 // namespace call — `admin.firestore` is now the /firestore submodule
 // itself, not a callable getter — same modular-SDK direction the web/
@@ -27,6 +28,34 @@ setGlobalOptions({ region: 'europe-west1' });
 // via `secrets: [...]` in its options, not at module load time.
 const stripeSecretKey = defineSecret('STRIPE_SECRET_KEY');
 const stripeWebhookSecret = defineSecret('STRIPE_WEBHOOK_SECRET');
+const resendApiKey = defineSecret('RESEND_API_KEY');
+
+// Resend's own shared sandbox address — works with zero setup, but Resend
+// only actually delivers sends from this address to the account owner's own
+// verified email, not real recipients. Swap this for a real
+// no-reply@2happies.nl (or similar) once that domain is verified in Resend;
+// nothing else in the send call sites needs to change.
+const EMAIL_FROM = 'onboarding@resend.dev';
+
+// Never throws — every call site treats a failed send as non-fatal (the
+// underlying action — payment recorded, report filed — already succeeded;
+// losing the notification email shouldn't roll that back or fail the
+// request). Callers still get a log line to notice a broken integration.
+async function sendEmail(apiKey, { to, subject, html }) {
+  const resend = new Resend(apiKey);
+  try {
+    const { data, error } = await resend.emails.send({ from: EMAIL_FROM, to, subject, html });
+    if (error) {
+      logger.error('sendEmail: Resend returned an error', { to, subject, error: error.message });
+      return null;
+    }
+    logger.info('sendEmail: sent', { to, subject, id: data?.id });
+    return data;
+  } catch (err) {
+    logger.error('sendEmail: threw', { to, subject, message: err.message });
+    return null;
+  }
+}
 
 // TEST-MODE PREPARATION — not live. Placeholder price for a single event
 // listing; matches GO-LIVE-CHECKLIST.md §2's "current mock: flat €10/event
@@ -129,6 +158,40 @@ exports.blockEvent = onCall(async (request) => {
   return { ok: true };
 });
 
+// Reports are created directly by the client (setDoc, no callable in the
+// path) — a Firestore trigger is what actually notices a new one, rather
+// than relying on every report-creation call site to remember to also
+// notify admins itself.
+exports.notifyAdminsOfNewReport = onDocumentCreated(
+  { document: 'reports/{reportId}', secrets: [resendApiKey] },
+  async (event) => {
+    const report = event.data.data();
+    const adminsSnap = await db.collection('admins').get();
+    const toEmails = adminsSnap.docs.map((d) => d.data().email).filter(Boolean);
+    if (toEmails.length === 0) {
+      logger.warn('notifyAdminsOfNewReport: no admin emails found, skipping', { reportId: event.params.reportId });
+      return;
+    }
+
+    await sendEmail(resendApiKey.value(), {
+      to: toEmails,
+      subject: `Nieuwe melding: ${report.contentType} (${report.reason})`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+          <h2 style="color: #ff6b35;">Nieuwe melding</h2>
+          <p><strong>Type:</strong> ${report.contentType}</p>
+          <p><strong>Content-id:</strong> ${report.contentId}</p>
+          ${report.parentId ? `<p><strong>Bij:</strong> ${report.parentId}</p>` : ''}
+          <p><strong>Reden:</strong> ${report.reason}</p>
+          ${report.details ? `<p><strong>Details:</strong> ${report.details}</p>` : ''}
+          <p style="color: #78716c; font-size: 0.9em;">Gemeld door: ${report.reporterId}</p>
+        </div>
+      `,
+    });
+    logger.info('notifyAdminsOfNewReport: notified admins', { reportId: event.params.reportId, adminCount: toEmails.length });
+  },
+);
+
 // Admin-initiated delete, distinct from the client-side deleteBusinessEvent
 // (Firestore rules only let the event's own owner delete it directly) — an
 // admin moderating someone else's event needs a server-side path that
@@ -200,7 +263,7 @@ exports.createCheckoutSession = onCall({ secrets: [stripeSecretKey] }, async (re
 // req.rawBody (the exact bytes Stripe signed) is required for signature
 // verification — a re-serialized JSON body would not match the signature
 // even if semantically identical, which is why this can't be an onCall.
-exports.stripeWebhook = onRequest({ secrets: [stripeWebhookSecret, stripeSecretKey] }, async (req, res) => {
+exports.stripeWebhook = onRequest({ secrets: [stripeWebhookSecret, stripeSecretKey, resendApiKey] }, async (req, res) => {
   const stripe = new Stripe(stripeSecretKey.value());
   let event;
   try {
@@ -247,6 +310,30 @@ exports.stripeWebhook = onRequest({ secrets: [stripeWebhookSecret, stripeSecretK
     stripeSessionId: session.id,
   });
   logger.info('stripeWebhook: event paid and published', { eventId, sessionId: session.id });
+
+  // Best-effort — a failed confirmation email must never turn a real,
+  // already-processed payment into an HTTP error Stripe would retry.
+  const eventData = snap.data();
+  const businessSnap = await db.collection('businesses').doc(eventData.ownerId).get();
+  const toEmail = businessSnap.exists ? businessSnap.data().email : null;
+  if (toEmail) {
+    await sendEmail(resendApiKey.value(), {
+      to: toEmail,
+      subject: `Betaling ontvangen — ${eventData.title} staat live`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+          <h2 style="color: #ff6b35;">Betaling ontvangen</h2>
+          <p>Bedankt! We hebben je betaling van <strong>€${(EVENT_LISTING_PRICE_CENTS / 100).toFixed(2)}</strong> ontvangen voor de plaatsing van:</p>
+          <p style="font-size: 1.1em; font-weight: bold;">${eventData.title}</p>
+          <p>Je evenement is nu live op de kaart op <a href="${appBaseUrl.value()}/event/${eventId}">2happies</a>.</p>
+          <p style="color: #78716c; font-size: 0.9em;">Sessie: ${session.id}</p>
+        </div>
+      `,
+    });
+  } else {
+    logger.warn('stripeWebhook: no business email found, confirmation email skipped', { eventId, ownerId: eventData.ownerId });
+  }
+
   res.status(200).send('OK');
 });
 
