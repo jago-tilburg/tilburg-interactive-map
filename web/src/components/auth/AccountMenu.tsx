@@ -6,6 +6,7 @@ import { DropdownMenu } from "radix-ui";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "./AuthModal";
 import { PostAuthFlow } from "./PostAuthFlow";
+import { RoleChoiceModal, type RoleChoice } from "./RoleChoiceModal";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { signOutCurrentUser } from "@/lib/firebase/auth";
 import type { Visitor } from "@/types/account";
@@ -20,6 +21,8 @@ type PostAuthStep = "onboarding" | "chooser" | "createBusiness";
 export function AccountMenu() {
   const { isAdmin, currentVisitor, currentBusiness } = useAuth();
   const router = useRouter();
+  const [roleChoiceOpen, setRoleChoiceOpen] = useState(false);
+  const [roleChoice, setRoleChoice] = useState<RoleChoice | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [postAuth, setPostAuth] = useState<PostAuthStep | null>(null);
   const [adminPanelOpen, setAdminPanelOpen] = useState(false);
@@ -30,8 +33,21 @@ export function AccountMenu() {
     router.push("/eventbeheer");
   }
 
+  function handleRoleChosen(role: RoleChoice) {
+    setRoleChoice(role);
+    setRoleChoiceOpen(false);
+    setAuthOpen(true);
+  }
+
+  function handleSkipToLogin() {
+    setRoleChoice(null);
+    setRoleChoiceOpen(false);
+    setAuthOpen(true);
+  }
+
   function handleAuthenticated(visitor: Visitor) {
-    setPostAuth(visitor.marketingConsentAt === undefined ? "onboarding" : "chooser");
+    const isNewAccount = visitor.marketingConsentAt === undefined;
+    setPostAuth(isNewAccount ? "onboarding" : "chooser");
   }
 
   async function handleLogout() {
@@ -81,18 +97,29 @@ export function AccountMenu() {
           className={styles.accountLink}
           aria-label="Inloggen"
           title="Inloggen"
-          onClick={() => setAuthOpen(true)}
+          onClick={() => setRoleChoiceOpen(true)}
         >
           👤
         </button>
       )}
 
+      <RoleChoiceModal
+        open={roleChoiceOpen}
+        onClose={() => setRoleChoiceOpen(false)}
+        onChoose={handleRoleChosen}
+        onSkipToLogin={handleSkipToLogin}
+      />
+
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onAuthenticated={handleAuthenticated} />
 
       <PostAuthFlow
         open={postAuth !== null}
-        onClose={() => setPostAuth(null)}
+        onClose={() => {
+          setPostAuth(null);
+          setRoleChoice(null);
+        }}
         startStep={postAuth ?? "chooser"}
+        businessIntent={roleChoice === "business"}
         onOpenProfile={() => router.push("/profiel")}
         onGoToBusiness={goToBusiness}
       />

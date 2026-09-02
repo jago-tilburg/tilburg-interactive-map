@@ -43,22 +43,46 @@ vi.mock("@/components/auth/AuthModal", () => ({
     ) : null,
 }));
 
+vi.mock("@/components/auth/RoleChoiceModal", () => ({
+  RoleChoiceModal: ({
+    open,
+    onClose,
+    onChoose,
+    onSkipToLogin,
+  }: {
+    open: boolean;
+    onClose: () => void;
+    onChoose: (role: "visitor" | "business") => void;
+    onSkipToLogin: () => void;
+  }) =>
+    open ? (
+      <div role="dialog" aria-label="RoleChoiceModal-stub">
+        <button onClick={onClose}>close-rolechoice</button>
+        <button onClick={() => onChoose("visitor")}>choose-visitor</button>
+        <button onClick={() => onChoose("business")}>choose-business</button>
+        <button onClick={onSkipToLogin}>skip-to-login</button>
+      </div>
+    ) : null,
+}));
+
 vi.mock("@/components/auth/PostAuthFlow", () => ({
   PostAuthFlow: ({
     open,
     onClose,
     startStep,
+    businessIntent,
     onOpenProfile,
     onGoToBusiness,
   }: {
     open: boolean;
     onClose: () => void;
     startStep: string;
+    businessIntent: boolean;
     onOpenProfile: () => void;
     onGoToBusiness: () => void;
   }) =>
     open ? (
-      <div role="dialog" aria-label={`PostAuthFlow-${startStep}`}>
+      <div role="dialog" aria-label={`PostAuthFlow-${startStep}${businessIntent ? "-business" : ""}`}>
         <button onClick={onClose}>close-postauth</button>
         <button onClick={onOpenProfile}>postauth-open-profile</button>
         <button onClick={onGoToBusiness}>postauth-go-to-business</button>
@@ -92,13 +116,46 @@ function baseAuth(overrides: Partial<ReturnType<typeof mockUseAuth>> = {}) {
 }
 
 describe("AccountMenu — signed out", () => {
-  it("shows an 'Inloggen' button and opens AuthModal", async () => {
+  it("shows an 'Inloggen' button and opens RoleChoiceModal", async () => {
     mockUseAuth.mockReturnValue(baseAuth());
     const user = userEvent.setup();
     render(<AccountMenu />);
 
     const btn = screen.getByRole("button", { name: "Inloggen" });
     await user.click(btn);
+    expect(screen.getByRole("dialog", { name: "RoleChoiceModal-stub" })).toBeInTheDocument();
+  });
+
+  it("closes RoleChoiceModal via its own close callback", async () => {
+    mockUseAuth.mockReturnValue(baseAuth());
+    const user = userEvent.setup();
+    render(<AccountMenu />);
+
+    await user.click(screen.getByRole("button", { name: "Inloggen" }));
+    await user.click(screen.getByText("close-rolechoice"));
+    expect(screen.queryByRole("dialog", { name: "RoleChoiceModal-stub" })).not.toBeInTheDocument();
+  });
+
+  it("opens AuthModal after choosing 'visitor' in RoleChoiceModal", async () => {
+    mockUseAuth.mockReturnValue(baseAuth());
+    const user = userEvent.setup();
+    render(<AccountMenu />);
+
+    await user.click(screen.getByRole("button", { name: "Inloggen" }));
+    await user.click(screen.getByText("choose-visitor"));
+
+    expect(screen.queryByRole("dialog", { name: "RoleChoiceModal-stub" })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "AuthModal-stub" })).toBeInTheDocument();
+  });
+
+  it("opens AuthModal directly via 'skip to login', bypassing RoleChoiceModal", async () => {
+    mockUseAuth.mockReturnValue(baseAuth());
+    const user = userEvent.setup();
+    render(<AccountMenu />);
+
+    await user.click(screen.getByRole("button", { name: "Inloggen" }));
+    await user.click(screen.getByText("skip-to-login"));
+
     expect(screen.getByRole("dialog", { name: "AuthModal-stub" })).toBeInTheDocument();
   });
 
@@ -108,9 +165,22 @@ describe("AccountMenu — signed out", () => {
     render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Inloggen" }));
+    await user.click(screen.getByText("skip-to-login"));
     await user.click(screen.getByText("authenticate-needs-onboarding"));
 
     expect(screen.getByRole("dialog", { name: "PostAuthFlow-onboarding" })).toBeInTheDocument();
+  });
+
+  it("opens PostAuthFlow at 'onboarding' with businessIntent when a fresh account authenticates after choosing 'event-host'", async () => {
+    mockUseAuth.mockReturnValue(baseAuth());
+    const user = userEvent.setup();
+    render(<AccountMenu />);
+
+    await user.click(screen.getByRole("button", { name: "Inloggen" }));
+    await user.click(screen.getByText("choose-business"));
+    await user.click(screen.getByText("authenticate-needs-onboarding"));
+
+    expect(screen.getByRole("dialog", { name: "PostAuthFlow-onboarding-business" })).toBeInTheDocument();
   });
 
   it("opens PostAuthFlow at 'chooser' when a returning account authenticates", async () => {
@@ -119,6 +189,7 @@ describe("AccountMenu — signed out", () => {
     render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Inloggen" }));
+    await user.click(screen.getByText("skip-to-login"));
     await user.click(screen.getByText("authenticate-onboarded"));
 
     expect(screen.getByRole("dialog", { name: "PostAuthFlow-chooser" })).toBeInTheDocument();
@@ -130,6 +201,7 @@ describe("AccountMenu — signed out", () => {
     render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Inloggen" }));
+    await user.click(screen.getByText("skip-to-login"));
     await user.click(screen.getByText("close-auth"));
     expect(screen.queryByRole("dialog", { name: "AuthModal-stub" })).not.toBeInTheDocument();
   });
@@ -140,14 +212,33 @@ describe("AccountMenu — signed out", () => {
     render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Inloggen" }));
+    await user.click(screen.getByText("skip-to-login"));
     await user.click(screen.getByText("authenticate-onboarded"));
     await user.click(screen.getByText("close-postauth"));
     expect(screen.queryByRole("dialog", { name: "PostAuthFlow-chooser" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Inloggen" }));
+    await user.click(screen.getByText("skip-to-login"));
     await user.click(screen.getByText("authenticate-onboarded"));
     await user.click(screen.getByText("postauth-open-profile"));
     expect(routerPush).toHaveBeenCalledWith("/profiel");
+  });
+
+  it("resets the chosen role once PostAuthFlow closes, so the next sign-in isn't stuck with it", async () => {
+    mockUseAuth.mockReturnValue(baseAuth());
+    const user = userEvent.setup();
+    render(<AccountMenu />);
+
+    await user.click(screen.getByRole("button", { name: "Inloggen" }));
+    await user.click(screen.getByText("choose-business"));
+    await user.click(screen.getByText("authenticate-needs-onboarding"));
+    expect(screen.getByRole("dialog", { name: "PostAuthFlow-onboarding-business" })).toBeInTheDocument();
+    await user.click(screen.getByText("close-postauth"));
+
+    await user.click(screen.getByRole("button", { name: "Inloggen" }));
+    await user.click(screen.getByText("skip-to-login"));
+    await user.click(screen.getByText("authenticate-onboarded"));
+    expect(screen.getByRole("dialog", { name: "PostAuthFlow-chooser" })).toBeInTheDocument();
   });
 });
 

@@ -14,6 +14,13 @@ interface PostAuthFlowProps {
   // one on "chooser" — and the account menu's "Event-profiel aanmaken" entry
   // jumps straight to "createBusiness" for an already-signed-in visitor.
   startStep: Step;
+  // From RoleChoiceModal, picked before the account even existed — a brand
+  // new account that said "event-host" skips the generic chooser and lands
+  // straight on createBusiness once onboarding is done. Only affects the
+  // onboarding->next transition; a *returning* account always still gets
+  // "chooser" regardless (we can't safely assume no business profile exists
+  // for those, so don't route them into the create form).
+  businessIntent: boolean;
   onOpenProfile: () => void;
   onGoToBusiness: () => void;
 }
@@ -23,7 +30,14 @@ type Step = "onboarding" | "chooser" | "createBusiness";
 // One component, three standen, one window — same modal the login screen
 // used, no route change and no flash of the map in between
 // (PLAN-INLOGGEN.md §8).
-export function PostAuthFlow({ open, onClose, startStep, onOpenProfile, onGoToBusiness }: PostAuthFlowProps) {
+export function PostAuthFlow({
+  open,
+  onClose,
+  startStep,
+  businessIntent,
+  onOpenProfile,
+  onGoToBusiness,
+}: PostAuthFlowProps) {
   const { currentUser, currentVisitor, currentBusiness, refreshCurrentVisitor, refreshCurrentBusiness } = useAuth();
   const [step, setStep] = useState<Step>(startStep);
   const [name, setName] = useState("");
@@ -58,7 +72,7 @@ export function PostAuthFlow({ open, onClose, startStep, onOpenProfile, onGoToBu
       const finalName = name.trim() || currentVisitor.displayName;
       await saveOnboardingConsent(currentVisitor.uid, finalName, consent);
       await refreshCurrentVisitor(currentVisitor.uid);
-      setStep("chooser");
+      setStep(businessIntent ? "createBusiness" : "chooser");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Opslaan mislukt.");
     } finally {

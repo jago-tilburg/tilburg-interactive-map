@@ -46,14 +46,14 @@ describe("PostAuthFlow — onboarding", () => {
   it("prefills the name from the Google displayName when present", () => {
     mockUseAuth.mockReturnValue(authState({ currentUser: { uid: "u1", email: "a@b.com", displayName: "Jago" } }));
     render(
-      <PostAuthFlow open startStep="onboarding" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="onboarding" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
     expect(screen.getByLabelText("Hoe mogen we je noemen?")).toHaveValue("Jago");
   });
 
   it("starts with consent unchecked", () => {
     render(
-      <PostAuthFlow open startStep="onboarding" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="onboarding" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
     expect(screen.getByRole("checkbox")).not.toBeChecked();
   });
@@ -62,7 +62,7 @@ describe("PostAuthFlow — onboarding", () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
     render(
-      <PostAuthFlow open startStep="onboarding" onClose={onClose} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="onboarding" businessIntent={false} onClose={onClose} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
     await user.clear(screen.getByLabelText("Hoe mogen we je noemen?"));
@@ -79,7 +79,7 @@ describe("PostAuthFlow — onboarding", () => {
   it("falls back to the existing displayName when the name field is left blank", async () => {
     const user = userEvent.setup();
     render(
-      <PostAuthFlow open startStep="onboarding" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="onboarding" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
     await user.clear(screen.getByLabelText("Hoe mogen we je noemen?"));
@@ -92,7 +92,7 @@ describe("PostAuthFlow — onboarding", () => {
     saveOnboardingConsent.mockRejectedValue(new Error("offline"));
     const user = userEvent.setup();
     render(
-      <PostAuthFlow open startStep="onboarding" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="onboarding" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
     await user.click(screen.getByText("Doorgaan"));
@@ -105,7 +105,7 @@ describe("PostAuthFlow — onboarding", () => {
     saveOnboardingConsent.mockRejectedValue("nope");
     const user = userEvent.setup();
     render(
-      <PostAuthFlow open startStep="onboarding" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="onboarding" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
     await user.click(screen.getByText("Doorgaan"));
@@ -117,11 +117,25 @@ describe("PostAuthFlow — onboarding", () => {
     mockUseAuth.mockReturnValue(authState({ currentVisitor: null }));
     const user = userEvent.setup();
     render(
-      <PostAuthFlow open startStep="onboarding" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="onboarding" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
     await user.click(screen.getByText("Doorgaan"));
     expect(saveOnboardingConsent).not.toHaveBeenCalled();
+  });
+
+  it("skips the chooser and goes straight to createBusiness when businessIntent is set", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <PostAuthFlow open startStep="onboarding" businessIntent onClose={onClose} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+    );
+
+    await user.click(screen.getByText("Doorgaan"));
+
+    await waitFor(() => expect(saveOnboardingConsent).toHaveBeenCalled());
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "Event-profiel aanmaken" })).toBeInTheDocument();
   });
 });
 
@@ -129,7 +143,7 @@ describe("PostAuthFlow — chooser", () => {
   it("closes on 'De kaart'", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<PostAuthFlow open startStep="chooser" onClose={onClose} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />);
+    render(<PostAuthFlow open startStep="chooser" businessIntent={false} onClose={onClose} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />);
 
     await user.click(screen.getByText("🗺️ De kaart"));
     expect(onClose).toHaveBeenCalled();
@@ -140,7 +154,7 @@ describe("PostAuthFlow — chooser", () => {
     const onOpenProfile = vi.fn();
     const user = userEvent.setup();
     render(
-      <PostAuthFlow open startStep="chooser" onClose={onClose} onOpenProfile={onOpenProfile} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="chooser" businessIntent={false} onClose={onClose} onOpenProfile={onOpenProfile} onGoToBusiness={vi.fn()} />,
     );
 
     await user.click(screen.getByText("👤 Mijn profiel"));
@@ -150,7 +164,7 @@ describe("PostAuthFlow — chooser", () => {
 
   it("labels the business button 'Event-profiel aanmaken' and goes to createBusiness when there is none", async () => {
     const user = userEvent.setup();
-    render(<PostAuthFlow open startStep="chooser" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />);
+    render(<PostAuthFlow open startStep="chooser" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />);
 
     expect(screen.getByText("🏢 Event-profiel aanmaken")).toBeInTheDocument();
     await user.click(screen.getByText("🏢 Event-profiel aanmaken"));
@@ -163,7 +177,7 @@ describe("PostAuthFlow — chooser", () => {
     const onGoToBusiness = vi.fn();
     const user = userEvent.setup();
     render(
-      <PostAuthFlow open startStep="chooser" onClose={onClose} onOpenProfile={vi.fn()} onGoToBusiness={onGoToBusiness} />,
+      <PostAuthFlow open startStep="chooser" businessIntent={false} onClose={onClose} onOpenProfile={vi.fn()} onGoToBusiness={onGoToBusiness} />,
     );
 
     await user.click(screen.getByText("🏢 Event-profiel"));
@@ -175,7 +189,7 @@ describe("PostAuthFlow — chooser", () => {
 describe("PostAuthFlow — createBusiness", () => {
   it("can be reached directly via startStep, for the account menu's shortcut", () => {
     render(
-      <PostAuthFlow open startStep="createBusiness" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="createBusiness" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
     expect(screen.getByRole("heading", { name: "Event-profiel aanmaken" })).toBeInTheDocument();
   });
@@ -183,7 +197,7 @@ describe("PostAuthFlow — createBusiness", () => {
   it("rejects an empty business name", async () => {
     const user = userEvent.setup();
     render(
-      <PostAuthFlow open startStep="createBusiness" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="createBusiness" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
     await user.click(screen.getByText("Aanmaken"));
@@ -198,7 +212,7 @@ describe("PostAuthFlow — createBusiness", () => {
     render(
       <PostAuthFlow
         open
-        startStep="createBusiness"
+        startStep="createBusiness" businessIntent={false}
         onClose={onClose}
         onOpenProfile={vi.fn()}
         onGoToBusiness={onGoToBusiness}
@@ -221,7 +235,7 @@ describe("PostAuthFlow — createBusiness", () => {
     render(
       <PostAuthFlow
         open
-        startStep="createBusiness"
+        startStep="createBusiness" businessIntent={false}
         onClose={vi.fn()}
         onOpenProfile={vi.fn()}
         onGoToBusiness={onGoToBusiness}
@@ -239,7 +253,7 @@ describe("PostAuthFlow — createBusiness", () => {
     createBusinessProfile.mockRejectedValue("nope");
     const user = userEvent.setup();
     render(
-      <PostAuthFlow open startStep="createBusiness" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="createBusiness" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
     await user.type(screen.getByLabelText("Organisatienaam"), "My Shop");
@@ -252,7 +266,7 @@ describe("PostAuthFlow — createBusiness", () => {
     mockUseAuth.mockReturnValue(authState({ currentUser: { uid: "u1", email: null, displayName: null } }));
     const user = userEvent.setup();
     render(
-      <PostAuthFlow open startStep="createBusiness" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="createBusiness" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
     await user.type(screen.getByLabelText("Organisatienaam"), "My Shop");
@@ -265,7 +279,7 @@ describe("PostAuthFlow — createBusiness", () => {
     mockUseAuth.mockReturnValue(authState({ currentUser: null }));
     const user = userEvent.setup();
     render(
-      <PostAuthFlow open startStep="createBusiness" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="createBusiness" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
     await user.type(screen.getByLabelText("Organisatienaam"), "My Shop");
@@ -276,7 +290,7 @@ describe("PostAuthFlow — createBusiness", () => {
   it("goes back to the chooser", async () => {
     const user = userEvent.setup();
     render(
-      <PostAuthFlow open startStep="createBusiness" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="createBusiness" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
     await user.click(screen.getByText("Terug"));
@@ -288,16 +302,16 @@ describe("PostAuthFlow re-sync on open", () => {
   it("re-applies startStep and clears fields each time it reopens", async () => {
     const user = userEvent.setup();
     const { rerender } = render(
-      <PostAuthFlow open startStep="chooser" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="chooser" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
     await user.click(screen.getByText("🏢 Event-profiel aanmaken"));
     await user.type(screen.getByLabelText("Organisatienaam"), "Draft Name");
 
     rerender(
-      <PostAuthFlow open={false} startStep="chooser" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open={false} startStep="chooser" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
     rerender(
-      <PostAuthFlow open startStep="onboarding" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
+      <PostAuthFlow open startStep="onboarding" businessIntent={false} onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
     expect(screen.getByRole("heading", { name: "Welkom bij 2happies" })).toBeInTheDocument();
