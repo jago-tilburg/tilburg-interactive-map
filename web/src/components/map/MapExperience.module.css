@@ -6,5 +6,12 @@
 
 .mainContent {
   flex: 1;
+  /* A flex item's default min-height is auto (its content's intrinsic
+     minimum), not 0 — without this, .mainContent can refuse to shrink below
+     that intrinsic size when the header above it grows (e.g. the safe-area
+     buffer in Header.module.css), pushing the whole flex column past body's
+     fixed height and making the page pannable/scrollable even though body
+     says overflow: hidden. */
+  min-height: 0;
   position: relative;
 }

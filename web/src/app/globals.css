@@ -43,8 +43,21 @@
    it overrides where supported. Plain vh is fine for anything that doesn't
    need to track toolbar changes. */
 
+/* Both html AND body are locked down — on iOS Safari, `overflow: hidden` on
+   body alone does not reliably stop the page from panning/scrolling at the
+   document root if body's content ever exceeds its own box by even a few
+   pixels (html, not body, is the real "root scroller"). Belt-and-braces:
+   this held even before that ever happened here, because nothing overflowed
+   — see MapExperience.module.css's .mainContent min-height: 0 for the fix
+   to the thing that started actually overflowing. touch-action is
+   duplicated here too, matching the fix this codebase already needed once
+   before for the same class of leak (see the header investigation in git
+   history, round 3: a compositing boundary stopped touch-action inheriting
+   from body, so it has to be set explicitly on more than one ancestor). */
 html {
   height: 100%;
+  overflow: hidden;
+  touch-action: pan-x pan-y;
 }
 
 html,
@@ -68,11 +81,6 @@ body {
      touch-action is per-element, so the map re-enables it on itself below
      (ShopMap.module.css's .map) for its own pan/zoom interaction. */
   touch-action: pan-x pan-y;
-  /* Real safe-area inset (nonzero on a notched device only when the browser
-     actually reports one — e.g. a standalone home-screen PWA, or once iOS
-     fixes the regular-tab case below). Requires viewport-fit=cover
-     (layout.tsx) to be anything but 0. */
-  padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* Mobile viewport height: 100vh doesn't account for the mobile browser's
@@ -81,26 +89,6 @@ body {
 @media (max-width: 768px) {
   body {
     height: 100dvh;
-  }
-}
-
-/* iOS 26 Safari renders web pages edge-to-edge by default and floats its
-   translucent toolbar *over* the page instead of reserving its own opaque
-   strip — a behavior change from every prior iOS version. This does NOT
-   populate env(safe-area-inset-top) in a regular tab (confirmed live: it's
-   0px there, only a standalone home-screen PWA gets a real value), so the
-   real inset above can't clear it. This is a best-effort fixed buffer for
-   that specific case — verify live on an iOS 26 device, since there's no
-   feature-detectable signal to size it exactly. @supports with a
-   webkit-only feature (not user-agent sniffing) scopes this to iOS
-   Safari/WebKit specifically, leaving Android Chrome and desktop untouched.
-   If Apple ships a fix that makes the real inset non-zero here, max()
-   already prefers the larger, correct value automatically. */
-@supports (-webkit-touch-callout: none) {
-  @media (max-width: 768px) {
-    body {
-      padding-top: max(env(safe-area-inset-top, 0px), 24px);
-    }
   }
 }
 

@@ -27,6 +27,26 @@ test.describe("map page (/) header", () => {
     expect(bodyOverflowsX).toBe(false);
   });
 
+  test("the page shell never overflows its own viewport height (the app must not be pannable/scrollable)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.waitForTimeout(500);
+
+    // Regression guard: this app is a fixed single-viewport shell (map +
+    // header), not a scrolling document — body/html are overflow: hidden on
+    // purpose. If ANY change (e.g. extra header padding for a notch/safe-area
+    // buffer) makes the shell's actual content taller than the viewport, the
+    // whole page becomes draggable/pannable on real mobile browsers even
+    // though body says overflow: hidden — see .mainContent's min-height: 0
+    // in MapExperience.module.css, which is what keeps this true regardless
+    // of how tall the header ends up being.
+    const overflowsY = await page.evaluate(
+      () => document.documentElement.scrollHeight > document.documentElement.clientHeight,
+    );
+    expect(overflowsY).toBe(false);
+  });
+
   test("opening the hamburger menu shows a full-height panel on mobile, no vh/dvh mismatch clipping", async ({
     page,
     isMobile,

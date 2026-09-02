@@ -12,6 +12,18 @@
   overflow: hidden;
   z-index: 100;
   flex-shrink: 0;
+  /* Real safe-area inset (nonzero on a notched device only when the browser
+     actually reports one — e.g. a standalone home-screen PWA, or once iOS
+     fixes the regular-tab case below). Requires viewport-fit=cover
+     (layout.tsx) to be anything but 0. Deliberately on the header (which is
+     flex-shrink: 0, fixed intrinsic height) rather than on body — padding
+     that eats into a flex-shrink: 1 sibling's available space risks
+     squeezing it below its content's min-height and overflowing the shell;
+     padding on a flex-shrink: 0 element just makes that element taller and
+     everything else shifts down, with no overflow risk.
+     touch-action here too — see globals.css's html/body comment. */
+  touch-action: pan-x pan-y;
+  padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
 }
 
 /* The title is the only part of the header allowed to give up space, so the
@@ -90,7 +102,13 @@
 
 @media (max-width: 768px) {
   .header {
-    padding: 0.5rem 0.75rem;
+    /* Not the `padding` shorthand — it would reset padding-top and clobber
+       the safe-area/notch handling below, which needs to keep winning the
+       cascade at this same breakpoint. */
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    padding-bottom: 0.5rem;
+    padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
     gap: 0.5rem;
   }
 
@@ -115,5 +133,27 @@
     font-size: 1.125rem;
     padding: 0.25rem;
     border-radius: 6px;
+  }
+}
+
+/* iOS 26 Safari renders web pages edge-to-edge by default and floats its
+   translucent toolbar *over* the page instead of reserving its own opaque
+   strip — a behavior change from every prior iOS version. This does NOT
+   populate env(safe-area-inset-top) in a regular tab (confirmed live: it's
+   0px there, only a standalone home-screen PWA gets a real value), so the
+   real inset above can't clear it. This is a best-effort fixed buffer for
+   that specific case — verify live on an iOS 26 device, since there's no
+   feature-detectable signal to size it exactly. @supports with a
+   webkit-only feature (not user-agent sniffing) scopes this to iOS
+   Safari/WebKit specifically, leaving Android Chrome and desktop untouched.
+   If Apple ships a fix that makes the real inset non-zero here, max()
+   already prefers the larger, correct value automatically. Placed last on
+   purpose — same specificity as the mobile block above, so source order is
+   what makes this win at the same breakpoint. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 768px) {
+    .header {
+      padding-top: max(calc(0.5rem + env(safe-area-inset-top, 0px)), 24px);
+    }
   }
 }
