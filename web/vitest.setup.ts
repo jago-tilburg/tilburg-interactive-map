@@ -17,3 +17,15 @@ if (typeof window !== "undefined" && !window.matchMedia) {
     dispatchEvent: () => false,
   });
 }
+
+// jsdom doesn't implement ResizeObserver either — Radix's Switch (and any
+// other primitive using @radix-ui/react-use-size) reads it during mount to
+// measure itself, so anything rendering a Switch throws "ResizeObserver is
+// not defined" without this.
+if (typeof window !== "undefined" && !window.ResizeObserver) {
+  window.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}

@@ -1,0 +1,124 @@
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e7e0d6);
+  border-radius: var(--radius-button, 10px);
+  padding: 0.875rem 1rem;
+  font-family: inherit;
+  font-size: 1rem;
+  text-align: left;
+  color: inherit;
+}
+
+button.row {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button.row:hover {
+  background: var(--color-surface-hover, #f9f6f2);
+}
+
+.label {
+  font-weight: 600;
+  color: var(--color-text, #1c1917);
+  flex-shrink: 0;
+}
+
+.value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text, #1c1917);
+}
+
+.value[data-empty] {
+  color: var(--color-text-muted, #a8a29e);
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted, #a8a29e);
+  font-size: 1.1em;
+  transition: transform 0.2s;
+}
+
+.chevron[data-state="open"] {
+  transform: rotate(90deg);
+}
+
+.staticValue {
+  flex: 1;
+  min-width: 0;
+}
+
+.staticValue select {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: right;
+  font: inherit;
+  /* 16px minimum — anything smaller makes iOS Safari auto-zoom on focus. */
+  font-size: 1rem;
+  color: var(--color-text-secondary, #57534e);
+  cursor: pointer;
+}
+
+.staticValue select:focus {
+  outline: none;
+  color: var(--color-text, #1c1917);
+}
+
+.content {
+  padding: 0.875rem 1rem 1rem;
+  border: 1px solid var(--color-border, #e7e0d6);
+  border-top: none;
+  border-radius: 0 0 var(--radius-button, 10px) var(--radius-button, 10px);
+  margin-top: -1px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.content[data-state="open"] {
+  animation: slideDown 200ms ease-out;
+}
+
+.content[data-state="closed"] {
+  animation: slideUp 200ms ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    height: var(--radix-collapsible-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content[data-state="open"],
+  .content[data-state="closed"] {
+    animation: none;
+  }
+}
