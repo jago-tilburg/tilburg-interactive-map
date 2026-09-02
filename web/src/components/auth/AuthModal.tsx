@@ -136,7 +136,7 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
       // Fire-and-forget from the user's point of view — a failure here
       // (rate limiting, etc.) shouldn't block registration itself; the
       // reminder strip's own "opnieuw versturen" covers the retry.
-      sendVerificationEmail(cred.user).catch((err) => console.error("Verification email error:", err));
+      sendVerificationEmail().catch((err) => console.error("Verification email error:", err));
       handleClose();
       onAuthenticated(visitor);
     } catch (err) {

@@ -15,6 +15,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
 const { getDatabase } = require('firebase-admin/database');
+const { getAuth } = require('firebase-admin/auth');
 const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
@@ -514,6 +515,100 @@ exports.stripeWebhook = onRequest({ secrets: [stripeWebhookSecret, stripeSecretK
   }
 
   res.status(200).send('OK');
+});
+
+// Replaces the Auth client SDK's own sendEmailVerification()/
+// sendPasswordResetEmail() (which mail from Firebase's own sender, not
+// Resend/our template) — generateEmailVerificationLink/
+// generatePasswordResetLink still produce a real Firebase Auth action link
+// (verified via the default Firebase-hosted action handler, unchanged),
+// only the email itself is now ours to send and brand.
+exports.sendVerificationEmail = onCall({ secrets: [resendApiKey] }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Log in om je e-mailadres te bevestigen.');
+  }
+
+  const userRecord = await getAuth().getUser(request.auth.uid);
+  if (userRecord.emailVerified) {
+    return { ok: true, alreadyVerified: true };
+  }
+  if (!userRecord.email) {
+    throw new HttpsError('failed-precondition', 'Dit account heeft geen e-mailadres.');
+  }
+
+  const link = await getAuth().generateEmailVerificationLink(userRecord.email);
+  const sent = await sendEmail(resendApiKey.value(), {
+    to: userRecord.email,
+    subject: 'Bevestig je e-mailadres',
+    html: renderEmailTemplate('base.html', {
+      email_titel: 'Bevestig je e-mailadres — 2happies',
+      preheader_tekst: 'Klik op de knop om te bevestigen dat dit jouw e-mailadres is.',
+      site_url: appBaseUrl.value(),
+      badge_tekst: 'E-mailverificatie',
+      titel: 'Bevestig je e-mailadres',
+      intro_tekst:
+        'Welkom bij 2happies! Klik op de knop hieronder om te bevestigen dat dit jouw e-mailadres is.',
+      regel_label: 'E-mailadres',
+      regel_waarde: escapeHtml(userRecord.email),
+      cta_url: link,
+      cta_tekst: 'Bevestig e-mailadres',
+      afsluit_tekst: 'Heb je dit niet aangevraagd? Dan kun je deze e-mail gewoon negeren.',
+      help_url: appBaseUrl.value(),
+      voorkeuren_url: appBaseUrl.value(),
+      jaar: String(new Date().getFullYear()),
+    }),
+  });
+
+  if (!sent) {
+    throw new HttpsError('internal', 'Verzenden van de verificatiemail is mislukt.');
+  }
+  return { ok: true };
+});
+
+// Deliberately never distinguishes "no such account" from "email sent" in
+// its response or timing — same anti-enumeration reasoning the old client
+// SDK call already relied on (see AuthModal.tsx's handleForgot), now this
+// function's job to preserve instead of Firebase's.
+exports.sendPasswordResetEmail = onCall({ secrets: [resendApiKey] }, async (request) => {
+  const email = request.data?.email;
+  if (typeof email !== 'string' || !email.trim()) {
+    throw new HttpsError('invalid-argument', 'E-mailadres is verplicht.');
+  }
+
+  let link;
+  try {
+    link = await getAuth().generatePasswordResetLink(email);
+  } catch (err) {
+    logger.info('sendPasswordResetEmail: no link generated, treating as a no-op', {
+      code: err.code,
+      message: err.message,
+    });
+    return { ok: true };
+  }
+
+  await sendEmail(resendApiKey.value(), {
+    to: email,
+    subject: 'Wachtwoord opnieuw instellen',
+    html: renderEmailTemplate('base.html', {
+      email_titel: 'Wachtwoord opnieuw instellen — 2happies',
+      preheader_tekst: 'Stel een nieuw wachtwoord in voor je 2happies-account.',
+      site_url: appBaseUrl.value(),
+      badge_tekst: 'Wachtwoord resetten',
+      titel: 'Wachtwoord opnieuw instellen',
+      intro_tekst:
+        'We hebben een verzoek ontvangen om het wachtwoord van je 2happies-account opnieuw in te stellen. Klik op de knop hieronder om een nieuw wachtwoord te kiezen.',
+      regel_label: 'Account',
+      regel_waarde: escapeHtml(email),
+      cta_url: link,
+      cta_tekst: 'Stel nieuw wachtwoord in',
+      afsluit_tekst: 'Was jij dit niet? Dan kun je deze e-mail negeren — je wachtwoord blijft ongewijzigd.',
+      help_url: appBaseUrl.value(),
+      voorkeuren_url: appBaseUrl.value(),
+      jaar: String(new Date().getFullYear()),
+    }),
+  });
+
+  return { ok: true };
 });
 
 // Only the three photo-bearing kinds storage.rules actually grants writes

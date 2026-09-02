@@ -8,8 +8,6 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
-  sendPasswordResetEmail,
-  sendEmailVerification,
   GoogleAuthProvider,
   signInWithPopup,
   signInWithRedirect,
@@ -19,7 +17,9 @@ import {
   type Auth,
   type UserCredential,
 } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
 import { getFirebaseApp } from "./app";
+import { getFirebaseFunctions } from "./functions";
 
 export function getFirebaseAuth(): Auth {
   return getAuth(getFirebaseApp());
@@ -69,12 +69,20 @@ export function isNewGoogleUser(cred: UserCredential): boolean {
   return getAdditionalUserInfo(cred)?.isNewUser ?? false;
 }
 
+// Both of these now go through our own branded Resend template
+// (functions/emails/base.html) instead of Firebase Auth's own default
+// sender — see functions/index.js's sendPasswordResetEmail/
+// sendVerificationEmail.
 export async function sendPasswordReset(email: string) {
-  return sendPasswordResetEmail(getFirebaseAuth(), email);
+  const callable = httpsCallable(getFirebaseFunctions(), "sendPasswordResetEmail");
+  await callable({ email });
 }
 
-export async function sendVerificationEmail(user: User) {
-  return sendEmailVerification(user);
+// No `user` argument needed — the callable reads the caller's own uid off
+// their ID token rather than trusting anything the client passes in.
+export async function sendVerificationEmail() {
+  const callable = httpsCallable(getFirebaseFunctions(), "sendVerificationEmail");
+  await callable({});
 }
 
 // `user.reload()` mutates the User object in place but does NOT itself

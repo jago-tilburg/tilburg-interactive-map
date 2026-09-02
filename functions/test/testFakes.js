@@ -19,6 +19,7 @@ const MODULE_PATHS = {
   resend: require.resolve("resend"),
   params: require.resolve("firebase-functions/params"),
   database: require.resolve("firebase-admin/database"),
+  auth: require.resolve("firebase-admin/auth"),
 };
 
 const realCacheEntries = {};
@@ -102,6 +103,47 @@ function makeRtdbRef(path) {
 }
 
 const fakeRtdb = { ref: (path) => makeRtdbRef(path) };
+
+// Fake Admin Auth — just enough of getUser/generateEmailVerificationLink/
+// generatePasswordResetLink for sendVerificationEmail/sendPasswordResetEmail.
+// Keyed by uid; authUsersByEmail is a reverse index so
+// generatePasswordResetLink(email) can find (or fail to find) a user the
+// same way the real one does.
+export const authUsersByUid = new Map();
+export const authUsersByEmail = new Map();
+let emailVerificationLinkResult = "https://example.com/verify-fake";
+let passwordResetLinkResult = "https://example.com/reset-fake";
+let passwordResetLinkError = null;
+
+export function setAuthUser(uid, { email, emailVerified = false } = {}) {
+  const record = { uid, email, emailVerified };
+  authUsersByUid.set(uid, record);
+  if (email) authUsersByEmail.set(email, record);
+}
+
+export function setPasswordResetLinkError(error) {
+  passwordResetLinkError = error;
+}
+
+function notFoundError() {
+  return Object.assign(new Error("There is no user record corresponding to the provided identifier."), {
+    code: "auth/user-not-found",
+  });
+}
+
+const fakeAdminAuth = {
+  getUser: async (uid) => {
+    const record = authUsersByUid.get(uid);
+    if (!record) throw notFoundError();
+    return record;
+  },
+  generateEmailVerificationLink: async () => emailVerificationLinkResult,
+  generatePasswordResetLink: async (email) => {
+    if (passwordResetLinkError) throw passwordResetLinkError;
+    if (!authUsersByEmail.has(email)) throw notFoundError();
+    return passwordResetLinkResult;
+  },
+};
 
 function makeFile(name) {
   return {
@@ -276,6 +318,12 @@ require.cache[MODULE_PATHS.database] = {
   filename: MODULE_PATHS.database,
   loaded: true,
   exports: { getDatabase: () => fakeRtdb },
+};
+require.cache[MODULE_PATHS.auth] = {
+  id: MODULE_PATHS.auth,
+  filename: MODULE_PATHS.auth,
+  loaded: true,
+  exports: { getAuth: () => fakeAdminAuth },
 };
 
 export function restoreRealModules() {

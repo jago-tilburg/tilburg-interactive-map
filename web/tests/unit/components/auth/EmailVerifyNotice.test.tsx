@@ -111,7 +111,7 @@ describe("EmailVerifyNotice — resend", () => {
 
     await user.click(screen.getByText("Opnieuw versturen"));
 
-    expect(sendVerificationEmail).toHaveBeenCalledWith({ uid: "u1", email: "user@example.com" });
+    expect(sendVerificationEmail).toHaveBeenCalledWith();
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("Verificatiemail opnieuw verstuurd.", "success"));
     expect(screen.getByRole("button", { name: "Opnieuw versturen (60s)" })).toBeDisabled();
   });

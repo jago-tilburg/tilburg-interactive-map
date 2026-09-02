@@ -81,13 +81,13 @@ export function EmailVerifyNotice() {
     if (!currentUser || cooldown > 0) return;
     setResending(true);
     try {
-      await sendVerificationEmail(currentUser);
+      await sendVerificationEmail();
       setCooldown(RESEND_COOLDOWN_S);
       showToast("Verificatiemail opnieuw verstuurd.", "success");
     } catch {
-      // Firebase itself already throttles sendEmailVerification — a failure
-      // here is usually that, not something the user can act on beyond
-      // waiting for the cooldown that's already showing.
+      // The Resend-backed callable throws on a genuine send failure — this
+      // client-side cooldown is the only throttle left now that it's no
+      // longer routed through Firebase's own rate-limited sender.
       showToast("Versturen mislukt. Probeer het later opnieuw.", "error");
     } finally {
       setResending(false);

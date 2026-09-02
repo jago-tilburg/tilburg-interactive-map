@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockAuthInstance = { name: "mock-auth" };
+const mockFunctionsInstance = { name: "mock-functions" };
+const mockCallable = vi.fn();
 
 vi.mock("firebase/auth", () => ({
   getAuth: vi.fn(() => mockAuthInstance),
@@ -12,8 +14,6 @@ vi.mock("firebase/auth", () => ({
   EmailAuthProvider: { credential: vi.fn((email, password) => ({ email, password })) },
   reauthenticateWithCredential: vi.fn(),
   updatePassword: vi.fn(),
-  sendPasswordResetEmail: vi.fn(),
-  sendEmailVerification: vi.fn(),
   GoogleAuthProvider: vi.fn(function GoogleAuthProvider() {
     return { providerId: "google.com" };
   }),
@@ -21,6 +21,11 @@ vi.mock("firebase/auth", () => ({
   signInWithRedirect: vi.fn(),
   getRedirectResult: vi.fn(),
   getAdditionalUserInfo: vi.fn(),
+}));
+
+vi.mock("firebase/functions", () => ({
+  getFunctions: vi.fn(() => mockFunctionsInstance),
+  httpsCallable: vi.fn(() => mockCallable),
 }));
 
 vi.mock("@/lib/firebase/app", () => ({
@@ -51,16 +56,16 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
-  sendPasswordResetEmail,
-  sendEmailVerification,
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   getAdditionalUserInfo,
 } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockCallable.mockResolvedValue({ data: { ok: true } });
 });
 
 describe("getFirebaseAuth", () => {
@@ -154,17 +159,18 @@ describe("isNewGoogleUser", () => {
 });
 
 describe("sendPasswordReset", () => {
-  it("delegates to sendPasswordResetEmail", async () => {
+  it("calls the sendPasswordResetEmail callable with the given email", async () => {
     await sendPasswordReset("user@example.com");
-    expect(sendPasswordResetEmail).toHaveBeenCalledWith(mockAuthInstance, "user@example.com");
+    expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "sendPasswordResetEmail");
+    expect(mockCallable).toHaveBeenCalledWith({ email: "user@example.com" });
   });
 });
 
 describe("sendVerificationEmail", () => {
-  it("delegates to sendEmailVerification", async () => {
-    const user = { uid: "u1" };
-    await sendVerificationEmail(user as never);
-    expect(sendEmailVerification).toHaveBeenCalledWith(user);
+  it("calls the sendVerificationEmail callable with no arguments", async () => {
+    await sendVerificationEmail();
+    expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "sendVerificationEmail");
+    expect(mockCallable).toHaveBeenCalledWith({});
   });
 });
 

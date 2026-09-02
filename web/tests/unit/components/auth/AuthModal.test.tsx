@@ -168,7 +168,7 @@ describe("AuthModal — register", () => {
     await waitFor(() => expect(onAuthenticated).toHaveBeenCalledWith(visitor));
     expect(registerWithPassword).toHaveBeenCalledWith("user@example.com", "pw123456");
     expect(createVisitorProfile).toHaveBeenCalledWith("u1", "user@example.com");
-    expect(sendVerificationEmail).toHaveBeenCalledWith({ uid: "u1", email: "user@example.com" });
+    expect(sendVerificationEmail).toHaveBeenCalledWith();
     expect(refreshCurrentVisitor).toHaveBeenCalledWith("u1");
     expect(onClose).toHaveBeenCalled();
   });

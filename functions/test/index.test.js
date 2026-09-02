@@ -4,6 +4,10 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
   firestoreStore as store,
   rtdbStore,
+  authUsersByUid,
+  authUsersByEmail,
+  setAuthUser,
+  setPasswordResetLinkError,
   restoreRealModules,
   stripeSessionsCreateCalls,
   setStripeSessionResult,
@@ -21,6 +25,8 @@ const {
   blockEvent,
   deleteEvent,
   notifyAdminsOfNewReport,
+  sendVerificationEmail,
+  sendPasswordResetEmail,
 } = await import("../index.js");
 
 afterAll(restoreRealModules);
@@ -32,10 +38,13 @@ const OTHER_UID = "other-uid";
 beforeEach(() => {
   store.clear();
   rtdbStore.clear();
+  authUsersByUid.clear();
+  authUsersByEmail.clear();
   store.set(`admins/${ADMIN_UID}`, { email: "admin@example.com" });
   stripeSessionsCreateCalls.length = 0;
   resendSendCalls.length = 0;
   setResendSendError(null);
+  setPasswordResetLinkError(null);
 });
 
 function fakeWebhookRequest(overrides = {}) {
@@ -509,6 +518,73 @@ describe("notifyAdminsOfNewReport", () => {
       data: { data: () => ({ contentType: "shop", contentId: "s1", reason: "spam", reporterId: "x" }) },
     });
 
+    expect(resendSendCalls).toHaveLength(0);
+  });
+});
+
+describe("sendVerificationEmail", () => {
+  it("throws unauthenticated when there is no auth context", async () => {
+    await expect(sendVerificationEmail.run({ data: {}, auth: undefined })).rejects.toMatchObject({
+      code: "unauthenticated",
+    });
+  });
+
+  it("generates a verification link and emails it to the caller's own address", async () => {
+    setAuthUser(OWNER_UID, { email: "owner@example.com", emailVerified: false });
+
+    const result = await sendVerificationEmail.run({ data: {}, auth: { uid: OWNER_UID } });
+
+    expect(result).toEqual({ ok: true });
+    expect(resendSendCalls).toHaveLength(1);
+    expect(resendSendCalls[0].to).toBe("owner@example.com");
+    expect(resendSendCalls[0].html).toContain("owner@example.com");
+    expect(resendSendCalls[0].html).toContain("https://example.com/verify-fake");
+  });
+
+  it("is a no-op returning alreadyVerified when the caller is already verified", async () => {
+    setAuthUser(OWNER_UID, { email: "owner@example.com", emailVerified: true });
+
+    const result = await sendVerificationEmail.run({ data: {}, auth: { uid: OWNER_UID } });
+
+    expect(result).toEqual({ ok: true, alreadyVerified: true });
+    expect(resendSendCalls).toHaveLength(0);
+  });
+
+  it("throws internal when the Resend send fails", async () => {
+    setAuthUser(OWNER_UID, { email: "owner@example.com", emailVerified: false });
+    setResendSendError({ message: "simulated Resend failure" });
+
+    await expect(sendVerificationEmail.run({ data: {}, auth: { uid: OWNER_UID } })).rejects.toMatchObject({
+      code: "internal",
+    });
+  });
+});
+
+describe("sendPasswordResetEmail", () => {
+  it("throws invalid-argument when email is missing", async () => {
+    await expect(sendPasswordResetEmail.run({ data: {}, auth: undefined })).rejects.toMatchObject({
+      code: "invalid-argument",
+    });
+  });
+
+  it("generates a reset link and emails it, with no auth required", async () => {
+    setAuthUser(OWNER_UID, { email: "owner@example.com" });
+
+    const result = await sendPasswordResetEmail.run({ data: { email: "owner@example.com" }, auth: undefined });
+
+    expect(result).toEqual({ ok: true });
+    expect(resendSendCalls).toHaveLength(1);
+    expect(resendSendCalls[0].to).toBe("owner@example.com");
+    expect(resendSendCalls[0].html).toContain("https://example.com/reset-fake");
+  });
+
+  it("still resolves ok (no email sent) when no account exists — never reveals account existence", async () => {
+    const result = await sendPasswordResetEmail.run({
+      data: { email: "nobody@example.com" },
+      auth: undefined,
+    });
+
+    expect(result).toEqual({ ok: true });
     expect(resendSendCalls).toHaveLength(0);
   });
 });
