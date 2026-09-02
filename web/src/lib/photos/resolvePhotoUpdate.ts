@@ -1,4 +1,5 @@
 import { uploadPhoto, deleteOwnPhoto, type PhotoKind } from "@/lib/firebase/storage";
+import { trackEvent } from "@/lib/analytics/trackEvent";
 import type { PendingPhoto } from "@/components/common/PhotoUploadField";
 
 // Resolves the final photoUrl for a create/update save from a
@@ -20,7 +21,15 @@ export async function resolvePhotoUpdate(
     return "";
   }
 
-  const newUrl = await uploadPhoto(kind, id, pendingPhoto.blob);
+  trackEvent("photo_upload_started", { kind });
+  let newUrl: string;
+  try {
+    newUrl = await uploadPhoto(kind, id, pendingPhoto.blob);
+  } catch (err) {
+    trackEvent("photo_upload_failed", { kind });
+    throw err;
+  }
+  trackEvent("photo_upload_success", { kind });
   await deleteOwnPhoto(previousUrl).catch(() => {});
   return newUrl;
 }

@@ -138,7 +138,6 @@ export function BusinessEventForm({
     if (active && !editingEvent && !duplicateFrom && !skipPaymentRedirect) {
       trackEvent("event_form_opened");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, editingEvent, duplicateFrom, skipPaymentRedirect]);
 
   const multiDay = isMultiDay(form.startDate, form.endDate || form.startDate);

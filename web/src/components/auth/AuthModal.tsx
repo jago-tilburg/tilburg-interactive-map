@@ -12,6 +12,7 @@ import {
   isNewGoogleUser,
 } from "@/lib/firebase/auth";
 import { getVisitorProfile, createVisitorProfile } from "@/lib/firebase/firestore";
+import { trackEvent } from "@/lib/analytics/trackEvent";
 import type { Visitor } from "@/types/account";
 import styles from "./AuthModal.module.css";
 
@@ -113,9 +114,11 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
       const cred = await signInWithPassword(email, password);
       const visitor =
         (await getVisitorProfile(cred.user.uid)) ?? (await createFreshVisitorProfile(cred.user.uid, email));
+      trackEvent("login_success", { method: "password" });
       handleClose();
       onAuthenticated(visitor);
     } catch (err) {
+      trackEvent("login_failure", { method: "password" });
       setError(authErrorMessage(err));
     } finally {
       setSubmitting(false);
@@ -133,9 +136,11 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
     try {
       const cred = await registerWithPassword(email, password);
       const visitor = await createFreshVisitorProfile(cred.user.uid, email);
+      trackEvent("register_success", { method: "password" });
       // Fire-and-forget from the user's point of view — a failure here
       // (rate limiting, etc.) shouldn't block registration itself; the
       // reminder strip's own "opnieuw versturen" covers the retry.
+      trackEvent("email_verify_sent");
       sendVerificationEmail().catch((err) => console.error("Verification email error:", err));
       handleClose();
       onAuthenticated(visitor);
@@ -149,6 +154,7 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
   async function handleForgot(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
+    trackEvent("password_reset_requested");
     try {
       await sendPasswordReset(email);
     } catch (err) {
@@ -164,6 +170,7 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
   }
 
   async function handleGoogle() {
+    trackEvent("google_signin_click");
     setError(null);
     setSubmitting(true);
     try {
@@ -176,9 +183,11 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
       }
       const uid = cred.user.uid;
       const userEmail = cred.user.email ?? "";
-      const visitor = isNewGoogleUser(cred)
+      const isNew = isNewGoogleUser(cred);
+      const visitor = isNew
         ? await createFreshVisitorProfile(uid, userEmail)
         : ((await getVisitorProfile(uid)) ?? (await createFreshVisitorProfile(uid, userEmail)));
+      trackEvent(isNew ? "register_success" : "login_success", { method: "google" });
       // Returning users may already have a business profile — warm it in
       // context now rather than waiting on the (unsuppressed) listener, so
       // the account menu doesn't flash "Account" before it resolves.

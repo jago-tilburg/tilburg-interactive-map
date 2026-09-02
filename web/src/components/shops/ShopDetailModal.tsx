@@ -19,6 +19,7 @@ import {
 import { navigateToLocation } from "@/lib/shops/navigateToLocation";
 import { photoVariantUrl } from "@/lib/photos/photoVariants";
 import { shareCurrentUrl } from "@/lib/shareUrl";
+import { trackEvent } from "@/lib/analytics/trackEvent";
 import { useToast } from "@/hooks/useToast";
 import { DietaryBadges } from "./DietaryBadges";
 import { SocialLinks } from "./SocialLinks";
@@ -85,6 +86,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
 
   useEffect(() => {
     if (!open || !shop) return;
+    trackEvent("shop_detail_open");
     trackShopView(shop.id).catch(() => {});
     getShopViews(shop.id)
       .then(setViewCount)
@@ -120,6 +122,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
     try {
       const existing = shop!.userRatings.find((r) => r.userId === userId);
       await setShopUserRating(shop!.id, userId, nextUserRating(existing, userId, rating));
+      trackEvent("shop_rate");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Rating opslaan mislukt.");
     }
@@ -130,6 +133,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
     if (!userId) return;
     try {
       await setShopLike(shop!.id, userId, !hasLiked);
+      trackEvent("shop_like_toggle", { liked: !hasLiked });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Opslaan mislukt.");
     }
@@ -151,6 +155,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
     try {
       await addShopComment(shop!.id, buildComment({ userId, userName: name, text: pendingCommentText }));
       setCommentDraft("");
+      trackEvent("shop_comment_submit");
     } catch (err) {
       // Also close the name-prompt on failure — it sits in front of the
       // main modal, so the error message set below would otherwise be
@@ -177,6 +182,7 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
         shop!.id,
         buildUserReview({ userId, userName: input.name, rating: input.rating, text: input.text }),
       );
+      trackEvent("shop_review_submit");
     } catch (err) {
       // Also close the review modal on failure — see handleSubmitCommentName.
       setError(err instanceof Error ? err.message : "Opslaan mislukt.");

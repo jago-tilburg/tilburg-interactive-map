@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { Modal } from "@/components/common/Modal";
 import { categoryOf, formatBusinessEventSchedule } from "@/lib/events/eventHelpers";
 import { shareCurrentUrl } from "@/lib/shareUrl";
+import { trackEvent } from "@/lib/analytics/trackEvent";
 import { useToast } from "@/hooks/useToast";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./UmbrellaEventDetailModal.module.css";
@@ -23,6 +25,12 @@ export function UmbrellaEventDetailModal({
   onOpenEvent,
 }: UmbrellaEventDetailModalProps) {
   const { showToast } = useToast();
+
+  useEffect(() => {
+    if (!open || !umbrella) return;
+    trackEvent("umbrella_detail_open");
+  }, [open, umbrella]);
+
   if (!umbrella) return null;
   const children = approvedBusinessEvents.filter((ev) => ev.umbrellaEventId === umbrella.id);
 
@@ -53,7 +61,10 @@ export function UmbrellaEventDetailModal({
                 type="button"
                 key={ev.id}
                 className={styles.childItem}
-                onClick={() => onOpenEvent?.(ev.id)}
+                onClick={() => {
+                  trackEvent("umbrella_child_event_click");
+                  onOpenEvent?.(ev.id);
+                }}
               >
                 <div className={styles.childTitle}>
                   {cat.emoji} {ev.title}

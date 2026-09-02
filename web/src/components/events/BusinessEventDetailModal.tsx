@@ -68,6 +68,7 @@ export function BusinessEventDetailModal({
 
   useEffect(() => {
     if (!open || !event) return;
+    trackEvent("event_detail_open");
     trackEventView(event.id).catch(() => {});
   }, [open, event]);
 
@@ -88,6 +89,7 @@ export function BusinessEventDetailModal({
   });
 
   async function handleInterest() {
+    trackEvent("event_interest_click");
     setInterest((n) => n + 1);
     try {
       await incrementEventInterest(event!.id);
@@ -122,6 +124,7 @@ export function BusinessEventDetailModal({
     const success = await shareCurrentUrl(event!.title);
     if (!success) return;
     if (!usedNativeShare) showToast("Link gekopieerd.", "success");
+    trackEvent("event_share_click");
     incrementEventShares(event!.id).catch(() => {});
   }
 

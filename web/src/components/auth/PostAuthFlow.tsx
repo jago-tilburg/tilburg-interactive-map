@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Modal } from "@/components/common/Modal";
 import { useAuth } from "@/hooks/useAuth";
 import { saveOnboardingConsent, createBusinessProfile } from "@/lib/firebase/firestore";
+import { trackEvent } from "@/lib/analytics/trackEvent";
 import styles from "./PostAuthFlow.module.css";
 
 interface PostAuthFlowProps {
@@ -92,6 +93,7 @@ export function PostAuthFlow({
     setError(null);
     try {
       await createBusinessProfile(currentUser.uid, trimmed, currentUser.email ?? "");
+      trackEvent("business_profile_created");
       await refreshCurrentBusiness(currentUser.uid);
       onClose();
       onGoToBusiness();
