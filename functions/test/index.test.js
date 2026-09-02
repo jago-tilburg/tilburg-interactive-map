@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 // this require.cache-patching approach instead of vi.mock.
 import {
   firestoreStore as store,
+  rtdbStore,
   restoreRealModules,
   stripeSessionsCreateCalls,
   setStripeSessionResult,
@@ -30,6 +31,7 @@ const OTHER_UID = "other-uid";
 
 beforeEach(() => {
   store.clear();
+  rtdbStore.clear();
   store.set(`admins/${ADMIN_UID}`, { email: "admin@example.com" });
   stripeSessionsCreateCalls.length = 0;
   resendSendCalls.length = 0;
@@ -368,7 +370,16 @@ describe("stripeWebhook", () => {
   });
 
   it("emails the business a payment confirmation when its email is on file", async () => {
-    store.set("businessEvents/evt1", { title: "Kermis", status: "pending", ownerId: OWNER_UID });
+    store.set("businessEvents/evt1", {
+      title: "Kermis",
+      status: "pending",
+      ownerId: OWNER_UID,
+      startDate: "2026-09-10",
+      endDate: "2026-09-12",
+      startTime: "12:00",
+      endTime: "22:00",
+      address: "Heuvelplein, Tilburg",
+    });
     store.set(`businesses/${OWNER_UID}`, { email: "owner@example.com" });
     setStripeWebhookEvent({
       type: "checkout.session.completed",
@@ -379,8 +390,9 @@ describe("stripeWebhook", () => {
 
     expect(resendSendCalls).toHaveLength(1);
     expect(resendSendCalls[0].to).toBe("owner@example.com");
-    expect(resendSendCalls[0].subject).toContain("Kermis");
+    expect(resendSendCalls[0].subject).toBe("Tilburg ziet nu jouw event!");
     expect(resendSendCalls[0].html).toContain("Kermis");
+    expect(resendSendCalls[0].html).toContain("cs_test_6");
   });
 
   it("still pays and publishes the event even when there is no business email to notify", async () => {
@@ -399,7 +411,16 @@ describe("stripeWebhook", () => {
   });
 
   it("still pays and publishes the event even when the confirmation email send fails", async () => {
-    store.set("businessEvents/evt1", { title: "Kermis", status: "pending", ownerId: OWNER_UID });
+    store.set("businessEvents/evt1", {
+      title: "Kermis",
+      status: "pending",
+      ownerId: OWNER_UID,
+      startDate: "2026-09-10",
+      endDate: "2026-09-12",
+      startTime: "12:00",
+      endTime: "22:00",
+      address: "Heuvelplein, Tilburg",
+    });
     store.set(`businesses/${OWNER_UID}`, { email: "owner@example.com" });
     setResendSendError({ message: "simulated Resend failure" });
     setStripeWebhookEvent({
@@ -418,6 +439,8 @@ describe("stripeWebhook", () => {
 describe("notifyAdminsOfNewReport", () => {
   it("emails every admin on file when a report is created", async () => {
     store.set(`admins/${OTHER_UID}`, { email: "second-admin@example.com" });
+    store.set("businessEvents/evt1", { title: "Kermis", ownerId: OWNER_UID });
+    store.set(`businesses/${OWNER_UID}`, { businessName: "Kermis BV", email: "kermis@example.com" });
 
     await notifyAdminsOfNewReport.run({
       params: { reportId: "r1" },
@@ -433,9 +456,11 @@ describe("notifyAdminsOfNewReport", () => {
 
     expect(resendSendCalls).toHaveLength(1);
     expect(resendSendCalls[0].to).toEqual(["admin@example.com", "second-admin@example.com"]);
-    expect(resendSendCalls[0].subject).toContain("businessEvent");
-    expect(resendSendCalls[0].subject).toContain("spam");
-    expect(resendSendCalls[0].html).toContain("evt1");
+    expect(resendSendCalls[0].subject).toContain("r1");
+    expect(resendSendCalls[0].subject).toContain("event");
+    expect(resendSendCalls[0].html).toContain("Kermis");
+    expect(resendSendCalls[0].html).toContain("Spam");
+    expect(resendSendCalls[0].html).toContain("Kermis BV");
   });
 
   it("includes details and parentId in the email body when present", async () => {
@@ -455,6 +480,25 @@ describe("notifyAdminsOfNewReport", () => {
 
     expect(resendSendCalls[0].html).toContain("shop1");
     expect(resendSendCalls[0].html).toContain("Bevat scheldwoorden");
+  });
+
+  it("resolves a reported shop's name from RTDB into the email", async () => {
+    rtdbStore.set("shops/shop1/name", "Foodtruck Plein");
+
+    await notifyAdminsOfNewReport.run({
+      params: { reportId: "r4" },
+      data: {
+        data: () => ({
+          contentType: "shop",
+          contentId: "shop1",
+          reason: "incorrect_info",
+          reporterId: "reporter-uid",
+        }),
+      },
+    });
+
+    expect(resendSendCalls[0].html).toContain("Foodtruck Plein");
+    expect(resendSendCalls[0].html).toContain("Onjuiste informatie");
   });
 
   it("does nothing when there are no admins on file", async () => {

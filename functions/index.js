@@ -14,10 +14,14 @@ const { Resend } = require('resend');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
+const { getDatabase } = require('firebase-admin/database');
 const sharp = require('sharp');
+const fs = require('fs');
+const path = require('path');
 
 initializeApp();
 const db = getFirestore();
+const rtdb = getDatabase();
 
 setGlobalOptions({ region: 'europe-west1' });
 
@@ -57,57 +61,54 @@ async function sendEmail(apiKey, { to, subject, html }) {
   }
 }
 
-// Table-based, fully inline-styled — email clients (Outlook's Word engine
-// especially) don't reliably support flexbox/grid, <style> blocks, or
-// position:absolute the way a browser does, so this deliberately doesn't
-// use any of that even though the rest of the app can. Structure borrows
-// the shape of a template the user liked (hero card / pill CTA / muted
-// footer) but rebuilt from scratch in 2happies' own colors — the source
-// reference was a Figma export with every letter as a separate absolutely-
-// positioned vector shape, not usable as real markup.
-function emailTemplate({ eyebrow, heading, body, ctaLabel, ctaUrl, accentColor = '#ff6b35', footerNote }) {
-  const ctaButton = ctaLabel && ctaUrl
-    ? `<a href="${ctaUrl}" style="display:inline-block;margin-top:24px;padding:14px 32px;background:#ffffff;color:${accentColor};font-family:sans-serif;font-weight:700;font-size:15px;text-decoration:none;border-radius:999px;">${ctaLabel}</a>`
-    : '';
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
-  return `<!DOCTYPE html>
-<html>
-  <body style="margin:0;padding:0;background:#faf8f5;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf8f5;padding:32px 16px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;">
-            <tr>
-              <td style="padding:28px 32px 0;font-family:sans-serif;">
-                <span style="color:#ff6b35;font-weight:800;font-size:20px;letter-spacing:-0.3px;">2happies</span>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:24px 32px 0;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${accentColor};border-radius:20px;">
-                  <tr>
-                    <td align="center" style="padding:40px 32px;font-family:sans-serif;">
-                      <span style="display:inline-block;background:rgba(255,255,255,0.2);color:#ffffff;font-weight:700;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;padding:6px 14px;border-radius:999px;">${eyebrow}</span>
-                      <div style="margin-top:16px;color:#ffffff;font-weight:800;font-size:26px;line-height:1.25;">${heading}</div>
-                      <div style="margin-top:12px;color:rgba(255,255,255,0.92);font-size:15px;line-height:1.5;">${body}</div>
-                      ${ctaButton}
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="padding:32px;font-family:sans-serif;">
-                ${footerNote ? `<div style="color:#78716c;font-size:12px;margin-bottom:8px;">${footerNote}</div>` : ''}
-                <div style="color:#a8a29e;font-size:12px;">© 2happies · <a href="https://2happies.nl" style="color:#a8a29e;">2happies.nl</a></div>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
+// Dutch long-form date/time strings matching the template's own copy style
+// ("zaterdag 12 september", "2 september 2026, 14:12") — no client-side
+// date-formatting helper is reusable here since these run in Cloud
+// Functions, not the browser.
+function formatDutchWeekdayDate(date) {
+  return new Intl.DateTimeFormat('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' }).format(date);
+}
+function formatDutchLongDate(date) {
+  return new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+}
+function formatDutchDateTime(date) {
+  const time = new Intl.DateTimeFormat('nl-NL', { hour: '2-digit', minute: '2-digit' }).format(date);
+  return `${formatDutchLongDate(date)}, ${time}`;
+}
+
+// Real, hand-built HTML email templates (Outlook VML button/gradient
+// fallbacks, dark-mode via prefers-color-scheme, hidden preheader text,
+// mobile column-stacking) — not generated here. See functions/emails/ —
+// each file was derived from a reference design the user supplied, with
+// its example content replaced by {{token}} placeholders and its optional
+// sections wrapped in <!--IF:name--> / <!--ENDIF:name--> markers.
+const templateCache = new Map();
+function renderEmailTemplate(filename, vars, conditionals = {}) {
+  let html = templateCache.get(filename);
+  if (!html) {
+    html = fs.readFileSync(path.join(__dirname, 'emails', filename), 'utf8');
+    templateCache.set(filename, html);
+  }
+
+  for (const [name, keep] of Object.entries(conditionals)) {
+    const re = new RegExp(`<!--IF:${name}-->([\\s\\S]*?)<!--ENDIF:${name}-->`, 'g');
+    html = html.replace(re, keep ? '$1' : '');
+  }
+
+  for (const [key, value] of Object.entries(vars)) {
+    html = html.split(`{{${key}}}`).join(value ?? '');
+  }
+
+  return html;
 }
 
 // TEST-MODE PREPARATION — not live. Placeholder price for a single event
@@ -211,6 +212,79 @@ exports.blockEvent = onCall(async (request) => {
   return { ok: true };
 });
 
+const REPORT_CONTENT_TYPE_LABELS = {
+  shop: 'shop',
+  businessEvent: 'event',
+  umbrellaEvent: 'festival',
+  comment: 'reactie',
+  review: 'review',
+  shopPhoto: 'foto',
+  eventPhoto: 'foto',
+};
+
+const REPORT_REASON_LABELS = {
+  spam: 'Spam',
+  offensive: 'Ongepaste taal',
+  incorrect_info: 'Onjuiste informatie',
+  other: 'Overig',
+};
+
+// Best-effort human-readable title + deep link for whatever got reported —
+// shops live on RTDB, everything else on Firestore. A comment/review has no
+// content of its own worth naming, so this names the shop it's attached to
+// instead (comments/reviews only ever attach to shops in this app).
+async function resolveReportedContent(contentType, contentId, parentId) {
+  try {
+    if (contentType === 'businessEvent') {
+      const snap = await db.collection('businessEvents').doc(contentId).get();
+      return { title: snap.exists ? snap.data().title : contentId, url: `${appBaseUrl.value()}/event/${contentId}` };
+    }
+    if (contentType === 'umbrellaEvent') {
+      const snap = await db.collection('umbrellaEvents').doc(contentId).get();
+      return { title: snap.exists ? snap.data().title : contentId, url: `${appBaseUrl.value()}/umbrella/${contentId}` };
+    }
+    if (contentType === 'shop') {
+      const snap = await rtdb.ref(`shops/${contentId}/name`).once('value');
+      return { title: snap.exists() ? snap.val() : contentId, url: `${appBaseUrl.value()}/shop/${contentId}` };
+    }
+    if ((contentType === 'comment' || contentType === 'review') && parentId) {
+      const snap = await rtdb.ref(`shops/${parentId}/name`).once('value');
+      const shopName = snap.exists() ? snap.val() : parentId;
+      const label = contentType === 'review' ? 'Review' : 'Reactie';
+      return { title: `${label} op ${shopName}`, url: `${appBaseUrl.value()}/shop/${parentId}` };
+    }
+  } catch (err) {
+    logger.warn('resolveReportedContent: lookup failed', { contentType, contentId, message: err.message });
+  }
+  return { title: `${contentType} (${contentId})`, url: appBaseUrl.value() };
+}
+
+// Only businessEvents have a real owner in this app — shops are
+// admin-curated (no per-shop owner concept at all), and comment/review
+// posters are just an anonymous local id with no real name/email to show.
+async function resolveContentOwner(contentType, contentId) {
+  if (contentType !== 'businessEvent') return null;
+  const eventSnap = await db.collection('businessEvents').doc(contentId).get();
+  if (!eventSnap.exists) return null;
+  const businessSnap = await db.collection('businesses').doc(eventSnap.data().ownerId).get();
+  if (!businessSnap.exists) return null;
+  const { businessName, email } = businessSnap.data();
+  return [businessName, email].filter(Boolean).join(' · ');
+}
+
+// The reporter may be a real signed-in visitor (reporterId is their uid) or
+// just an anonymous local id (getAnonUserId(), no Firestore doc at all) —
+// resolve to a real name when we can, otherwise show the id honestly rather
+// than fabricate a name/email that doesn't exist.
+async function resolveReporter(reporterId) {
+  const visitorSnap = await db.collection('visitors').doc(reporterId).get();
+  if (visitorSnap.exists) {
+    const { displayName, email } = visitorSnap.data();
+    return [displayName, email].filter(Boolean).join(' · ');
+  }
+  return `${reporterId} (niet ingelogd)`;
+}
+
 // Reports are created directly by the client (setDoc, no callable in the
 // path) — a Firestore trigger is what actually notices a new one, rather
 // than relying on every report-creation call site to remember to also
@@ -219,33 +293,60 @@ exports.notifyAdminsOfNewReport = onDocumentCreated(
   { document: 'reports/{reportId}', secrets: [resendApiKey] },
   async (event) => {
     const report = event.data.data();
+    const reportId = event.params.reportId;
     const adminsSnap = await db.collection('admins').get();
     const toEmails = adminsSnap.docs.map((d) => d.data().email).filter(Boolean);
     if (toEmails.length === 0) {
-      logger.warn('notifyAdminsOfNewReport: no admin emails found, skipping', { reportId: event.params.reportId });
+      logger.warn('notifyAdminsOfNewReport: no admin emails found, skipping', { reportId });
       return;
     }
 
-    const bodyLines = [
-      `<strong>Type:</strong> ${report.contentType}`,
-      `<strong>Content-id:</strong> ${report.contentId}`,
-      report.parentId ? `<strong>Bij:</strong> ${report.parentId}` : null,
-      `<strong>Reden:</strong> ${report.reason}`,
-      report.details ? `<strong>Details:</strong> ${report.details}` : null,
-    ].filter(Boolean);
+    const [content, owner, reporter, priorReportsSnap] = await Promise.all([
+      resolveReportedContent(report.contentType, report.contentId, report.parentId),
+      resolveContentOwner(report.contentType, report.contentId),
+      resolveReporter(report.reporterId),
+      db.collection('reports')
+        .where('contentType', '==', report.contentType)
+        .where('contentId', '==', report.contentId)
+        .get(),
+    ]);
+    // -1: that query includes the just-created report itself — "Eerder
+    // gemeld" (previously reported) means every OTHER report on file.
+    const priorReportCount = Math.max(0, priorReportsSnap.size - 1);
+
+    const reportedAt = report.createdAt && typeof report.createdAt.toDate === 'function'
+      ? report.createdAt.toDate()
+      : new Date();
+    const contentTypeLabel = REPORT_CONTENT_TYPE_LABELS[report.contentType] || report.contentType;
+    const reasonLabel = REPORT_REASON_LABELS[report.reason] || report.reason;
 
     await sendEmail(resendApiKey.value(), {
       to: toEmails,
-      subject: `Nieuwe melding: ${report.contentType} (${report.reason})`,
-      html: emailTemplate({
-        eyebrow: 'Nieuwe melding',
-        heading: 'Er is iets gemeld',
-        body: bodyLines.join('<br />'),
-        accentColor: '#dc2626',
-        footerNote: `Gemeld door: ${report.reporterId}`,
-      }),
+      subject: `Nieuwe melding #${reportId} · ${contentTypeLabel}`,
+      html: renderEmailTemplate(
+        'report-notification.html',
+        {
+          content_type: escapeHtml(contentTypeLabel),
+          content_titel: escapeHtml(content.title),
+          reden: escapeHtml(reasonLabel),
+          melding_id: reportId,
+          site_url: appBaseUrl.value(),
+          melding_tijdstip: escapeHtml(formatDutchDateTime(reportedAt)),
+          content_url: content.url,
+          eigenaar: owner ? escapeHtml(owner) : '',
+          melder: escapeHtml(reporter),
+          aantal_meldingen: String(priorReportCount),
+          toelichting: report.details ? escapeHtml(report.details) : '',
+          moderatie_url: appBaseUrl.value(),
+          admin_url: appBaseUrl.value(),
+          meldingen_url: appBaseUrl.value(),
+          voorkeuren_url: appBaseUrl.value(),
+          jaar: String(new Date().getFullYear()),
+        },
+        { eigenaar: !!owner, toelichting: !!report.details },
+      ),
     });
-    logger.info('notifyAdminsOfNewReport: notified admins', { reportId: event.params.reportId, adminCount: toEmails.length });
+    logger.info('notifyAdminsOfNewReport: notified admins', { reportId, adminCount: toEmails.length });
   },
 );
 
@@ -374,17 +475,39 @@ exports.stripeWebhook = onRequest({ secrets: [stripeWebhookSecret, stripeSecretK
   const businessSnap = await db.collection('businesses').doc(eventData.ownerId).get();
   const toEmail = businessSnap.exists ? businessSnap.data().email : null;
   if (toEmail) {
+    const eventUrl = `${appBaseUrl.value()}/event/${eventId}`;
+    const dashboardUrl = `${appBaseUrl.value()}/eventbeheer`;
+    const startDate = new Date(`${eventData.startDate}T00:00:00`);
+    const endDate = new Date(`${eventData.endDate}T00:00:00`);
     await sendEmail(resendApiKey.value(), {
       to: toEmail,
-      subject: `Betaling ontvangen — ${eventData.title} staat live`,
-      html: emailTemplate({
-        eyebrow: 'Betaling ontvangen',
-        heading: 'Je evenement staat live! 🎉',
-        body: `We hebben je betaling van <strong>€${(EVENT_LISTING_PRICE_CENTS / 100).toFixed(2)}</strong> ontvangen voor de plaatsing van <strong>${eventData.title}</strong>. Het is nu zichtbaar op de kaart.`,
-        ctaLabel: 'Bekijk je evenement',
-        ctaUrl: `${appBaseUrl.value()}/event/${eventId}`,
-        footerNote: `Sessie: ${session.id}`,
-      }),
+      subject: `Tilburg ziet nu jouw event!`,
+      html: renderEmailTemplate(
+        'payment-confirmation.html',
+        {
+          event_naam: escapeHtml(eventData.title),
+          site_url: appBaseUrl.value(),
+          // The original, not a resized derivative — that swap
+          // (photoVariantUrl) is web/-only client logic, not worth porting
+          // here for a once-per-send email image.
+          event_afbeelding_url: eventData.photoUrl || '',
+          event_datum: escapeHtml(formatDutchWeekdayDate(startDate)),
+          event_tijd: escapeHtml(`${eventData.startTime}–${eventData.endTime}`),
+          event_locatie: escapeHtml(eventData.address),
+          listing_einddatum: escapeHtml(formatDutchLongDate(endDate)),
+          event_url: eventUrl,
+          bedrag: (EVENT_LISTING_PRICE_CENTS / 100).toFixed(2).replace('.', ','),
+          betaaldatum: escapeHtml(formatDutchDateTime(new Date())),
+          betaalmethode: 'Stripe',
+          stripe_referentie: session.id,
+          dashboard_inzicht_url: dashboardUrl,
+          event_bewerken_url: dashboardUrl,
+          dashboard_url: dashboardUrl,
+          help_url: appBaseUrl.value(),
+          jaar: String(new Date().getFullYear()),
+        },
+        { eventFoto: !!eventData.photoUrl },
+      ),
     });
   } else {
     logger.warn('stripeWebhook: no business email found, confirmation email skipped', { eventId, ownerId: eventData.ownerId });

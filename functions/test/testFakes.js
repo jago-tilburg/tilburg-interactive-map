@@ -18,6 +18,7 @@ const MODULE_PATHS = {
   stripe: require.resolve("stripe"),
   resend: require.resolve("resend"),
   params: require.resolve("firebase-functions/params"),
+  database: require.resolve("firebase-admin/database"),
 };
 
 const realCacheEntries = {};
@@ -56,22 +57,51 @@ function makeDocRef(path, id) {
   };
 }
 
-const fakeDb = {
-  collection: (path) => ({
-    doc: (id) => makeDocRef(path, id),
-    // Only a plain "get everything in this collection" — no query
-    // operators — since that's all notifyAdminsOfNewReport needs so far.
+// Only supports "==" filters, chained with AND — the only shape
+// notifyAdminsOfNewReport's dedup-count query needs so far.
+function makeQuery(path, filters) {
+  return {
+    where: (field, op, value) => makeQuery(path, [...filters, { field, op, value }]),
     get: async () => {
       const docs = [];
       for (const [key, value] of firestoreStore.entries()) {
-        if (key.startsWith(`${path}/`)) {
-          docs.push({ id: key.slice(path.length + 1), data: () => value });
-        }
+        if (!key.startsWith(`${path}/`)) continue;
+        const matches = filters.every((f) => {
+          if (f.op !== "==") throw new Error(`fakeDb: unsupported operator ${f.op}`);
+          return value[f.field] === f.value;
+        });
+        if (matches) docs.push({ id: key.slice(path.length + 1), data: () => value });
       }
       return { docs, size: docs.length };
     },
+  };
+}
+
+const fakeDb = {
+  collection: (path) => ({
+    doc: (id) => makeDocRef(path, id),
+    get: () => makeQuery(path, []).get(),
+    where: (field, op, value) => makeQuery(path, [{ field, op, value }]),
   }),
 };
+
+// Fake RTDB, keyed by full path (e.g. "shops/shop1/name") — only what
+// resolveReportedContent's shop-name lookups need: ref(path).once("value").
+export const rtdbStore = new Map();
+
+function makeRtdbRef(path) {
+  return {
+    once: async () => {
+      const has = rtdbStore.has(path);
+      return {
+        exists: () => has,
+        val: () => (has ? rtdbStore.get(path) : null),
+      };
+    },
+  };
+}
+
+const fakeRtdb = { ref: (path) => makeRtdbRef(path) };
 
 function makeFile(name) {
   return {
@@ -240,6 +270,12 @@ require.cache[MODULE_PATHS.params] = {
   filename: MODULE_PATHS.params,
   loaded: true,
   exports: { defineSecret: fakeDefineSecret, defineString: fakeDefineString },
+};
+require.cache[MODULE_PATHS.database] = {
+  id: MODULE_PATHS.database,
+  filename: MODULE_PATHS.database,
+  loaded: true,
+  exports: { getDatabase: () => fakeRtdb },
 };
 
 export function restoreRealModules() {
