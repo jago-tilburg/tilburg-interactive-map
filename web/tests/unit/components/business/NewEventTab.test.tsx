@@ -42,6 +42,7 @@ function makeEvent(id: string): BusinessEvent {
     lat: 0,
     lng: 0,
     ownerId: "u1",
+    city: "Tilburg",
     status: "pending",
     paid: false,
     createdAt: null as never,

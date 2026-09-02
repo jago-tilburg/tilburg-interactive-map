@@ -20,6 +20,10 @@ export interface Business {
   businessName: string;
   email: string;
   createdAt: Timestamp;
+  // Fixed to "Tilburg" at creation (GO-LIVE-CHECKLIST.md §0, decided
+  // 2026-09-02: Tilburg-only at launch, but store city now so a future
+  // multi-city expansion is a config change, not a data migration).
+  city: string;
   // Prefills a new event's location fields — set from the Settings tab, not
   // retroactively applied to already-submitted events (matches the
   // prototype's saveDashboardSettings(), which only cascades businessName

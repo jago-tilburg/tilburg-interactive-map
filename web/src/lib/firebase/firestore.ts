@@ -109,7 +109,7 @@ export async function createBusinessProfile(
   businessName: string,
   email: string,
 ): Promise<Business> {
-  const profile = { businessName, email, createdAt: serverTimestamp() };
+  const profile = { businessName, email, city: "Tilburg", createdAt: serverTimestamp() };
   await setDoc(doc(getDb(), "businesses", uid), profile);
   return { uid, ...profile } as Business;
 }

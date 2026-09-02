@@ -73,6 +73,7 @@ const businessEvent: BusinessEvent = {
   lat: 51.5,
   lng: 5.09,
   ownerId: "owner-uid",
+  city: "Tilburg",
   status: "approved",
   paid: true,
   createdAt: null as never,
@@ -86,6 +87,7 @@ const umbrella: UmbrellaEvent = {
   color: "#b45309",
   startDate: "2026-01-01",
   endDate: "2099-01-01",
+  city: "Tilburg",
   createdAt: null as never,
 };
 

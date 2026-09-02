@@ -14,6 +14,7 @@ function validUmbrella(overrides = {}) {
     color: "#b45309",
     startDate: "2026-07-01",
     endDate: "2026-07-10",
+    city: "Tilburg",
     ...overrides,
   };
 }
@@ -83,6 +84,19 @@ describe("umbrellaEvents/{umbrellaId} create", () => {
     const db = testEnv.authenticatedContext(ADMIN_UID).firestore();
     await assertFails(setDoc(doc(db, "umbrellaEvents", UMBRELLA_ID), validUmbrella({ title: "x".repeat(50000) })));
   });
+
+  it("denies create missing city", async () => {
+    await seedAdmin();
+    const db = testEnv.authenticatedContext(ADMIN_UID).firestore();
+    const { city, ...missingCity } = validUmbrella();
+    await assertFails(setDoc(doc(db, "umbrellaEvents", UMBRELLA_ID), missingCity));
+  });
+
+  it("denies create when city is not a string", async () => {
+    await seedAdmin();
+    const db = testEnv.authenticatedContext(ADMIN_UID).firestore();
+    await assertFails(setDoc(doc(db, "umbrellaEvents", UMBRELLA_ID), validUmbrella({ city: 42 })));
+  });
 });
 
 describe("umbrellaEvents/{umbrellaId} update", () => {
@@ -97,6 +111,19 @@ describe("umbrellaEvents/{umbrellaId} update", () => {
     await seedUmbrella();
     const db = testEnv.authenticatedContext(OTHER_UID).firestore();
     await assertFails(updateDoc(doc(db, "umbrellaEvents", UMBRELLA_ID), validUmbrella({ title: "hijacked" })));
+  });
+
+  // city was added to the schema 2026-09-02; pre-existing umbrellaEvents
+  // docs from before that have no city field and aren't being backfilled
+  // (GO-LIVE-CHECKLIST.md §0) — they must stay editable without one.
+  it("allows an admin to update a pre-existing umbrella event that has no city field", async () => {
+    const { city, ...legacyUmbrella } = validUmbrella();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "umbrellaEvents", UMBRELLA_ID), legacyUmbrella);
+    });
+    await seedAdmin();
+    const db = testEnv.authenticatedContext(ADMIN_UID).firestore();
+    await assertSucceeds(updateDoc(doc(db, "umbrellaEvents", UMBRELLA_ID), { title: "Updated" }));
   });
 });
 

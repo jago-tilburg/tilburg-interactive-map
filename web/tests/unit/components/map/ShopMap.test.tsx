@@ -101,6 +101,7 @@ function makeEvent(overrides: Partial<BusinessEvent> = {}): BusinessEvent {
     lat: 51.5,
     lng: 5.09,
     ownerId: "owner-uid",
+    city: "Tilburg",
     status: "approved",
     paid: true,
     createdAt: null as never,
@@ -302,7 +303,7 @@ describe("ShopMap", () => {
         shops={[]}
         businessEvents={[event]}
         umbrellaEvents={[
-          { id: "u1", title: "Kermis", description: "", color: "#123456", startDate: "2026-01-01", endDate: "2099-01-01", createdAt: null as never },
+          { id: "u1", title: "Kermis", description: "", color: "#123456", startDate: "2026-01-01", endDate: "2099-01-01", city: "Tilburg", createdAt: null as never },
         ]}
         onShopClick={vi.fn()}
         onBusinessEventClick={vi.fn()}

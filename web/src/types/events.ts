@@ -27,6 +27,10 @@ export interface BusinessEvent {
   lat: number;
   lng: number;
   ownerId: string;
+  // Fixed to "Tilburg" at creation (GO-LIVE-CHECKLIST.md §0, decided
+  // 2026-09-02: Tilburg-only at launch, but store city now so a future
+  // multi-city expansion is a config change, not a data migration).
+  city: string;
   status: BusinessEventStatus;
   paid: boolean;
   createdAt: Timestamp;
@@ -53,6 +57,7 @@ export type BusinessEventInput = Omit<
   BusinessEvent,
   | "id"
   | "ownerId"
+  | "city"
   | "status"
   | "paid"
   | "createdAt"
@@ -74,6 +79,10 @@ export interface UmbrellaEvent {
   startDate: string;
   endDate: string;
   createdAt: Timestamp;
+  // Fixed to "Tilburg" at creation (GO-LIVE-CHECKLIST.md §0, decided
+  // 2026-09-02: Tilburg-only at launch, but store city now so a future
+  // multi-city expansion is a config change, not a data migration).
+  city: string;
 }
 
-export type UmbrellaEventInput = Omit<UmbrellaEvent, "id" | "createdAt">;
+export type UmbrellaEventInput = Omit<UmbrellaEvent, "id" | "createdAt" | "city">;

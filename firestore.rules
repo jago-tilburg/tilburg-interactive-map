@@ -30,9 +30,10 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null
         && request.auth.uid == uid
-        && request.resource.data.keys().hasAll(['businessName', 'email', 'createdAt'])
+        && request.resource.data.keys().hasAll(['businessName', 'email', 'city', 'createdAt'])
         && request.resource.data.businessName is string && request.resource.data.businessName.size() <= 200
-        && request.resource.data.email is string && request.resource.data.email.size() <= 320;
+        && request.resource.data.email is string && request.resource.data.email.size() <= 320
+        && request.resource.data.city is string && request.resource.data.city.size() <= 100;
     }
 
     // Admin membership list. Never client-readable or client-writable — only
@@ -64,7 +65,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasAll([
           'title', 'category', 'description', 'startDate', 'endDate',
           'startTime', 'endTime', 'lat', 'lng', 'address', 'ownerId',
-          'status', 'paid', 'createdAt'
+          'city', 'status', 'paid', 'createdAt'
         ])
         // Field-presence via hasAll() alone says nothing about the actual
         // values — without this, lat/lng could be non-numeric, title could
@@ -77,6 +78,7 @@ service cloud.firestore {
         && request.resource.data.startDate is string && request.resource.data.endDate is string
         && request.resource.data.startTime is string && request.resource.data.endTime is string
         && request.resource.data.address is string && request.resource.data.address.size() <= 500
+        && request.resource.data.city is string && request.resource.data.city.size() <= 100
         && request.resource.data.lat is number && request.resource.data.lng is number
         // umbrellaEventId is optional, but when present must reference a
         // real umbrella — otherwise a business could tag their event under
@@ -153,7 +155,16 @@ service cloud.firestore {
         && request.resource.data.title is string && request.resource.data.title.size() <= 200
         && request.resource.data.description is string && request.resource.data.description.size() <= 5000
         && request.resource.data.color is string && request.resource.data.color.size() <= 50
-        && request.resource.data.startDate is string && request.resource.data.endDate is string;
+        && request.resource.data.startDate is string && request.resource.data.endDate is string
+        // city is required on create (resource == null identifies create in
+        // a combined create/update rule) but only type/length-checked on
+        // update if present — existing pre-city umbrellaEvents docs from
+        // before this field existed must stay editable without a backfill
+        // (GO-LIVE-CHECKLIST.md §0, decided 2026-09-02: types+writes only,
+        // no backfill in this pass).
+        && (resource == null ? request.resource.data.keys().hasAll(['city']) : true)
+        && (!('city' in request.resource.data)
+          || (request.resource.data.city is string && request.resource.data.city.size() <= 100));
 
       allow delete: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }

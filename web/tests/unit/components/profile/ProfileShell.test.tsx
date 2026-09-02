@@ -63,6 +63,7 @@ const business: Business = {
   uid: "u1",
   businessName: "My Shop",
   email: "visitor@example.com",
+  city: "Tilburg",
   createdAt: null as never,
 };
 
@@ -101,6 +102,7 @@ const event: BusinessEvent = {
   lat: 51.5,
   lng: 5.09,
   ownerId: "owner-uid",
+  city: "Tilburg",
   status: "approved",
   paid: true,
   createdAt: null as never,

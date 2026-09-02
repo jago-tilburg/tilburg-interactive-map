@@ -184,6 +184,7 @@ describe("Header", () => {
       lat: 51.5,
       lng: 5.09,
       ownerId: "owner-uid",
+      city: "Tilburg",
       status: "approved" as const,
       paid: true,
       createdAt: null as never,

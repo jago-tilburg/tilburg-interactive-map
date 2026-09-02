@@ -141,6 +141,7 @@ function makeEvent(overrides: Partial<BusinessEvent> = {}): BusinessEvent {
     lat: 51.5,
     lng: 5.09,
     ownerId: "owner-uid",
+    city: "Tilburg",
     status: "pending",
     paid: false,
     createdAt: null as never,
@@ -155,6 +156,7 @@ const umbrella: UmbrellaEvent = {
   color: "#b45309",
   startDate: "2026-09-01",
   endDate: "2026-09-10",
+  city: "Tilburg",
   createdAt: null as never,
 };
 

@@ -130,6 +130,7 @@ describe("AuthProvider dual-role resolution", () => {
       uid: "uid-1",
       businessName: "My Shop",
       email: "user@example.com",
+      city: "Tilburg",
       createdAt: null as never,
     });
     vi.mocked(getVisitorProfile).mockResolvedValue({
@@ -157,6 +158,7 @@ describe("AuthProvider dual-role resolution", () => {
       uid: "uid-1",
       businessName: "My Shop",
       email: "user@example.com",
+      city: "Tilburg",
       createdAt: null as never,
     });
     const fire = captureAuthCallback();
@@ -405,6 +407,7 @@ describe("refreshCurrentBusiness", () => {
       uid: "uid-1",
       businessName: "My Shop",
       email: "user@example.com",
+      city: "Tilburg",
       createdAt: null as never,
     });
     const user = userEvent.setup();
@@ -416,6 +419,7 @@ describe("refreshCurrentBusiness", () => {
       uid: "uid-1",
       businessName: "Renamed Shop",
       email: "user@example.com",
+      city: "Tilburg",
       createdAt: null as never,
     });
     await user.click(screen.getByText("refresh-business"));
@@ -440,6 +444,7 @@ describe("refreshCurrentBusiness", () => {
       uid: "fresh-uid",
       businessName: "Brand New Business",
       email: "new@example.com",
+      city: "Tilburg",
       createdAt: null as never,
     });
     const user = userEvent.setup();

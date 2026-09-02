@@ -23,7 +23,7 @@ export function subscribeUmbrellaEvents(
 }
 
 export async function createUmbrellaEvent(input: UmbrellaEventInput) {
-  return addDoc(collection(getDb(), "umbrellaEvents"), { ...input, createdAt: serverTimestamp() });
+  return addDoc(collection(getDb(), "umbrellaEvents"), { ...input, city: "Tilburg", createdAt: serverTimestamp() });
 }
 
 export async function updateUmbrellaEvent(umbrellaId: string, input: UmbrellaEventInput) {

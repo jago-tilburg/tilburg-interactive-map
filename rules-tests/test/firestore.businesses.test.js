@@ -6,7 +6,7 @@ import { getTestEnv } from "./testEnv.js";
 const UID = "business-uid";
 const OTHER_UID = "other-uid";
 
-const validProfile = { businessName: "My Shop", email: "biz@example.com", createdAt: Date.now() };
+const validProfile = { businessName: "My Shop", email: "biz@example.com", city: "Tilburg", createdAt: Date.now() };
 
 let testEnv;
 
@@ -44,6 +44,17 @@ describe("businesses/{uid} create", () => {
   it("denies create when businessName is not a string", async () => {
     const db = testEnv.authenticatedContext(UID).firestore();
     await assertFails(setDoc(doc(db, "businesses", UID), { ...validProfile, businessName: 42 }));
+  });
+
+  it("denies create missing city", async () => {
+    const db = testEnv.authenticatedContext(UID).firestore();
+    const { city, ...missingCity } = validProfile;
+    await assertFails(setDoc(doc(db, "businesses", UID), missingCity));
+  });
+
+  it("denies create when city is not a string", async () => {
+    const db = testEnv.authenticatedContext(UID).firestore();
+    await assertFails(setDoc(doc(db, "businesses", UID), { ...validProfile, city: 42 }));
   });
 
   it("denies create with an unbounded-length businessName or email", async () => {

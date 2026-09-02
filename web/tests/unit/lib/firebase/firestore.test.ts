@@ -128,11 +128,11 @@ describe("getBusinessProfile / createBusinessProfile", () => {
     });
   });
 
-  it("writes businessName/email/createdAt on create", async () => {
+  it("writes businessName/email/city/createdAt on create", async () => {
     await createBusinessProfile("uid1", "My Shop", "shop@example.com");
     expect(setDoc).toHaveBeenCalledWith(
       docRef("businesses/uid1"),
-      { businessName: "My Shop", email: "shop@example.com", createdAt: "SERVER_TIMESTAMP" },
+      { businessName: "My Shop", email: "shop@example.com", city: "Tilburg", createdAt: "SERVER_TIMESTAMP" },
     );
   });
 });

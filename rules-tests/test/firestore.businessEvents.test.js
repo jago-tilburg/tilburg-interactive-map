@@ -21,6 +21,7 @@ function validEvent(overrides = {}) {
     lng: 5.0913,
     address: "Heuvelplein 1, Tilburg",
     ownerId: OWNER_UID,
+    city: "Tilburg",
     status: "pending",
     paid: false,
     createdAt: Date.now(),
@@ -95,6 +96,17 @@ describe("businessEvents/{eventId} create", () => {
   it("denies create with an unbounded-length title", async () => {
     const db = testEnv.authenticatedContext(OWNER_UID).firestore();
     await assertFails(setDoc(doc(db, "businessEvents", EVENT_ID), validEvent({ title: "x".repeat(50000) })));
+  });
+
+  it("denies create missing city", async () => {
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    const { city, ...missingCity } = validEvent();
+    await assertFails(setDoc(doc(db, "businessEvents", EVENT_ID), missingCity));
+  });
+
+  it("denies create when city is not a string", async () => {
+    const db = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await assertFails(setDoc(doc(db, "businessEvents", EVENT_ID), validEvent({ city: 42 })));
   });
 
   it("allows the owner to create a pending, unpaid event with all required fields", async () => {

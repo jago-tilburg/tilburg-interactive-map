@@ -36,6 +36,7 @@ function makeEvent(overrides: Partial<BusinessEvent> = {}): BusinessEvent {
     lat: 51.5,
     lng: 5.09,
     ownerId: "u1",
+    city: "Tilburg",
     status: "pending",
     paid: false,
     createdAt: null as never,

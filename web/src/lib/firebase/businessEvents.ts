@@ -58,6 +58,7 @@ export async function createBusinessEvent(ownerId: string, input: BusinessEventI
   return addDoc(collection(getDb(), "businessEvents"), {
     ...input,
     ownerId,
+    city: "Tilburg",
     status: "pending",
     paid: false,
     createdAt: serverTimestamp(),
