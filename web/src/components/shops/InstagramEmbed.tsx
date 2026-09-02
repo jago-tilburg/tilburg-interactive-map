@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { useIsMobile } from "@/hooks/useIsMobile";
 import { getInstagramEmbedUrl } from "@/lib/shops/instagramEmbed";
 import { loadInstagramEmbed } from "@/lib/shops/loadInstagramEmbed";
 import styles from "./InstagramEmbed.module.css";
@@ -10,12 +9,16 @@ interface InstagramEmbedProps {
   instagramUrl?: string;
 }
 
+// Live embed on every viewport — a mobile-only link-out card used to render
+// here instead (the live embed was considered "heavy/fragile" on mobile,
+// mirroring the prototype's own reasoning), but the whole point of this
+// component is to let a visitor watch the post without leaving the app, and
+// that matters at least as much on a phone as on desktop.
 export function InstagramEmbed({ instagramUrl }: InstagramEmbedProps) {
-  const isMobile = useIsMobile();
   const embedUrl = getInstagramEmbedUrl(instagramUrl);
 
   useEffect(() => {
-    if (!embedUrl || isMobile) return;
+    if (!embedUrl) return;
     let cancelled = false;
     loadInstagramEmbed()
       .then(() => {
@@ -25,18 +28,10 @@ export function InstagramEmbed({ instagramUrl }: InstagramEmbedProps) {
     return () => {
       cancelled = true;
     };
-  }, [embedUrl, isMobile]);
+  }, [embedUrl]);
 
   if (!embedUrl) {
     return <p className={styles.placeholder}>📷 Geen Instagram post beschikbaar</p>;
-  }
-
-  if (isMobile) {
-    return (
-      <a href={embedUrl} target="_blank" rel="noopener" className={styles.liteCard}>
-        📸 Bekijk op Instagram
-      </a>
-    );
   }
 
   return (

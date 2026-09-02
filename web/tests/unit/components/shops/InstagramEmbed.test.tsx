@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 
-const useIsMobile = vi.fn();
-vi.mock("@/hooks/useIsMobile", () => ({
-  useIsMobile: () => useIsMobile(),
-}));
-
 const loadInstagramEmbed = vi.fn();
 vi.mock("@/lib/shops/loadInstagramEmbed", () => ({
   loadInstagramEmbed: () => loadInstagramEmbed(),
@@ -15,7 +10,6 @@ import { InstagramEmbed } from "@/components/shops/InstagramEmbed";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useIsMobile.mockReturnValue(false);
   loadInstagramEmbed.mockResolvedValue(undefined);
   delete (window as { instgrm?: unknown }).instgrm;
 });
@@ -31,16 +25,7 @@ describe("InstagramEmbed", () => {
     expect(screen.getByText("📷 Geen Instagram post beschikbaar")).toBeInTheDocument();
   });
 
-  it("renders a lite link-out card on mobile instead of loading the embed script", () => {
-    useIsMobile.mockReturnValue(true);
-    render(<InstagramEmbed instagramUrl="https://www.instagram.com/p/ABC123/" />);
-
-    const link = screen.getByText("📸 Bekijk op Instagram");
-    expect(link).toHaveAttribute("href", "https://www.instagram.com/p/ABC123/");
-    expect(loadInstagramEmbed).not.toHaveBeenCalled();
-  });
-
-  it("renders the live embed blockquote and processes it on desktop", async () => {
+  it("renders the live embed blockquote and processes it, on every viewport", async () => {
     const process = vi.fn();
     loadInstagramEmbed.mockImplementation(() => {
       window.instgrm = { Embeds: { process } };
