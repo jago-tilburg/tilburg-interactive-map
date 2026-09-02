@@ -5,6 +5,7 @@ import { Switch } from "radix-ui";
 import { FormRow } from "@/components/common/FormRow";
 import { PhotoUploadField, type PendingPhoto } from "@/components/common/PhotoUploadField";
 import { createBusinessEvent, updateBusinessEvent } from "@/lib/firebase/businessEvents";
+import { createCheckoutSession } from "@/lib/firebase/functions";
 import { resolvePhotoUpdate } from "@/lib/photos/resolvePhotoUpdate";
 import { geocodeAddress } from "@/lib/maps/geocodeAddress";
 import { useToast } from "@/hooks/useToast";
@@ -27,6 +28,13 @@ interface BusinessEventFormProps {
   // Called both after a successful save and on "Annuleren" — same single
   // callback the modal wrapper used as `onClose` for both cases.
   onDone: () => void;
+  // AdminPanel's "quick event" shortcut (via BusinessEventFormModal) creates
+  // an event owned by the admin's own uid, left pending for later approval —
+  // it must NOT show the €10 notice or redirect to Stripe Checkout, since
+  // no payment is actually expected there. Defaults to false: the primary
+  // /eventbeheer NewEventTab path (a real business paying for their own
+  // listing) uses BusinessEventForm directly and always wants the redirect.
+  skipPaymentRedirect?: boolean;
 }
 
 function emptyForm() {
@@ -91,6 +99,7 @@ export function BusinessEventForm({
   duplicateFrom,
   umbrellaEvents,
   onDone,
+  skipPaymentRedirect = false,
 }: BusinessEventFormProps) {
   const { showToast } = useToast();
   // Identifies which record (if any) the form should currently reflect, so a
@@ -170,6 +179,25 @@ export function BusinessEventForm({
     }
     setError(null);
     setForm((f) => ({ ...f, address: result.formattedAddress, lat: result.lat, lng: result.lng }));
+  }
+
+  // Split out from handleSubmit's create-branch, same flat shape as
+  // InsightsTab.handlePay (which does the identical redirect) — nesting this
+  // window.location assignment inside handleSubmit's if/else/try tripped
+  // react-hooks/immutability's "modifying a variable defined outside a
+  // component" false positive; as its own top-level-in-component function it
+  // doesn't.
+  async function redirectToCheckout(eventId: string) {
+    const url = await createCheckoutSession(eventId);
+    // False positive: this component adjusts state during render (the
+    // formIdentity resync above, an intentional React pattern per
+    // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+    // and the compiler's static analysis appears to conflate that with this
+    // unrelated event-handler function, flagging a plain global-navigation
+    // assignment it doesn't flag in InsightsTab's identical handlePay
+    // (same operation, no such render-phase pattern in that file).
+    // eslint-disable-next-line react-hooks/immutability -- real browser navigation in an event handler, not a render-phase mutation
+    window.location.href = url;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -258,8 +286,27 @@ export function BusinessEventForm({
             return;
           }
         }
-        showToast("Evenement toegevoegd. Betaal om het direct live te zetten.", "success");
-        onDone();
+        if (skipPaymentRedirect) {
+          showToast("Evenement toegevoegd. Betaal om het direct live te zetten.", "success");
+          onDone();
+        } else {
+          try {
+            // Straight to Stripe Checkout — same redirect pattern as
+            // InsightsTab's "Betalen" button, just triggered one step
+            // earlier instead of requiring a separate visit there. The
+            // event is already saved (pending, unpaid) at this point, so
+            // navigating away here loses nothing; InsightsTab's Betalen
+            // button remains the retry path if this fails or the business
+            // abandons Checkout.
+            await redirectToCheckout(created.id);
+          } catch {
+            showToast(
+              "Evenement opgeslagen, maar betalen kon niet gestart worden. Probeer het opnieuw via 'Betalen' bij je evenementen.",
+              "error",
+            );
+            onDone();
+          }
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? `Opslaan mislukt: ${err.message}` : "Opslaan mislukt.");
@@ -272,6 +319,17 @@ export function BusinessEventForm({
 
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
+      {!editingEvent && !skipPaymentRedirect && (
+        // Shown for both a brand-new event and a duplicate — both create a
+        // new paid listing. Hardcoded client-side: there's no cheap way to
+        // share functions/index.js's EVENT_LISTING_PRICE_CENTS across the
+        // Cloud-Functions/web boundary for one stable number — keep the two
+        // in sync manually if the price ever changes.
+        <p className={styles.priceNotice}>
+          Het plaatsen van een evenement kost eenmalig €10. Na op &quot;Opslaan&quot; te klikken ga je direct
+          naar de betaalpagina — je evenement gaat live zodra de betaling is bevestigd.
+        </p>
+      )}
       <input
         className={styles.titleInput}
         type="text"
@@ -509,7 +567,7 @@ export function BusinessEventForm({
 
       <div className={styles.actions}>
         <button type="submit" disabled={submitting}>
-          Opslaan
+          {submitting ? "Bezig…" : "Opslaan"}
         </button>
         <button type="button" onClick={onDone}>
           Annuleren

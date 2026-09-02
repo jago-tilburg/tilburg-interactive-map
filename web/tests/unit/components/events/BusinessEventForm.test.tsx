@@ -1,19 +1,29 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { BusinessEvent } from "@/types/events";
 import type { PendingPhoto } from "@/components/common/PhotoUploadField";
 
+const createBusinessEvent = vi.fn();
+const updateBusinessEvent = vi.fn();
 vi.mock("@/lib/firebase/businessEvents", () => ({
-  createBusinessEvent: vi.fn(),
-  updateBusinessEvent: vi.fn(),
+  createBusinessEvent: (...a: unknown[]) => createBusinessEvent(...a),
+  updateBusinessEvent: (...a: unknown[]) => updateBusinessEvent(...a),
 }));
 
+const createCheckoutSession = vi.fn();
+vi.mock("@/lib/firebase/functions", () => ({
+  createCheckoutSession: (...a: unknown[]) => createCheckoutSession(...a),
+}));
+
+const resolvePhotoUpdate = vi.fn();
 vi.mock("@/lib/photos/resolvePhotoUpdate", () => ({
-  resolvePhotoUpdate: vi.fn(),
+  resolvePhotoUpdate: (...a: unknown[]) => resolvePhotoUpdate(...a),
 }));
 
+const showToast = vi.fn();
 vi.mock("@/hooks/useToast", () => ({
-  useToast: () => ({ showToast: vi.fn() }),
+  useToast: () => ({ showToast }),
 }));
 
 vi.mock("@/components/common/PhotoUploadField", () => ({
@@ -108,5 +118,130 @@ describe("BusinessEventForm — identity resync while mounted", () => {
       <BusinessEventForm active={false} ownerId="u1" editingEvent={eventB} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />,
     );
     expect(screen.getByDisplayValue("Event A")).toBeInTheDocument();
+  });
+});
+
+// Stubs window.google.maps.Geocoder the same way BusinessEventFormModal.test.tsx
+// does — geocodeAddress() (called by the Locatie row's "Zoek adres" button)
+// needs this real global, not a mock of the helper itself.
+const geocode = vi.fn();
+
+async function fillMinimalRequiredFields(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText("Titel"), "My Event");
+  await user.type(screen.getByLabelText("Beschrijving"), "Description");
+  await user.type(screen.getByLabelText("Startdatum"), "2026-09-01");
+  await user.click(screen.getByText("Locatie"));
+  await user.type(screen.getByLabelText("Postcode"), "5038 AB");
+  await user.type(screen.getByLabelText("Huisnummer"), "1");
+  await user.click(screen.getByText("Zoek adres"));
+  await user.type(screen.getByLabelText("Starttijd"), "10:00");
+  await user.type(screen.getByLabelText("Eindtijd"), "18:00");
+}
+
+describe("BusinessEventForm — direct-to-payment redirect on create", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    createBusinessEvent.mockResolvedValue({ id: "new-evt-1" });
+    updateBusinessEvent.mockResolvedValue(undefined);
+    resolvePhotoUpdate.mockResolvedValue("");
+    createCheckoutSession.mockResolvedValue("https://checkout.stripe.com/session123");
+    geocode.mockReset();
+    geocode.mockImplementation((_req, cb) => {
+      cb(
+        [{ formatted_address: "Heuvelplein 1, Tilburg", geometry: { location: { lat: () => 51.55, lng: () => 5.09 } } }],
+        "OK",
+      );
+    });
+    window.google = {
+      maps: { Geocoder: function Geocoder(this: { geocode: typeof geocode }) { this.geocode = geocode; } },
+    } as never;
+  });
+
+  it("shows the €10 price notice for a new event, not while editing, and not when skipPaymentRedirect is set", () => {
+    const { rerender } = render(
+      <BusinessEventForm active ownerId="u1" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />,
+    );
+    expect(screen.getByText(/kost eenmalig €10/)).toBeInTheDocument();
+
+    rerender(
+      <BusinessEventForm active ownerId="u1" editingEvent={makeEvent()} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />,
+    );
+    expect(screen.queryByText(/kost eenmalig €10/)).not.toBeInTheDocument();
+
+    rerender(
+      <BusinessEventForm
+        active
+        ownerId="u1"
+        editingEvent={null}
+        duplicateFrom={null}
+        umbrellaEvents={[]}
+        onDone={vi.fn()}
+        skipPaymentRedirect
+      />,
+    );
+    expect(screen.queryByText(/kost eenmalig €10/)).not.toBeInTheDocument();
+  });
+
+  it("creates the event, then redirects straight to the Stripe Checkout URL, without a separate toast", async () => {
+    const user = userEvent.setup();
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", { value: { ...originalLocation, href: "" }, writable: true, configurable: true });
+
+    render(<BusinessEventForm active ownerId="owner-uid" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />);
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(createBusinessEvent).toHaveBeenCalledWith("owner-uid", expect.objectContaining({ title: "My Event" }));
+    expect(createCheckoutSession).toHaveBeenCalledWith("new-evt-1");
+    expect(window.location.href).toBe("https://checkout.stripe.com/session123");
+    expect(showToast).not.toHaveBeenCalled();
+
+    Object.defineProperty(window, "location", { value: originalLocation, writable: true, configurable: true });
+  });
+
+  it("falls back to a toast and onDone() if starting checkout fails after the event was already saved", async () => {
+    createCheckoutSession.mockRejectedValue(new Error("payment gateway down"));
+    const onDone = vi.fn();
+    const user = userEvent.setup();
+
+    render(<BusinessEventForm active ownerId="owner-uid" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={onDone} />);
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByText("Opslaan"));
+
+    await vi.waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(showToast).toHaveBeenCalledWith(expect.stringMatching(/betalen kon niet gestart worden/), "error");
+  });
+
+  it("does not call createCheckoutSession when editing an existing event", async () => {
+    const user = userEvent.setup();
+    const editing = makeEvent({ id: "evt-edit" });
+    render(<BusinessEventForm active ownerId="owner-uid" editingEvent={editing} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />);
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(updateBusinessEvent).toHaveBeenCalled();
+    expect(createCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("with skipPaymentRedirect, saves and calls onDone() with the old toast instead of redirecting (AdminPanel's quick-event path)", async () => {
+    const onDone = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <BusinessEventForm
+        active
+        ownerId="admin-uid"
+        editingEvent={null}
+        duplicateFrom={null}
+        umbrellaEvents={[]}
+        onDone={onDone}
+        skipPaymentRedirect
+      />,
+    );
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(createCheckoutSession).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("Evenement toegevoegd. Betaal om het direct live te zetten.", "success");
+    expect(onDone).toHaveBeenCalled();
   });
 });

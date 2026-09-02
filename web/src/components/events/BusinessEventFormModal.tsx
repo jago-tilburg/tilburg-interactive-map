@@ -34,6 +34,11 @@ export function BusinessEventFormModal({
         duplicateFrom={duplicateFrom}
         umbrellaEvents={umbrellaEvents}
         onDone={onClose}
+        // This modal is AdminPanel-only (see the file comment above) — its
+        // "quick event" shortcut creates an event owned by the admin, left
+        // pending for later approval, not paid for by anyone. Never redirect
+        // to Stripe Checkout from here.
+        skipPaymentRedirect
       />
     </Modal>
   );
