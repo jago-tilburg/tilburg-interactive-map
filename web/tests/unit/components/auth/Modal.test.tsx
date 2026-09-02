@@ -67,6 +67,23 @@ describe("Modal", () => {
     expect(screen.getByText("body content")).toBeInTheDocument();
   });
 
+  it("bareHeader hides the visible title/close button but keeps the accessible name", () => {
+    render(
+      <Modal open onClose={vi.fn()} title="Test title" bareHeader>
+        <p>body content</p>
+      </Modal>,
+    );
+    // Still announced to screen readers via Dialog.Title (visually hidden —
+    // jsdom doesn't exclude clip-based sr-only text from text queries the
+    // way a real browser's accessibility tree would, so this only checks
+    // the accessible name resolves, not that the title text is absent).
+    expect(screen.getByRole("dialog", { name: "Test title" })).toBeInTheDocument();
+    // The built-in × button is gone — the caller renders its own close
+    // control inside children instead (e.g. floating over a photo).
+    expect(screen.queryByLabelText("Sluiten")).not.toBeInTheDocument();
+    expect(screen.getByText("body content")).toBeInTheDocument();
+  });
+
   it("calls onClose when the overlay is clicked", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();

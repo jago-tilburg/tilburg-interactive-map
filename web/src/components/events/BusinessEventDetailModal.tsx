@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/common/Modal";
 import { useAuth } from "@/hooks/useAuth";
-import { categoryOf, formatBusinessEventSchedule } from "@/lib/events/eventHelpers";
+import { categoryOf, dateRangeArray } from "@/lib/events/eventHelpers";
 import {
   trackEventView,
   incrementEventInterest,
@@ -14,6 +14,8 @@ import { setEventSaved } from "@/lib/firebase/firestore";
 import { isSafeHttpUrl } from "@/lib/safeUrl";
 import { photoVariantUrl } from "@/lib/photos/photoVariants";
 import { shareCurrentUrl } from "@/lib/shareUrl";
+import { buildNavigationUrl } from "@/lib/shops/navigateToLocation";
+import { trackEvent } from "@/lib/analytics/trackEvent";
 import { useToast } from "@/hooks/useToast";
 import { ReportModal } from "@/components/common/ReportModal";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
@@ -28,6 +30,14 @@ interface BusinessEventDetailModalProps {
 }
 
 const DESCRIPTION_TRUNCATE_LENGTH = 220;
+
+// "di 1 sep" — nl-NL's short weekday/month Intl output comes back with a
+// trailing period ("di 1 sep."); the reference design doesn't have one.
+function formatDayLabel(date: string): string {
+  return new Intl.DateTimeFormat("nl-NL", { weekday: "short", day: "numeric", month: "short" })
+    .format(new Date(`${date}T00:00:00`))
+    .replace(/\.$/, "");
+}
 
 export function BusinessEventDetailModal({
   open,
@@ -72,6 +82,11 @@ export function BusinessEventDetailModal({
       ? event.description.slice(0, DESCRIPTION_TRUNCATE_LENGTH) + "…"
       : event.description;
 
+  const scheduleRows = dateRangeArray(event.startDate, event.endDate).map((date) => {
+    const times = event.dailyTimes?.[date] ?? { startTime: event.startTime, endTime: event.endTime };
+    return { date, label: formatDayLabel(date), ...times };
+  });
+
   async function handleInterest() {
     setInterest((n) => n + 1);
     try {
@@ -110,6 +125,11 @@ export function BusinessEventDetailModal({
     incrementEventShares(event!.id).catch(() => {});
   }
 
+  function handleNavigate() {
+    trackEvent("navigate_to_event", { event_title: event!.title });
+    window.open(buildNavigationUrl(event!.lat, event!.lng, event!.title, window.navigator.userAgent), "_blank");
+  }
+
   return (
     <>
       <Modal
@@ -117,70 +137,93 @@ export function BusinessEventDetailModal({
         onClose={onClose}
         title={`${cat.emoji} ${event.title}`}
         variant="detail"
+        bareHeader
       >
-        <div className={styles.shell}>
-          {/* Photo narrower, info wider on desktop (1fr/1.4fr) — collapses to
-              one stacked column on mobile, matching the prototype's
-              event-detail-columns. The CTA bar stays a sibling of this grid,
-              not inside it, on both layouts. */}
-          <div className={styles.columns}>
-            <div className={styles.photoColumn}>
-              {event.photoUrl ? (
-                <img
-                  src={photoVariantUrl(event.photoUrl, "detail")}
-                  alt={event.title}
-                  className={styles.photo}
-                  onError={(e) => {
-                    if (e.currentTarget.src !== event.photoUrl) e.currentTarget.src = event.photoUrl!;
-                  }}
-                />
-              ) : (
-                <div className={styles.photoPlaceholder}>{cat.emoji}</div>
-              )}
-            </div>
+        <div className={styles.hero}>
+          {event.photoUrl ? (
+            <img
+              src={photoVariantUrl(event.photoUrl, "detail")}
+              alt={event.title}
+              className={styles.photo}
+              onError={(e) => {
+                if (e.currentTarget.src !== event.photoUrl) e.currentTarget.src = event.photoUrl!;
+              }}
+            />
+          ) : (
+            <div className={styles.photoPlaceholder}>{cat.emoji}</div>
+          )}
+          <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Sluiten">
+            ×
+          </button>
+        </div>
 
-            <div className={styles.infoColumn}>
-              {umbrella && (
-                <button
-                  type="button"
-                  className={styles.umbrellaBadge}
-                  style={{
-                    color: umbrella.color,
-                    borderColor: `${umbrella.color}55`,
-                    background: `${umbrella.color}22`,
-                  }}
-                  onClick={() => onOpenUmbrella?.(umbrella.id)}
-                >
-                  🎪 Onderdeel van {umbrella.title}
-                </button>
-              )}
-              <p className={styles.address}>📍 {event.address}</p>
-              <p className={styles.schedule}>🗓️ {formatBusinessEventSchedule(event)}</p>
-              <p>
-                {description}
-                {event.description.length > DESCRIPTION_TRUNCATE_LENGTH && (
-                  <button
-                    type="button"
-                    className={styles.readMoreToggle}
-                    onClick={() => setDescriptionExpanded((v) => !v)}
-                  >
-                    {descriptionExpanded ? "Minder tonen" : "Meer lezen"}
-                  </button>
-                )}
-              </p>
+        <div className={styles.content}>
+          <h2 className={styles.title}>
+            {cat.emoji} {event.title}
+          </h2>
 
-              {event.prices && event.prices.length > 0 && (
-                <div className={styles.prices}>
-                  {event.prices.map((price, i) => (
-                    <div key={i} className={styles.priceLine}>
-                      <span>{price.label}</span>
-                      <span>{price.amount === 0 ? "Gratis" : `€${price.amount.toFixed(2)}`}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+          {umbrella && (
+            <button
+              type="button"
+              className={styles.umbrellaBadge}
+              style={{
+                color: umbrella.color,
+                borderColor: `${umbrella.color}55`,
+                background: `${umbrella.color}22`,
+              }}
+              onClick={() => onOpenUmbrella?.(umbrella.id)}
+            >
+              🎪 Onderdeel van {umbrella.title}
+            </button>
+          )}
+
+          <div className={styles.descriptionCard}>
+            {description}
+            {event.description.length > DESCRIPTION_TRUNCATE_LENGTH && (
+              <button
+                type="button"
+                className={styles.readMoreToggle}
+                onClick={() => setDescriptionExpanded((v) => !v)}
+              >
+                {descriptionExpanded ? "Minder tonen" : "Meer lezen"}
+              </button>
+            )}
           </div>
+
+          <section className={styles.section}>
+            <h3 className={styles.sectionLabel}>📅 Datum &amp; tijden</h3>
+            <div className={styles.card}>
+              {scheduleRows.map((row) => (
+                <div key={row.date} className={styles.scheduleRow}>
+                  <span>{row.label}</span>
+                  <span>
+                    {row.startTime}–{row.endTime}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.section}>
+            <h3 className={styles.sectionLabel}>📍 Locatie</h3>
+            <div className={styles.locationCard}>
+              <span>{event.address}</span>
+              <button type="button" className={styles.navigateLink} onClick={handleNavigate}>
+                Navigeer →
+              </button>
+            </div>
+          </section>
+
+          {event.prices && event.prices.length > 0 && (
+            <div className={styles.prices}>
+              {event.prices.map((price, i) => (
+                <div key={i} className={styles.priceLine}>
+                  <span>{price.label}</span>
+                  <span>{price.amount === 0 ? "Gratis" : `€${price.amount.toFixed(2)}`}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className={styles.ctaBar}>
@@ -195,6 +238,8 @@ export function BusinessEventDetailModal({
               🎟️ Ik wil hierheen!
             </button>
           )}
+        </div>
+        <div className={styles.secondaryBar}>
           <button type="button" className={styles.shareButton} onClick={handleShare}>
             🔗 Delen
           </button>

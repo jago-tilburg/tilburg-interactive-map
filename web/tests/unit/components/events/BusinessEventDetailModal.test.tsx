@@ -374,6 +374,68 @@ describe("BusinessEventDetailModal", () => {
     );
   });
 
+  describe("schedule table", () => {
+    it("shows one row per day for a single-day event", () => {
+      render(<BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent()} umbrellaEvents={[]} />);
+      // makeEvent()'s startDate/endDate are both 2026-09-01 (a Tuesday).
+      expect(screen.getByText(/di 1 sep/)).toBeInTheDocument();
+      expect(screen.getByText("10:00–18:00")).toBeInTheDocument();
+    });
+
+    it("shows one row per day for a multi-day event, using the base time by default", () => {
+      render(
+        <BusinessEventDetailModal
+          open
+          onClose={vi.fn()}
+          event={makeEvent({ startDate: "2026-09-01", endDate: "2026-09-03" })}
+          umbrellaEvents={[]}
+        />,
+      );
+      expect(screen.getByText(/di 1 sep/)).toBeInTheDocument();
+      expect(screen.getByText(/wo 2 sep/)).toBeInTheDocument();
+      expect(screen.getByText(/do 3 sep/)).toBeInTheDocument();
+      expect(screen.getAllByText("10:00–18:00")).toHaveLength(3);
+    });
+
+    it("uses the per-day override from dailyTimes when present, falling back to the base time otherwise", () => {
+      render(
+        <BusinessEventDetailModal
+          open
+          onClose={vi.fn()}
+          event={makeEvent({
+            startDate: "2026-09-01",
+            endDate: "2026-09-02",
+            dailyTimes: { "2026-09-02": { startTime: "12:00", endTime: "23:59" } },
+          })}
+          umbrellaEvents={[]}
+        />,
+      );
+      expect(screen.getByText("10:00–18:00")).toBeInTheDocument();
+      expect(screen.getByText("12:00–23:59")).toBeInTheDocument();
+    });
+  });
+
+  describe("Navigeer button", () => {
+    it("opens a navigation URL built from the event's coordinates", async () => {
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+      const user = userEvent.setup();
+      render(
+        <BusinessEventDetailModal
+          open
+          onClose={vi.fn()}
+          event={makeEvent({ lat: 51.5, lng: 5.09 })}
+          umbrellaEvents={[]}
+        />,
+      );
+
+      await user.click(screen.getByText("Navigeer →"));
+
+      expect(openSpy).toHaveBeenCalledWith(expect.stringContaining("51.5"), "_blank");
+      expect(openSpy).toHaveBeenCalledWith(expect.stringContaining("5.09"), "_blank");
+      openSpy.mockRestore();
+    });
+  });
+
   describe("share button", () => {
     afterEach(() => {
       // @ts-expect-error -- jsdom doesn't define navigator.share by default; this only exists when a test adds it

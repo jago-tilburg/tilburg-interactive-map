@@ -20,6 +20,13 @@ interface ModalProps {
   // exception (PLAN-INLOGGEN.md-adjacent welcome screen), not a general
   // redesign.
   centerTitle?: boolean;
+  // Opt-in only — hides the visible header row (title text, drag handle,
+  // built-in close button) entirely; `title` still renders via Dialog.Title
+  // for accessibility, just visually hidden. For a caller that wants its
+  // own header treatment inside `children` instead (BusinessEventDetailModal's
+  // full-bleed photo with a floating close button, matching a client-supplied
+  // reference design) — not a general redesign of every modal's chrome.
+  bareHeader?: boolean;
 }
 
 const SWIPE_CLOSE_THRESHOLD_PX = 110;
@@ -33,7 +40,15 @@ const SWIPE_CLOSE_THRESHOLD_PX = 110;
 // setupShopDetailSwipeToClose(). Scoped to the header rather than the whole
 // dialog so it never fights with scrolling a long body (comment lists,
 // forms, etc).
-export function Modal({ open, onClose, title, children, variant = "default", centerTitle = false }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  variant = "default",
+  centerTitle = false,
+  bareHeader = false,
+}: ModalProps) {
   const [dragOffset, setDragOffset] = useState(0);
   const dragStartYRef = useRef<number | null>(null);
   // Radix's default onCloseAutoFocus tries to refocus its own internal
@@ -80,22 +95,28 @@ export function Modal({ open, onClose, title, children, variant = "default", cen
             }}
             style={dragOffset ? { transform: `translateY(${dragOffset}px)`, transition: "none" } : undefined}
           >
-            <div
-              className={`${styles.header} ${centerTitle ? styles.headerCentered : ""}`}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-            >
-              {centerTitle && <span className={styles.headerSpacer} aria-hidden="true" />}
+            {bareHeader ? (
               <Dialog.Title asChild>
-                <h2>{title}</h2>
+                <h2 className={styles.srOnly}>{title}</h2>
               </Dialog.Title>
-              <Dialog.Close asChild>
-                <button type="button" className={styles.closeButton} aria-label="Sluiten">
-                  ×
-                </button>
-              </Dialog.Close>
-            </div>
+            ) : (
+              <div
+                className={`${styles.header} ${centerTitle ? styles.headerCentered : ""}`}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
+                {centerTitle && <span className={styles.headerSpacer} aria-hidden="true" />}
+                <Dialog.Title asChild>
+                  <h2>{title}</h2>
+                </Dialog.Title>
+                <Dialog.Close asChild>
+                  <button type="button" className={styles.closeButton} aria-label="Sluiten">
+                    ×
+                  </button>
+                </Dialog.Close>
+              </div>
+            )}
             <div className={styles.body}>{children}</div>
           </Dialog.Content>
         </div>
