@@ -44,6 +44,14 @@
 
 .row > div {
   flex: 1;
+  /* A flex item's default min-width is auto (its content's intrinsic
+     minimum), not 0 — native <input type="date">/type="time"> controls
+     report a fairly wide fixed rendering as that minimum regardless of the
+     input's own width: 100%, so without this the second column (Einddatum/
+     Eindtijd) gets pushed off the right edge on a narrow phone instead of
+     shrinking. Same bug class as MapExperience.module.css's .mainContent
+     min-height: 0, just the horizontal axis. */
+  min-width: 0;
 }
 
 .checkboxRow {
@@ -72,6 +80,7 @@
 
 .dailyTimeRow input {
   flex: 1;
+  min-width: 0;
   font-size: 1rem;
 }
 

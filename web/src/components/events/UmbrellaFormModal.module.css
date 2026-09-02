@@ -45,6 +45,11 @@
 
 .row input {
   flex: 1;
+  /* Same trap as BusinessEventForm.module.css's .row > div: native
+     <input type="date"> reports a fixed intrinsic width regardless of
+     width: 100%, so without this the second date input gets pushed off the
+     right edge on a narrow phone instead of shrinking. */
+  min-width: 0;
 }
 
 .error {
