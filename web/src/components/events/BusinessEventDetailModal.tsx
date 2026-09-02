@@ -238,11 +238,11 @@ export function BusinessEventDetailModal({
               🎟️ Ik wil hierheen!
             </button>
           )}
+          <button type="button" className={styles.shareIcon} onClick={handleShare} aria-label="Delen">
+            🔗
+          </button>
         </div>
         <div className={styles.secondaryBar}>
-          <button type="button" className={styles.shareButton} onClick={handleShare}>
-            🔗 Delen
-          </button>
           <button type="button" className={styles.reportButton} onClick={() => setReportModalOpen(true)}>
             🚩 Melden
           </button>

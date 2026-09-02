@@ -240,14 +240,32 @@
   transform: scale(1.02);
 }
 
+.shareIcon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  background: #faf8f5;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1.0625rem;
+  transition: all 0.2s;
+}
+
+.shareIcon:hover {
+  background: #e8e8ed;
+  transform: scale(1.02);
+}
+
 .secondaryBar {
   display: flex;
   justify-content: center;
-  gap: 1.25rem;
   padding-top: 0.4rem;
 }
 
-.shareButton,
 .reportButton {
   background: none;
   border: none;
@@ -256,10 +274,6 @@
   cursor: pointer;
   padding: 0.4rem;
   font-family: inherit;
-}
-
-.shareButton:hover {
-  color: #2563eb;
 }
 
 .reportButton:hover {

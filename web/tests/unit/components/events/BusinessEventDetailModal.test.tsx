@@ -446,7 +446,7 @@ describe("BusinessEventDetailModal", () => {
       const user = userEvent.setup();
       render(<BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent()} umbrellaEvents={[]} />);
 
-      await user.click(screen.getByText("🔗 Delen"));
+      await user.click(screen.getByLabelText("Delen"));
 
       expect(shareCurrentUrl).toHaveBeenCalledWith("Test Event");
       expect(showToast).toHaveBeenCalledWith("Link gekopieerd.", "success");
@@ -458,7 +458,7 @@ describe("BusinessEventDetailModal", () => {
       const user = userEvent.setup();
       render(<BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent()} umbrellaEvents={[]} />);
 
-      await user.click(screen.getByText("🔗 Delen"));
+      await user.click(screen.getByLabelText("Delen"));
 
       expect(showToast).not.toHaveBeenCalled();
       expect(incrementEventShares).toHaveBeenCalledWith("evt1");
@@ -469,7 +469,7 @@ describe("BusinessEventDetailModal", () => {
       const user = userEvent.setup();
       render(<BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent()} umbrellaEvents={[]} />);
 
-      await user.click(screen.getByText("🔗 Delen"));
+      await user.click(screen.getByLabelText("Delen"));
 
       expect(incrementEventShares).not.toHaveBeenCalled();
       expect(showToast).not.toHaveBeenCalled();
