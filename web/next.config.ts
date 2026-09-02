@@ -77,6 +77,14 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: [
+          // App Hosting (Cloud Run under the hood) doesn't set this by
+          // default the way Firebase Hosting does for prod (confirmed via a
+          // live curl 2026-09-02: prod sends max-age=31556926, staging sent
+          // nothing at all). 2 years + includeSubDomains + preload, matching
+          // the strongest common real-world defaults — this app is
+          // HTTPS-only everywhere already (App Hosting forces the redirect),
+          // so there's no legitimate plain-HTTP use case this could break.
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
           // No clickjacking surface — this app has no legitimate reason to
           // ever be framed by another site.
           { key: "X-Frame-Options", value: "DENY" },
