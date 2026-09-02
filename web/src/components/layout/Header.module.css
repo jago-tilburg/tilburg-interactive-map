@@ -136,32 +136,12 @@
   }
 }
 
-/* iOS 26 Safari renders web pages edge-to-edge by default and floats its
-   translucent toolbar *over* the page instead of reserving its own opaque
-   strip — a behavior change from every prior iOS version. This does NOT
-   populate env(safe-area-inset-top) in a regular tab (confirmed live: it's
-   0px there, only a standalone home-screen PWA gets a real value), so the
-   real inset above can't clear it. This is a best-effort fixed buffer for
-   that specific case — confirmed working live on iOS 26 (staging), no
-   feature-detectable signal existed to size it exactly so it was tuned by
-   eye. @supports with a webkit-only feature (not user-agent sniffing)
-   scopes this to iOS Safari/WebKit specifically, leaving Android Chrome and
-   desktop untouched. If Apple ships a fix that makes the real inset
-   non-zero here, max() already prefers the larger, correct value
-   automatically. Placed last on purpose — same specificity as the mobile
-   block above, so source order is what makes this win at the same
-   breakpoint.
-
-   padding-bottom is bumped to match — the buffer only needs to push the top
-   down, but leaving bottom at the plain mobile value (0.5rem) made the
-   colored bar visibly top-heavy (24px above the title/buttons vs. 8px
-   below); matching it keeps the row centered in the bar the way it always
-   was pre-buffer. */
-@supports (-webkit-touch-callout: none) {
-  @media (max-width: 768px) {
-    .header {
-      padding-top: max(calc(0.5rem + env(safe-area-inset-top, 0px)), 24px);
-      padding-bottom: 24px;
-    }
-  }
-}
+/* The iOS 26 fixed 24px top buffer that used to live here was removed —
+   live-confirmed on staging it made the colored bar visibly top-heavy
+   (24px above the title/buttons vs. the plain mobile 0.5rem below), and the
+   plain mobile padding-top (calc(0.5rem + env(safe-area-inset-top, 0px)))
+   above already matches padding-bottom exactly on this device (the env()
+   term is 0 in a regular tab). If the original "header is verstopt" report
+   resurfaces, that's the signal the buffer was still needed and the fix
+   has to be reintroduced some other way — not a bigger flat number here,
+   since that's exactly the asymmetry this removal fixes. */
