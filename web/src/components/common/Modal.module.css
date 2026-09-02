@@ -62,24 +62,6 @@
   margin-bottom: 1.5rem;
 }
 
-.dragHandle {
-  display: none;
-}
-
-@media (max-width: 768px) {
-  .dragHandle {
-    display: block;
-    position: absolute;
-    top: -8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 36px;
-    height: 4px;
-    border-radius: 999px;
-    background: #d6d3d1;
-  }
-}
-
 .header h2 {
   color: #1c1917;
   font-size: 1.5rem;
@@ -103,7 +85,7 @@
   width: 36px;
   height: 36px;
   background: #f5f0eb;
-  border-radius: 50%;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;

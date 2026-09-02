@@ -86,7 +86,6 @@ export function Modal({ open, onClose, title, children, variant = "default", cen
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
             >
-              <span className={styles.dragHandle} aria-hidden="true" />
               {centerTitle && <span className={styles.headerSpacer} aria-hidden="true" />}
               <Dialog.Title asChild>
                 <h2>{title}</h2>
