@@ -45,7 +45,7 @@ export function Header({
           <button type="button" className={styles.requestBtn} onClick={() => setRequestModalOpen(true)}>
             📝 Vraag een review aan
           </button>
-          <AccountMenu onOpenShop={onSelectShop} onOpenEvent={onSelectEvent} />
+          <AccountMenu />
           <button
             type="button"
             className={styles.menuBtn}

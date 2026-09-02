@@ -19,7 +19,7 @@ function tabFromParam(value: string | null): TabKey {
   return value === "nieuw" || value === "profiel" ? value : "inzicht";
 }
 
-// The schermvullende bedrijfsomgeving (PLAN-INLOGGEN.md §9) — no kaart, no
+// The schermvullende eventomgeving (PLAN-INLOGGEN.md §9) — no kaart, no
 // mapheader. Tab state lives in the URL (?tab=) so refresh and the browser
 // back button both work.
 export function BusinessShell() {

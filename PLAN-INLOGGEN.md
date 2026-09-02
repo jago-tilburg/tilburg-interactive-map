@@ -1,4 +1,4 @@
-# Plan — Inloggen herbouwen (wachtwoord + Google, dubbele rol, bedrijfsomgeving)
+# Plan — Inloggen herbouwen (wachtwoord + Google, dubbele rol, eventomgeving)
 
 Branch: **`staging-next`**. Niets van dit plan raakt `main`/prod.
 Opgesteld 2026-08-26. Herzien op dezelfde dag: de e-mail-code-flow is vervangen door
@@ -17,7 +17,7 @@ wachtwoord + Google — zie §1 voor waarom.
 | Dubbele rol | **Één account.** Bezoekersprofiel is de basis; event-profiel is een aanvulling op hetzelfde account. |
 | Na inloggen | **Keuzescherm**: 1) de kaart, 2) bezoekersprofiel, 3) event-profiel |
 | Bezoekersprofiel | Blijft een **venster over de kaart** — geen aparte pagina |
-| Bedrijfsomgeving | **Schermvullende pagina** `/bedrijf` met tabs: Inzicht / Nieuw event / Profiel |
+| Eventomgeving | **Schermvullende pagina** `/bedrijf` met tabs: Inzicht / Nieuw event / Profiel |
 | Inzicht-tab | Statistiekkaarten bovenaan, eigen eventlijst eronder |
 | Nieuw-event-tab | Formulier **direct op de pagina**, geen venster |
 | Marketingtoestemming | Aan **iedereen** gevraagd bij de eerste keer inloggen |
@@ -337,7 +337,7 @@ adres nog steeds onbevestigd is; anders verdwijnt de strook.
 
 ---
 
-## 9. `/bedrijf` — de schermvullende bedrijfsomgeving
+## 9. `/bedrijf` — de schermvullende eventomgeving
 
 Nieuwe route `web/src/app/bedrijf/page.tsx`. Geen kaart, geen mapheader.
 
@@ -420,7 +420,7 @@ Organisatienaam, standaardadres/lat/lng (bestaat al), plus:
 
 Het accountmenu (`AccountMenu.tsx`) verliest z'n prioriteitsladder (admin > bedrijf > bezoeker >
 uitgelogd) en wordt een lijst van alles wat je hébt: profiel, bewaarde events, en als je die
-rollen hebt ook bedrijfsomgeving en adminpaneel.
+rollen hebt ook eventomgeving en adminpaneel.
 
 ---
 

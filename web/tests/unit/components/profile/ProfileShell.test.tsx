@@ -24,8 +24,9 @@ vi.mock("@/hooks/useToast", () => ({
 }));
 
 const routerPush = vi.fn();
+const routerReplace = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: routerPush }),
+  useRouter: () => ({ push: routerPush, replace: routerReplace }),
 }));
 
 const subscribeVisitorProfile = vi.fn();
@@ -47,7 +48,7 @@ vi.mock("@/lib/firebase/businessEvents", () => ({
   subscribeApprovedBusinessEvents: (...a: unknown[]) => subscribeApprovedBusinessEvents(...a),
 }));
 
-import { VisitorDashboard } from "@/components/auth/VisitorDashboard";
+import { ProfileShell } from "@/components/profile/ProfileShell";
 import { signOutCurrentUser } from "@/lib/firebase/auth";
 
 const visitor: Visitor = {
@@ -112,6 +113,7 @@ function authState(overrides: Record<string, unknown> = {}) {
     currentUser: { uid: "u1" },
     currentVisitor: visitor,
     currentBusiness: null,
+    loading: false,
     refreshCurrentVisitor,
     ...overrides,
   };
@@ -138,27 +140,54 @@ beforeEach(() => {
   });
 });
 
-describe("VisitorDashboard", () => {
-  it("renders nothing when there is no current visitor", () => {
+describe("ProfileShell — guard", () => {
+  it("renders nothing and redirects to the map when signed out once loading finishes", () => {
     mockUseAuth.mockReturnValue(authState({ currentVisitor: null }));
-    const { container } = render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    const { container } = render(<ProfileShell />);
     expect(container).toBeEmptyDOMElement();
+    expect(routerReplace).toHaveBeenCalledWith("/");
   });
 
-  it("shows the visitor email and signs out on logout", async () => {
-    vi.mocked(signOutCurrentUser).mockResolvedValue(undefined as never);
-    const onClose = vi.fn();
-    const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={onClose} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+  it("renders nothing (no redirect yet) while still loading", () => {
+    mockUseAuth.mockReturnValue(authState({ currentVisitor: null, loading: true }));
+    render(<ProfileShell />);
+    expect(routerReplace).not.toHaveBeenCalledWith("/");
+  });
 
+  it("does not subscribe to any data when signed out", () => {
+    mockUseAuth.mockReturnValue(authState({ currentVisitor: null }));
+    render(<ProfileShell />);
+    expect(subscribeShops).not.toHaveBeenCalled();
+  });
+});
+
+describe("ProfileShell", () => {
+  it("shows the brand, the back link, and the visitor email", () => {
+    render(<ProfileShell />);
+    expect(screen.getByText("2happies")).toBeInTheDocument();
+    expect(screen.getByText("← Naar de kaart")).toBeInTheDocument();
     expect(screen.getByText("visitor@example.com")).toBeInTheDocument();
+  });
+
+  it("navigates to the map from the back link", async () => {
+    const user = userEvent.setup();
+    render(<ProfileShell />);
+    await user.click(screen.getByText("← Naar de kaart"));
+    expect(routerPush).toHaveBeenCalledWith("/");
+  });
+
+  it("signs out and navigates to the map on logout", async () => {
+    vi.mocked(signOutCurrentUser).mockResolvedValue(undefined as never);
+    const user = userEvent.setup();
+    render(<ProfileShell />);
+
     await user.click(screen.getByText("Uitloggen"));
     expect(signOutCurrentUser).toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalled();
+    expect(routerPush).toHaveBeenCalledWith("/");
   });
 
   it("shows liked shops, ratings given, and saved events for the visitor only", () => {
-    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<ProfileShell />);
 
     expect(screen.getByText("Café Zuid")).toBeInTheDocument();
     expect(screen.queryByText("Unrelated Shop")).not.toBeInTheDocument();
@@ -166,21 +195,18 @@ describe("VisitorDashboard", () => {
     expect(screen.getByText(/Kermis/)).toBeInTheDocument();
   });
 
-  it("opens the shop/event detail and closes the dashboard when a list item is clicked", async () => {
+  it("navigates to the shop or event detail route when a list item is clicked", async () => {
     const user = userEvent.setup();
-    const onClose = vi.fn();
-    const onOpenShop = vi.fn();
-    const onOpenEvent = vi.fn();
-    render(<VisitorDashboard open onClose={onClose} onOpenShop={onOpenShop} onOpenEvent={onOpenEvent} />);
+    render(<ProfileShell />);
 
     await user.click(screen.getByText("Café Zuid"));
-    expect(onOpenShop).toHaveBeenCalledWith(9001);
+    expect(routerPush).toHaveBeenCalledWith("/shop/9001");
 
     await user.click(screen.getByText(/Café Zuid — 7.5 ⭐/));
-    expect(onOpenShop).toHaveBeenCalledWith(9001);
+    expect(routerPush).toHaveBeenCalledWith("/shop/9001");
 
     await user.click(screen.getByText(/Kermis/));
-    expect(onOpenEvent).toHaveBeenCalledWith("evt1");
+    expect(routerPush).toHaveBeenCalledWith("/event/evt1");
   });
 
   it("shows empty states when the visitor has no likes, ratings, or saved events", () => {
@@ -193,7 +219,7 @@ describe("VisitorDashboard", () => {
       onChange([otherShop]);
       return vi.fn();
     });
-    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<ProfileShell />);
 
     expect(screen.getByText("Nog geen shops geliked.")).toBeInTheDocument();
     expect(screen.getByText("Nog geen ratings gegeven.")).toBeInTheDocument();
@@ -202,41 +228,35 @@ describe("VisitorDashboard", () => {
 
   it("falls back to the cached savedEventIds before the live profile subscription resolves", () => {
     subscribeVisitorProfile.mockImplementation(() => vi.fn());
-    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<ProfileShell />);
     expect(screen.getByText(/Kermis/)).toBeInTheDocument();
-  });
-
-  it("does not subscribe when closed", () => {
-    render(<VisitorDashboard open={false} onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
-    expect(subscribeShops).not.toHaveBeenCalled();
   });
 
   it("no-ops when there is no current auth user", async () => {
     mockUseAuth.mockReturnValue(authState({ currentUser: null }));
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<ProfileShell />);
 
     await user.click(screen.getByText("Account verwijderen"));
 
     expect(deleteAccountCascade).not.toHaveBeenCalled();
   });
 
-  it("deletes the whole account (business side too) and the auth user, then closes", async () => {
-    const onClose = vi.fn();
+  it("deletes the whole account (business side too) and the auth user, then navigates to the map", async () => {
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={onClose} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<ProfileShell />);
 
     await user.click(screen.getByText("Account verwijderen"));
 
     expect(deleteAccountCascade).toHaveBeenCalledWith("u1");
     expect(deleteCurrentUser).toHaveBeenCalledWith({ uid: "u1" });
-    expect(onClose).toHaveBeenCalled();
+    expect(routerPush).toHaveBeenCalledWith("/");
   });
 
   it("shows an error when deleting the account fails", async () => {
     deleteAccountCascade.mockRejectedValue(new Error("requires recent login"));
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<ProfileShell />);
 
     await user.click(screen.getByText("Account verwijderen"));
 
@@ -246,38 +266,34 @@ describe("VisitorDashboard", () => {
   it("shows a generic error when deletion fails with a non-Error", async () => {
     deleteAccountCascade.mockRejectedValue("nope");
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<ProfileShell />);
 
     await user.click(screen.getByText("Account verwijderen"));
 
     expect(await screen.findByText("Account verwijderen mislukt.")).toBeInTheDocument();
   });
 
-  it("shows a link to the business environment only when a business profile exists", () => {
-    const { rerender } = render(
-      <VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />,
-    );
-    expect(screen.queryByText("🏢 Naar je bedrijfsomgeving")).not.toBeInTheDocument();
+  it("shows a link to the event environment only when a business profile exists", () => {
+    const { rerender } = render(<ProfileShell />);
+    expect(screen.queryByText("🏢 Naar je eventomgeving")).not.toBeInTheDocument();
 
     mockUseAuth.mockReturnValue(authState({ currentBusiness: business }));
-    rerender(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
-    expect(screen.getByText("🏢 Naar je bedrijfsomgeving")).toBeInTheDocument();
+    rerender(<ProfileShell />);
+    expect(screen.getByText("🏢 Naar je eventomgeving")).toBeInTheDocument();
   });
 
-  it("navigates to /bedrijf and closes when the business link is clicked", async () => {
+  it("navigates to /bedrijf when the event-environment link is clicked", async () => {
     mockUseAuth.mockReturnValue(authState({ currentBusiness: business }));
-    const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={onClose} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<ProfileShell />);
 
-    await user.click(screen.getByText("🏢 Naar je bedrijfsomgeving"));
+    await user.click(screen.getByText("🏢 Naar je eventomgeving"));
     expect(routerPush).toHaveBeenCalledWith("/bedrijf");
-    expect(onClose).toHaveBeenCalled();
   });
 
   it("toggles marketing consent and refreshes the visitor profile", async () => {
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<ProfileShell />);
 
     const checkbox = screen.getByRole("checkbox", { name: /Houd me per e-mail op de hoogte/ });
     expect(checkbox).not.toBeChecked();
@@ -290,7 +306,7 @@ describe("VisitorDashboard", () => {
   it("shows a toast when toggling consent fails", async () => {
     updateMarketingConsent.mockRejectedValue(new Error("offline"));
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<ProfileShell />);
 
     await user.click(screen.getByRole("checkbox", { name: /Houd me per e-mail op de hoogte/ }));
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("Wijzigen van toestemming mislukt.", "error"));
@@ -298,7 +314,7 @@ describe("VisitorDashboard", () => {
 
   it("changes the password after reauthenticating", async () => {
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<ProfileShell />);
 
     await user.type(screen.getByLabelText("Huidig wachtwoord"), "oldpass1");
     await user.type(screen.getByLabelText("Nieuw wachtwoord"), "newpass1");
@@ -311,7 +327,7 @@ describe("VisitorDashboard", () => {
   it("shows a friendly error when the current password is wrong", async () => {
     changeAccountPassword.mockRejectedValue({ code: "auth/wrong-password" });
     const user = userEvent.setup();
-    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<ProfileShell />);
 
     await user.type(screen.getByLabelText("Huidig wachtwoord"), "wrongpass");
     await user.type(screen.getByLabelText("Nieuw wachtwoord"), "newpass1");
@@ -321,7 +337,7 @@ describe("VisitorDashboard", () => {
   });
 
   it("disables the password submit button until both fields are filled", () => {
-    render(<VisitorDashboard open onClose={vi.fn()} onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<ProfileShell />);
     expect(screen.getByText("Wachtwoord wijzigen")).toBeDisabled();
   });
 });

@@ -66,27 +66,6 @@ vi.mock("@/components/auth/PostAuthFlow", () => ({
     ) : null,
 }));
 
-vi.mock("@/components/auth/VisitorDashboard", () => ({
-  VisitorDashboard: ({
-    open,
-    onClose,
-    onOpenShop,
-    onOpenEvent,
-  }: {
-    open: boolean;
-    onClose: () => void;
-    onOpenShop: (id: number) => void;
-    onOpenEvent: (id: string) => void;
-  }) =>
-    open ? (
-      <div role="dialog" aria-label="Mijn account">
-        <button onClick={onClose}>close-visitor</button>
-        <button onClick={() => onOpenShop(42)}>visitor-open-shop</button>
-        <button onClick={() => onOpenEvent("evt1")}>visitor-open-event</button>
-      </div>
-    ) : null,
-}));
-
 vi.mock("@/components/admin/AdminPanel", () => ({
   AdminPanel: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
     open ? (
@@ -116,7 +95,7 @@ describe("AccountMenu — signed out", () => {
   it("shows an 'Inloggen' button and opens AuthModal", async () => {
     mockUseAuth.mockReturnValue(baseAuth());
     const user = userEvent.setup();
-    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<AccountMenu />);
 
     const btn = screen.getByRole("button", { name: "Inloggen" });
     await user.click(btn);
@@ -126,7 +105,7 @@ describe("AccountMenu — signed out", () => {
   it("opens PostAuthFlow at 'onboarding' when a fresh account authenticates", async () => {
     mockUseAuth.mockReturnValue(baseAuth());
     const user = userEvent.setup();
-    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Inloggen" }));
     await user.click(screen.getByText("authenticate-needs-onboarding"));
@@ -137,7 +116,7 @@ describe("AccountMenu — signed out", () => {
   it("opens PostAuthFlow at 'chooser' when a returning account authenticates", async () => {
     mockUseAuth.mockReturnValue(baseAuth());
     const user = userEvent.setup();
-    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Inloggen" }));
     await user.click(screen.getByText("authenticate-onboarded"));
@@ -148,17 +127,17 @@ describe("AccountMenu — signed out", () => {
   it("closes AuthModal via its own close callback", async () => {
     mockUseAuth.mockReturnValue(baseAuth());
     const user = userEvent.setup();
-    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Inloggen" }));
     await user.click(screen.getByText("close-auth"));
     expect(screen.queryByRole("dialog", { name: "AuthModal-stub" })).not.toBeInTheDocument();
   });
 
-  it("closes PostAuthFlow via its own close callback, and opens the profile from its 'open profile' callback", async () => {
+  it("closes PostAuthFlow via its own close callback, and navigates to /profiel from its 'open profile' callback", async () => {
     mockUseAuth.mockReturnValue(baseAuth());
     const user = userEvent.setup();
-    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Inloggen" }));
     await user.click(screen.getByText("authenticate-onboarded"));
@@ -168,7 +147,7 @@ describe("AccountMenu — signed out", () => {
     await user.click(screen.getByRole("button", { name: "Inloggen" }));
     await user.click(screen.getByText("authenticate-onboarded"));
     await user.click(screen.getByText("postauth-open-profile"));
-    expect(screen.getByRole("dialog", { name: "Mijn account" })).toBeInTheDocument();
+    expect(routerPush).toHaveBeenCalledWith("/profiel");
   });
 });
 
@@ -180,7 +159,7 @@ describe("AccountMenu — signed in", () => {
         currentVisitor: { uid: "u1", email: "v@example.com", displayName: "Jago", createdAt: null },
       }),
     );
-    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<AccountMenu />);
     expect(screen.getByRole("button", { name: "Jago" })).toBeInTheDocument();
   });
 
@@ -192,38 +171,11 @@ describe("AccountMenu — signed in", () => {
         currentVisitor: { uid: "u1", email: "a@example.com", displayName: "Jago", createdAt: null },
       }),
     );
-    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<AccountMenu />);
     expect(screen.getByRole("button", { name: "Admin" })).toBeInTheDocument();
   });
 
-  it("opens the visitor dashboard from 'Mijn profiel' and forwards shop/event selection", async () => {
-    mockUseAuth.mockReturnValue(
-      baseAuth({
-        currentUser: { uid: "u1" },
-        currentVisitor: { uid: "u1", email: "v@example.com", displayName: "Jago", createdAt: null },
-      }),
-    );
-    const onOpenShop = vi.fn();
-    const onOpenEvent = vi.fn();
-    const user = userEvent.setup();
-    render(<AccountMenu onOpenShop={onOpenShop} onOpenEvent={onOpenEvent} />);
-
-    await user.click(screen.getByRole("button", { name: "Jago" }));
-    await user.click(await screen.findByText("👤 Mijn profiel"));
-    expect(screen.getByRole("dialog", { name: "Mijn account" })).toBeInTheDocument();
-
-    await user.click(screen.getByText("visitor-open-shop"));
-    expect(onOpenShop).toHaveBeenCalledWith(42);
-    expect(screen.queryByRole("dialog", { name: "Mijn account" })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Jago" }));
-    await user.click(await screen.findByText("👤 Mijn profiel"));
-    await user.click(screen.getByText("visitor-open-event"));
-    expect(onOpenEvent).toHaveBeenCalledWith("evt1");
-    expect(screen.queryByRole("dialog", { name: "Mijn account" })).not.toBeInTheDocument();
-  });
-
-  it("closes the visitor dashboard via its own close callback", async () => {
+  it("navigates to /profiel when 'Mijn profiel' is clicked", async () => {
     mockUseAuth.mockReturnValue(
       baseAuth({
         currentUser: { uid: "u1" },
@@ -231,15 +183,14 @@ describe("AccountMenu — signed in", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Jago" }));
     await user.click(await screen.findByText("👤 Mijn profiel"));
-    await user.click(screen.getByText("close-visitor"));
-    expect(screen.queryByRole("dialog", { name: "Mijn account" })).not.toBeInTheDocument();
+    expect(routerPush).toHaveBeenCalledWith("/profiel");
   });
 
-  it("shows 'Bedrijfsomgeving' and navigates to /bedrijf when a business profile exists", async () => {
+  it("shows 'Eventomgeving' and navigates to /bedrijf when a business profile exists", async () => {
     mockUseAuth.mockReturnValue(
       baseAuth({
         currentUser: { uid: "u1" },
@@ -248,10 +199,10 @@ describe("AccountMenu — signed in", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Jago" }));
-    await user.click(await screen.findByText("🏢 Bedrijfsomgeving"));
+    await user.click(await screen.findByText("🏢 Eventomgeving"));
     expect(routerPush).toHaveBeenCalledWith("/bedrijf");
   });
 
@@ -263,7 +214,7 @@ describe("AccountMenu — signed in", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Jago" }));
     await user.click(await screen.findByText("🏢 Event-profiel aanmaken"));
@@ -279,7 +230,7 @@ describe("AccountMenu — signed in", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Admin" }));
     await user.click(await screen.findByText("🔐 Adminpaneel"));
@@ -297,7 +248,7 @@ describe("AccountMenu — signed in", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Jago" }));
     expect(await screen.findByText("👤 Mijn profiel")).toBeInTheDocument();
@@ -312,7 +263,7 @@ describe("AccountMenu — signed in", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<AccountMenu onOpenShop={vi.fn()} onOpenEvent={vi.fn()} />);
+    render(<AccountMenu />);
 
     await user.click(screen.getByRole("button", { name: "Jago" }));
     await user.click(await screen.findByText("Uitloggen"));

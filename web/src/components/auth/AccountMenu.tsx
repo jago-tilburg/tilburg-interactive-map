@@ -6,16 +6,10 @@ import { DropdownMenu } from "radix-ui";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "./AuthModal";
 import { PostAuthFlow } from "./PostAuthFlow";
-import { VisitorDashboard } from "./VisitorDashboard";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { signOutCurrentUser } from "@/lib/firebase/auth";
 import type { Visitor } from "@/types/account";
 import styles from "./AccountMenu.module.css";
-
-interface AccountMenuProps {
-  onOpenShop: (shopId: number) => void;
-  onOpenEvent: (eventId: string) => void;
-}
 
 type PostAuthStep = "onboarding" | "chooser" | "createBusiness";
 
@@ -23,12 +17,11 @@ type PostAuthStep = "onboarding" | "chooser" | "createBusiness";
 // becomes a menu of everything the account has (PLAN-INLOGGEN.md §10) rather
 // than the old priority-ordered single dashboard (admin > business >
 // visitor).
-export function AccountMenu({ onOpenShop, onOpenEvent }: AccountMenuProps) {
+export function AccountMenu() {
   const { isAdmin, currentVisitor, currentBusiness } = useAuth();
   const router = useRouter();
   const [authOpen, setAuthOpen] = useState(false);
   const [postAuth, setPostAuth] = useState<PostAuthStep | null>(null);
-  const [visitorDashboardOpen, setVisitorDashboardOpen] = useState(false);
   const [adminPanelOpen, setAdminPanelOpen] = useState(false);
 
   const signedIn = !!currentVisitor;
@@ -58,12 +51,12 @@ export function AccountMenu({ onOpenShop, onOpenEvent }: AccountMenuProps) {
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content className={styles.dropdown} align="end" sideOffset={8}>
-              <DropdownMenu.Item className={styles.item} onSelect={() => setVisitorDashboardOpen(true)}>
+              <DropdownMenu.Item className={styles.item} onSelect={() => router.push("/profiel")}>
                 👤 Mijn profiel
               </DropdownMenu.Item>
               {currentBusiness ? (
                 <DropdownMenu.Item className={styles.item} onSelect={goToBusiness}>
-                  🏢 Bedrijfsomgeving
+                  🏢 Eventomgeving
                 </DropdownMenu.Item>
               ) : (
                 <DropdownMenu.Item className={styles.item} onSelect={() => setPostAuth("createBusiness")}>
@@ -100,21 +93,8 @@ export function AccountMenu({ onOpenShop, onOpenEvent }: AccountMenuProps) {
         open={postAuth !== null}
         onClose={() => setPostAuth(null)}
         startStep={postAuth ?? "chooser"}
-        onOpenProfile={() => setVisitorDashboardOpen(true)}
+        onOpenProfile={() => router.push("/profiel")}
         onGoToBusiness={goToBusiness}
-      />
-
-      <VisitorDashboard
-        open={visitorDashboardOpen}
-        onClose={() => setVisitorDashboardOpen(false)}
-        onOpenShop={(shopId) => {
-          setVisitorDashboardOpen(false);
-          onOpenShop(shopId);
-        }}
-        onOpenEvent={(eventId) => {
-          setVisitorDashboardOpen(false);
-          onOpenEvent(eventId);
-        }}
       />
 
       <AdminPanel open={adminPanelOpen} onClose={() => setAdminPanelOpen(false)} />
