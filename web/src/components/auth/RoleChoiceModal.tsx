@@ -21,7 +21,7 @@ interface RoleChoiceModalProps {
 // chooser — they declare intent up front and get routed straight there.
 export function RoleChoiceModal({ open, onClose, onChoose, onSkipToLogin }: RoleChoiceModalProps) {
   return (
-    <Modal open={open} onClose={onClose} title="Welkom bij 2happies">
+    <Modal open={open} onClose={onClose} title="Welkom bij 2happies" centerTitle>
       <div className={styles.chooser}>
         <button type="button" className={styles.chooserButton} onClick={() => onChoose("visitor")}>
           <span className={styles.emoji} aria-hidden="true">

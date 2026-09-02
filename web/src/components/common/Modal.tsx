@@ -15,6 +15,11 @@ interface ModalProps {
   // map marker is the app's most common mobile interaction and merits it.
   // Every other modal (forms, auth, menus) stays the plain floating card.
   variant?: "default" | "detail";
+  // Opt-in only — every other modal's title stays left-aligned next to the
+  // close button (the long-standing default). RoleChoiceModal is the one
+  // exception (PLAN-INLOGGEN.md-adjacent welcome screen), not a general
+  // redesign.
+  centerTitle?: boolean;
 }
 
 const SWIPE_CLOSE_THRESHOLD_PX = 110;
@@ -28,7 +33,7 @@ const SWIPE_CLOSE_THRESHOLD_PX = 110;
 // setupShopDetailSwipeToClose(). Scoped to the header rather than the whole
 // dialog so it never fights with scrolling a long body (comment lists,
 // forms, etc).
-export function Modal({ open, onClose, title, children, variant = "default" }: ModalProps) {
+export function Modal({ open, onClose, title, children, variant = "default", centerTitle = false }: ModalProps) {
   const [dragOffset, setDragOffset] = useState(0);
   const dragStartYRef = useRef<number | null>(null);
   // Radix's default onCloseAutoFocus tries to refocus its own internal
@@ -76,12 +81,13 @@ export function Modal({ open, onClose, title, children, variant = "default" }: M
             style={dragOffset ? { transform: `translateY(${dragOffset}px)`, transition: "none" } : undefined}
           >
             <div
-              className={styles.header}
+              className={`${styles.header} ${centerTitle ? styles.headerCentered : ""}`}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
             >
               <span className={styles.dragHandle} aria-hidden="true" />
+              {centerTitle && <span className={styles.headerSpacer} aria-hidden="true" />}
               <Dialog.Title asChild>
                 <h2>{title}</h2>
               </Dialog.Title>
