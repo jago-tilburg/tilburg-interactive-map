@@ -172,14 +172,14 @@ describe("BusinessShell — signed in with a business", () => {
     const user = userEvent.setup();
     setup();
     await user.click(screen.getByText("Profiel"));
-    expect(routerReplace).toHaveBeenCalledWith("/bedrijf?tab=profiel", { scroll: false });
+    expect(routerReplace).toHaveBeenCalledWith("/eventbeheer?tab=profiel", { scroll: false });
   });
 
   it("opens the Nieuw-event tab in create mode from Insights' onCreate", async () => {
     const user = userEvent.setup();
     setup();
     await user.click(screen.getByText("insights-create"));
-    expect(routerReplace).toHaveBeenCalledWith("/bedrijf?tab=nieuw", { scroll: false });
+    expect(routerReplace).toHaveBeenCalledWith("/eventbeheer?tab=nieuw", { scroll: false });
     expect(screen.getByTestId("new-editing")).toHaveTextContent("none");
     expect(screen.getByTestId("new-duplicating")).toHaveTextContent("none");
   });
@@ -207,7 +207,7 @@ describe("BusinessShell — signed in with a business", () => {
     expect(screen.getByTestId("new-editing")).toHaveTextContent("evt1");
 
     await user.click(screen.getByText("new-done"));
-    expect(routerReplace).toHaveBeenLastCalledWith("/bedrijf?tab=inzicht", { scroll: false });
+    expect(routerReplace).toHaveBeenLastCalledWith("/eventbeheer?tab=inzicht", { scroll: false });
     expect(screen.getByTestId("insights-tab")).toBeVisible();
 
     // Reopening create mode afterward must not still show the old editingEvent.

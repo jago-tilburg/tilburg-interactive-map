@@ -27,7 +27,7 @@ export function AccountMenu() {
   const signedIn = !!currentVisitor;
 
   function goToBusiness() {
-    router.push("/bedrijf");
+    router.push("/eventbeheer");
   }
 
   function handleAuthenticated(visitor: Visitor) {

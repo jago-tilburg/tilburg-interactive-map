@@ -15,7 +15,7 @@ interface BusinessEventFormModalProps {
 
 // A thin wrapper around BusinessEventForm — kept for AdminPanel, which still
 // needs the form as a floating window rather than inline on a page
-// (PLAN-INLOGGEN.md §9). /bedrijf's "Nieuw event" tab uses BusinessEventForm
+// (PLAN-INLOGGEN.md §9). /eventbeheer's "Nieuw event" tab uses BusinessEventForm
 // directly, without this Modal.
 export function BusinessEventFormModal({
   open,

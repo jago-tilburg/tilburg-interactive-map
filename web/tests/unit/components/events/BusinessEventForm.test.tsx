@@ -46,7 +46,7 @@ function makeEvent(overrides: Partial<BusinessEvent> = {}): BusinessEvent {
 // The identity-resync block (PLAN-INLOGGEN.md §9's "active" gate, ported
 // from the old modal's `open` gate) only fires when the form's identity
 // changes while it stays mounted and active — e.g. reused in an
-// already-open dialog, or (once /bedrijf exists) a Radix Presence exit
+// already-open dialog, or (once /eventbeheer exists) a Radix Presence exit
 // animation keeping it mounted one tick past active flipping false. Neither
 // the ~30 inherited modal tests nor NewEventTab's own tests (which stub
 // this component) exercise that path, so it gets its own direct coverage

@@ -17,7 +17,7 @@ wachtwoord + Google — zie §1 voor waarom.
 | Dubbele rol | **Één account.** Bezoekersprofiel is de basis; event-profiel is een aanvulling op hetzelfde account. |
 | Na inloggen | **Keuzescherm**: 1) de kaart, 2) bezoekersprofiel, 3) event-profiel |
 | Bezoekersprofiel | Blijft een **venster over de kaart** — geen aparte pagina |
-| Eventomgeving | **Schermvullende pagina** `/bedrijf` met tabs: Inzicht / Nieuw event / Profiel |
+| Eventomgeving | **Schermvullende pagina** `/eventbeheer` met tabs: Inzicht / Nieuw event / Profiel |
 | Inzicht-tab | Statistiekkaarten bovenaan, eigen eventlijst eronder |
 | Nieuw-event-tab | Formulier **direct op de pagina**, geen venster |
 | Marketingtoestemming | Aan **iedereen** gevraagd bij de eerste keer inloggen |
@@ -51,7 +51,7 @@ samen te vallen, en op mobiel is een wachtwoord meer werk dan een code overtypen
 er later bovenop, als extra provider naast deze — dat is geen verbouwing van dit plan.
 
 **Wat dit plan wél houdt** en waar de eigenlijke waarde zit: de dubbele rol, het keuzescherm,
-de marketingtoestemming, de login7-layout en de schermvullende `/bedrijf`-omgeving. Die stonden
+de marketingtoestemming, de login7-layout en de schermvullende `/eventbeheer`-omgeving. Die stonden
 los van de inlogmethode.
 
 ---
@@ -301,13 +301,13 @@ Google-login is de naam voorgevuld uit `user.displayName`.
   │  │ 👤  Mijn profiel       │  │  → bezoekersvenster
   │  └────────────────────────┘  │
   │  ┌────────────────────────┐  │
-  │  │ 🏢  Event-profiel      │  │  → /bedrijf
+  │  │ 🏢  Event-profiel      │  │  → /eventbeheer
   │  └────────────────────────┘  │     of eerst: organisatienaam
   └──────────────────────────────┘
 ```
 
 Heb je nog geen event-profiel, dan leest knop 3 "Event-profiel aanmaken" en vraagt hij eerst om
-je organisatienaam (`createBusinessProfile`, bestaat al) voordat hij je naar `/bedrijf` stuurt.
+je organisatienaam (`createBusinessProfile`, bestaat al) voordat hij je naar `/eventbeheer` stuurt.
 
 Dit is één component met drie standen (`onboarding` → `chooser` → `createBusiness`) in hetzelfde
 venster als het inlogscherm. Geen route-gedoe, geen flits van de kaart ertussen.
@@ -328,7 +328,7 @@ een onbevestigd adres — dus niet voor Google-gebruikers, en niet voor uitgelog
 
 Twee plekken, want dat is waar je bent:
 - als strook onder de header op de kaart
-- als strook boven de tabs op `/bedrijf`
+- als strook boven de tabs op `/eventbeheer`
 
 Wegklikken met ✕ verbergt hem voor de rest van de sessie (`sessionStorage`, niet
 `localStorage` — bij de volgende keer dat je de app opent hoort hij er weer te zijn, anders is
@@ -337,9 +337,9 @@ adres nog steeds onbevestigd is; anders verdwijnt de strook.
 
 ---
 
-## 9. `/bedrijf` — de schermvullende eventomgeving
+## 9. `/eventbeheer` — de schermvullende eventomgeving
 
-Nieuwe route `web/src/app/bedrijf/page.tsx`. Geen kaart, geen mapheader.
+Nieuwe route `web/src/app/eventbeheer/page.tsx`. Geen kaart, geen mapheader.
 
 ```
   ┌────────────────────────────────────────┐
@@ -364,9 +364,9 @@ Nieuwe route `web/src/app/bedrijf/page.tsx`. Geen kaart, geen mapheader.
 ```
 
 Radix `Tabs` — al in gebruik in `BusinessDashboard.tsx:4`, dus geen nieuwe afhankelijkheid.
-Tabstand in de URL (`/bedrijf?tab=nieuw`) zodat vernieuwen en de terug-knop werken.
+Tabstand in de URL (`/eventbeheer?tab=nieuw`) zodat vernieuwen en de terug-knop werken.
 De route moet zelf ook afgeschermd: geen bedrijfsprofiel → terug naar de kaart, want een
-directe link naar `/bedrijf` mag geen leeg dashboard opleveren.
+directe link naar `/eventbeheer` mag geen leeg dashboard opleveren.
 
 De 409 regels van `BusinessDashboard.tsx` worden opgesplitst:
 
@@ -415,7 +415,7 @@ Organisatienaam, standaardadres/lat/lng (bestaat al), plus:
 | `auth/BusinessAuthModal.tsx` | idem |
 | `auth/AdminLoginModal.tsx` | admin logt in via hetzelfde scherm |
 | `auth/AccountChooserModal.tsx` | de rolkeuze is nu ná het inloggen, niet ervoor |
-| `auth/BusinessDashboard.tsx` | wordt `/bedrijf` |
+| `auth/BusinessDashboard.tsx` | wordt `/eventbeheer` |
 | magic-link-code in `auth.ts` + `useAuth.tsx` | één inlogflow |
 
 Het accountmenu (`AccountMenu.tsx`) verliest z'n prioriteitsladder (admin > bedrijf > bezoeker >
@@ -461,7 +461,7 @@ om mee te testen — ze worden niet gered maar **vers opgebouwd**, met wachtwoor
 |---|---|---|---|
 | admin *(behouden)* | admin + bezoeker | zoals het is | adminpaneel, en het feit dat admin nu óók een bezoekersprofiel krijgt |
 | test-bezoeker | alleen bezoeker | **false** | de "Event-profiel aanmaken"-tak van het keuzescherm, en de verificatiestrook in levende lijve |
-| test-owner | bezoeker + event owner | true | de dubbele rol, het volledige keuzescherm met drie knoppen, en `/bedrijf` |
+| test-owner | bezoeker + event owner | true | de dubbele rol, het volledige keuzescherm met drie knoppen, en `/eventbeheer` |
 
 Twee dingen over die tabel die de moeite zijn:
 
@@ -500,7 +500,7 @@ en wat het overslaat, en wacht op een bevestiging.
   naam voorgevuld bij Google
 - Keuzescherm: drie takken, en de "nog geen event-profiel"-variant
 - `useAuth`: bezoeker én bedrijf tegelijk gevuld; admin krijgt óók een bezoekersprofiel
-- `/bedrijf`: zonder bedrijfsprofiel word je weggestuurd
+- `/eventbeheer`: zonder bedrijfsprofiel word je weggestuurd
 - `BusinessShell`: tabs wisselen, tabstand uit de URL
 - `BusinessEventForm`: de bestaande modal-tests moeten **ongewijzigd** groen blijven
 - `EmailVerifyNotice`: onzichtbaar bij een bevestigd adres en bij Google; "Ik heb het bevestigd"
@@ -519,7 +519,7 @@ Alleen Google blijft handwerk.
 registratieflow zelf. Minimaal: registreren, inloggen, wachtwoord
 vergeten, **de verificatiemail daadwerkelijk ontvangen en de link aanklikken** (en dan kijken of
 de strook ook echt verdwijnt — zie de valkuil in §3), Google op een nieuw adres, Google op een
-adres dat al een wachtwoord had (de koppeling), event-profiel erbij maken, en `/bedrijf` op een
+adres dat al een wachtwoord had (de koppeling), event-profiel erbij maken, en `/eventbeheer` op een
 telefoon.
 
 ---
@@ -551,7 +551,7 @@ Geen Resend, geen secrets, geen TTL-policy. Dat is de winst van deze keuze.
 | 2 | Inlogscherm in login7-layout, drie standen, + Google | Ja — live op staging |
 | 3 | Verificatiemail + herinneringsstrook | Ja — live, met een echte mail |
 | 4 | Onboarding + toestemming + keuzescherm | Ja |
-| 5 | `/bedrijf`, tabs, formulier uit z'n venster | Ja |
+| 5 | `/eventbeheer`, tabs, formulier uit z'n venster | Ja |
 | 6 | Oude componenten weg, CSP, `PrivacyModal`, docs, live-verificatie | — |
 
 Fase 0 eerst, en niet later: zolang er nog magic-link-accounts zonder wachtwoord in Auth staan,

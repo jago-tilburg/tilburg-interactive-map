@@ -190,7 +190,7 @@ describe("AccountMenu — signed in", () => {
     expect(routerPush).toHaveBeenCalledWith("/profiel");
   });
 
-  it("shows 'Eventomgeving' and navigates to /bedrijf when a business profile exists", async () => {
+  it("shows 'Eventomgeving' and navigates to /eventbeheer when a business profile exists", async () => {
     mockUseAuth.mockReturnValue(
       baseAuth({
         currentUser: { uid: "u1" },
@@ -203,7 +203,7 @@ describe("AccountMenu — signed in", () => {
 
     await user.click(screen.getByRole("button", { name: "Jago" }));
     await user.click(await screen.findByText("🏢 Eventomgeving"));
-    expect(routerPush).toHaveBeenCalledWith("/bedrijf");
+    expect(routerPush).toHaveBeenCalledWith("/eventbeheer");
   });
 
   it("shows 'Event-profiel aanmaken' and opens PostAuthFlow at 'createBusiness' when there is none", async () => {

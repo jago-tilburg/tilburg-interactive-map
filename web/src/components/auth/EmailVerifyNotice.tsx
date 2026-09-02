@@ -21,7 +21,7 @@ function readDismissed() {
 }
 
 // Two places render this (PLAN-INLOGGEN.md §8): under the header on the map,
-// and above the tabs on /bedrijf. Invisible for Google users (always
+// and above the tabs on /eventbeheer. Invisible for Google users (always
 // verified) and signed-out visitors — the `emailVerified` it reads is
 // useAuth's own state, not currentUser.emailVerified directly, since that
 // field only updates after an explicit reload() (see auth.ts's doc comment

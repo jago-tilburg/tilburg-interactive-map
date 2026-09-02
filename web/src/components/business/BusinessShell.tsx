@@ -44,7 +44,7 @@ export function BusinessShell() {
 
   function changeTab(next: TabKey) {
     setTab(next);
-    router.replace(`/bedrijf?tab=${next}`, { scroll: false });
+    router.replace(`/eventbeheer?tab=${next}`, { scroll: false });
   }
 
   function openCreateForm() {
@@ -74,7 +74,7 @@ export function BusinessShell() {
     changeTab("inzicht");
   }
 
-  // A direct link to /bedrijf with no business profile must not render an
+  // A direct link to /eventbeheer with no business profile must not render an
   // empty dashboard (PLAN-INLOGGEN.md §9) — send it back to the map instead.
   useEffect(() => {
     if (!loading && !currentBusiness) router.replace("/");

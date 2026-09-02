@@ -282,13 +282,13 @@ describe("ProfileShell", () => {
     expect(screen.getByText("🏢 Naar je eventomgeving")).toBeInTheDocument();
   });
 
-  it("navigates to /bedrijf when the event-environment link is clicked", async () => {
+  it("navigates to /eventbeheer when the event-environment link is clicked", async () => {
     mockUseAuth.mockReturnValue(authState({ currentBusiness: business }));
     const user = userEvent.setup();
     render(<ProfileShell />);
 
     await user.click(screen.getByText("🏢 Naar je eventomgeving"));
-    expect(routerPush).toHaveBeenCalledWith("/bedrijf");
+    expect(routerPush).toHaveBeenCalledWith("/eventbeheer");
   });
 
   it("toggles marketing consent and refreshes the visitor profile", async () => {

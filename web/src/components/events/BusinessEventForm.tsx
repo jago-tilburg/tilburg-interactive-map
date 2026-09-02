@@ -16,7 +16,7 @@ interface BusinessEventFormProps {
   // Whether this form should currently reflect editingEvent/duplicateFrom —
   // mirrors the old BusinessEventFormModal's `open` prop. Needed because
   // Radix Tabs keeps every Tabs.Content mounted (just hidden), so this form
-  // stays mounted while a different /bedrijf tab is showing; without this
+  // stays mounted while a different /eventbeheer tab is showing; without this
   // gate, switching to the "Nieuw event" tab for event A right after
   // finishing event B would still show B's now-stale fields.
   active: boolean;

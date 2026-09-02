@@ -14,7 +14,7 @@ import type { Shop } from "@/types/shops";
 import type { BusinessEvent } from "@/types/events";
 import styles from "./ProfileShell.module.css";
 
-// The schermvullende profielpagina, mirroring how /bedrijf (BusinessShell)
+// The schermvullende profielpagina, mirroring how /eventbeheer (BusinessShell)
 // replaced its own modal — see PLAN-INLOGGEN.md's history on that page.
 // Ported from the old VisitorDashboard modal: same sections, same data,
 // just no open/onClose — a mounted page is inherently "open", and
@@ -136,7 +136,7 @@ export function ProfileShell() {
 
         {currentBusiness && (
           <div className={styles.section}>
-            <button type="button" className={styles.businessLink} onClick={() => router.push("/bedrijf")}>
+            <button type="button" className={styles.businessLink} onClick={() => router.push("/eventbeheer")}>
               🏢 Naar je eventomgeving
             </button>
           </div>
