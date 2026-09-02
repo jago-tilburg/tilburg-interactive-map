@@ -7,6 +7,11 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+const routerPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: routerPush }),
+}));
+
 // MenuModal's 🔐 entry just opens the shared AuthModal — that component's
 // own behavior is covered by AuthModal's test file, so it's stubbed here.
 vi.mock("@/components/auth/AuthModal", () => ({
@@ -283,6 +288,13 @@ describe("MenuModal", () => {
 
     await user.click(within(privacyDialog).getByLabelText("Sluiten"));
     expect(screen.queryByRole("dialog", { name: "Privacybeleid" })).not.toBeInTheDocument();
+  });
+
+  it("navigates to /voorwaarden from the footer link", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByText("📄 Voorwaarden"));
+    expect(routerPush).toHaveBeenCalledWith("/voorwaarden");
   });
 
   it("shows the admin-login entry only when signed out", () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Modal } from "./Modal";
 import styles from "./PrivacyModal.module.css";
 
@@ -9,6 +10,13 @@ interface PrivacyModalProps {
 }
 
 export function PrivacyModal({ open, onClose }: PrivacyModalProps) {
+  const router = useRouter();
+
+  function handleFullPolicy() {
+    onClose();
+    router.push("/privacybeleid");
+  }
+
   return (
     <Modal open={open} onClose={onClose} title="Privacybeleid">
       <div className={styles.content}>
@@ -76,6 +84,10 @@ export function PrivacyModal({ open, onClose }: PrivacyModalProps) {
           &quot;Account verwijderen&quot; in je accountmenu. Vragen over je gegevens? Neem contact
           op via de contactgegevens op de website.
         </p>
+
+        <button type="button" className={styles.fullPolicyLink} onClick={handleFullPolicy}>
+          Lees het volledige privacybeleid →
+        </button>
       </div>
     </Modal>
   );

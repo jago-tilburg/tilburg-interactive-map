@@ -11,6 +11,12 @@ vi.mock("@/lib/cookieConsent", () => ({
   acceptAll: () => acceptAll(),
 }));
 
+// CookieBanner renders the real PrivacyModal, which now navigates to the
+// full /privacybeleid page — see PrivacyModal.test.tsx for its own coverage.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 import { CookieBanner } from "@/components/common/CookieBanner";
 
 beforeEach(() => {

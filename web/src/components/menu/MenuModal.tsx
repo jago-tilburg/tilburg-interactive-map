@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
 import { useAuth } from "@/hooks/useAuth";
 import { PrivacyModal } from "@/components/common/PrivacyModal";
@@ -65,6 +66,7 @@ export function MenuModal({
   loading = false,
   filterState,
 }: MenuModalProps) {
+  const router = useRouter();
   const { isAdmin } = useAuth();
   const { contentType, setContentType, query, dietary, categories, umbrellaFilter, dateFilter, setDietaryPreset } =
     filterState;
@@ -266,6 +268,9 @@ export function MenuModal({
         )}
         <button type="button" className={styles.footerLink} onClick={() => setPrivacyOpen(true)}>
           📜 Privacy
+        </button>
+        <button type="button" className={styles.footerLink} onClick={() => router.push("/voorwaarden")}>
+          📄 Voorwaarden
         </button>
         </Dialog.Content>
         </div>

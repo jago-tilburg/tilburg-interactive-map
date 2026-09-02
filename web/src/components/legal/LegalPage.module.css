@@ -1,0 +1,105 @@
+.page {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--background, #faf8f5);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  background: var(--color-surface, #fff);
+  border-bottom: 1px solid var(--color-border, #eee6da);
+}
+
+.brand {
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--color-orange, #ff6b35);
+}
+
+.backLink {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary, #57534e);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.backLink:hover {
+  color: var(--color-green-dark, #15803d);
+}
+
+.content {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+.content h1 {
+  font-family: var(--font-heading, inherit);
+  font-size: 1.75rem;
+  margin: 0 0 0.25rem;
+  color: var(--color-text, #1c1917);
+}
+
+.updated {
+  color: var(--color-text-muted, #a8a29e);
+  font-size: 0.875rem;
+  margin: 0 0 2rem;
+}
+
+.prose h2 {
+  font-family: var(--font-heading, inherit);
+  font-size: 1.25rem;
+  margin: 2rem 0 0.75rem;
+  color: var(--color-text, #1c1917);
+}
+
+.prose h2:first-child {
+  margin-top: 0;
+}
+
+.prose h3 {
+  font-size: 1rem;
+  margin: 1.25rem 0 0.5rem;
+  color: var(--color-text, #1c1917);
+}
+
+.prose p,
+.prose li {
+  color: var(--color-text-secondary, #57534e);
+  line-height: 1.6;
+  font-size: 0.9375rem;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.25rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.prose li {
+  margin-bottom: 0.4rem;
+}
+
+.prose strong {
+  color: var(--color-text, #1c1917);
+}
+
+.placeholder {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.875em;
+}
+
+.prose a {
+  color: var(--color-green-dark, #15803d);
+}
