@@ -137,13 +137,13 @@ export function ProfileShell() {
         {currentBusiness && (
           <div className={styles.section}>
             <button type="button" className={styles.businessLink} onClick={() => router.push("/eventbeheer")}>
-              🏢 Naar je eventomgeving
+              Naar je eventomgeving
             </button>
           </div>
         )}
 
         <div className={styles.section}>
-          <h3>🔖 Bewaarde evenementen</h3>
+          <h3>Bewaarde evenementen</h3>
           {savedEvents.length === 0 ? (
             <p className={styles.empty}>Nog geen evenementen bewaard.</p>
           ) : (
@@ -164,7 +164,7 @@ export function ProfileShell() {
         </div>
 
         <div className={styles.section}>
-          <h3>❤️ Geliked</h3>
+          <h3>Geliked</h3>
           {likedShops.length === 0 ? (
             <p className={styles.empty}>Nog geen shops geliked.</p>
           ) : (
@@ -185,7 +185,7 @@ export function ProfileShell() {
         </div>
 
         <div className={styles.section}>
-          <h3>⭐ Mijn ratings</h3>
+          <h3>Mijn ratings</h3>
           {ratedShops.length === 0 ? (
             <p className={styles.empty}>Nog geen ratings gegeven.</p>
           ) : (
@@ -244,7 +244,7 @@ export function ProfileShell() {
         {deleteError && <p className={styles.error} role="alert">{deleteError}</p>}
 
         <div className={styles.actions}>
-          <button type="button" onClick={handleLogout}>
+          <button type="button" className={styles.logoutButton} onClick={handleLogout}>
             Uitloggen
           </button>
           <button type="button" className={styles.deleteButton} onClick={handleDeleteAccount}>

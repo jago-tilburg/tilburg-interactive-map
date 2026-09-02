@@ -275,11 +275,11 @@ describe("ProfileShell", () => {
 
   it("shows a link to the event environment only when a business profile exists", () => {
     const { rerender } = render(<ProfileShell />);
-    expect(screen.queryByText("🏢 Naar je eventomgeving")).not.toBeInTheDocument();
+    expect(screen.queryByText("Naar je eventomgeving")).not.toBeInTheDocument();
 
     mockUseAuth.mockReturnValue(authState({ currentBusiness: business }));
     rerender(<ProfileShell />);
-    expect(screen.getByText("🏢 Naar je eventomgeving")).toBeInTheDocument();
+    expect(screen.getByText("Naar je eventomgeving")).toBeInTheDocument();
   });
 
   it("navigates to /eventbeheer when the event-environment link is clicked", async () => {
@@ -287,7 +287,7 @@ describe("ProfileShell", () => {
     const user = userEvent.setup();
     render(<ProfileShell />);
 
-    await user.click(screen.getByText("🏢 Naar je eventomgeving"));
+    await user.click(screen.getByText("Naar je eventomgeving"));
     expect(routerPush).toHaveBeenCalledWith("/eventbeheer");
   });
 
