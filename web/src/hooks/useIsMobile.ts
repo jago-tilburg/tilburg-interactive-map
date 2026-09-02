@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from "react";
-
-const MOBILE_QUERY = "(max-width: 768px)";
+import { MOBILE_QUERY } from "@/lib/breakpoints";
 
 function subscribe(onChange: () => void) {
   const mql = window.matchMedia(MOBILE_QUERY);

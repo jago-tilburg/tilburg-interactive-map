@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Paytone_One, DM_Sans } from "next/font/google";
 import Script from "next/script";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -27,6 +27,12 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "2happies (staging-next)",
   description: "2happies.nl Next.js rewrite — staging",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

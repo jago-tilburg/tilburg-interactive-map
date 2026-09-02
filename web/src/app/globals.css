@@ -30,6 +30,19 @@
   --radius-button: 10px;
 }
 
+/* Canonical breakpoints for this app: 768px ("mobile") and 968px ("tablet"),
+   also exported from src/lib/breakpoints.ts for JS media-query hooks
+   (useIsMobile.ts). Header.module.css's 390px small-phone tier and
+   ShopDetailModal.module.css's 968px tablet tier are the two sanctioned
+   extra tiers beyond this — anything else should use 768px or 968px, not a
+   new number.
+
+   Viewport-unit rule: use dvh for anything that must track the real visible
+   viewport as the mobile browser's toolbar shows/hides (full-screen modals,
+   the map shell below) — always declare vh first as the fallback, dvh after
+   it overrides where supported. Plain vh is fine for anything that doesn't
+   need to track toolbar changes. */
+
 html {
   height: 100%;
 }
@@ -55,6 +68,11 @@ body {
      touch-action is per-element, so the map re-enables it on itself below
      (ShopMap.module.css's .map) for its own pan/zoom interaction. */
   touch-action: pan-x pan-y;
+  /* Real safe-area inset (nonzero on a notched device only when the browser
+     actually reports one — e.g. a standalone home-screen PWA, or once iOS
+     fixes the regular-tab case below). Requires viewport-fit=cover
+     (layout.tsx) to be anything but 0. */
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* Mobile viewport height: 100vh doesn't account for the mobile browser's
@@ -63,6 +81,26 @@ body {
 @media (max-width: 768px) {
   body {
     height: 100dvh;
+  }
+}
+
+/* iOS 26 Safari renders web pages edge-to-edge by default and floats its
+   translucent toolbar *over* the page instead of reserving its own opaque
+   strip — a behavior change from every prior iOS version. This does NOT
+   populate env(safe-area-inset-top) in a regular tab (confirmed live: it's
+   0px there, only a standalone home-screen PWA gets a real value), so the
+   real inset above can't clear it. This is a best-effort fixed buffer for
+   that specific case — verify live on an iOS 26 device, since there's no
+   feature-detectable signal to size it exactly. @supports with a
+   webkit-only feature (not user-agent sniffing) scopes this to iOS
+   Safari/WebKit specifically, leaving Android Chrome and desktop untouched.
+   If Apple ships a fix that makes the real inset non-zero here, max()
+   already prefers the larger, correct value automatically. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 768px) {
+    body {
+      padding-top: max(env(safe-area-inset-top, 0px), 24px);
+    }
   }
 }
 
