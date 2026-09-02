@@ -13,7 +13,8 @@
   border: 1px solid #d2d2d7;
   border-radius: 10px;
   font-family: inherit;
-  font-size: 0.9375rem;
+  /* 16px minimum — anything smaller makes iOS Safari auto-zoom on focus. */
+  font-size: 1rem;
   transition: all 0.2s;
 }
 

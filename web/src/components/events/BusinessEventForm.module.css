@@ -16,7 +16,8 @@
   border: 1px solid #d2d2d7;
   border-radius: 10px;
   font-family: inherit;
-  font-size: 0.9375rem;
+  /* 16px minimum — anything smaller makes iOS Safari auto-zoom on focus. */
+  font-size: 1rem;
   transition: all 0.2s;
 }
 
@@ -71,6 +72,7 @@
 
 .dailyTimeRow input {
   flex: 1;
+  font-size: 1rem;
 }
 
 .priceRows {
@@ -88,10 +90,15 @@
 
 .priceRow input[type="text"] {
   flex: 2;
+  /* Explicit, not inherited from .priceRows — inputs don't inherit
+     font-size from ancestors by default; 16px minimum avoids iOS Safari
+     auto-zoom on focus. */
+  font-size: 1rem;
 }
 
 .priceRow input[type="number"] {
   flex: 1;
+  font-size: 1rem;
 }
 
 .priceRow label {
