@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AlertDialog } from "radix-ui";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { signOutCurrentUser, deleteCurrentUser, changeAccountPassword } from "@/lib/firebase/auth";
@@ -247,9 +248,35 @@ export function ProfileShell() {
           <button type="button" className={styles.logoutButton} onClick={handleLogout}>
             Uitloggen
           </button>
-          <button type="button" className={styles.deleteButton} onClick={handleDeleteAccount}>
-            Account verwijderen
-          </button>
+          <AlertDialog.Root>
+            <AlertDialog.Trigger asChild>
+              <button type="button" className={styles.deleteButton}>
+                Account verwijderen
+              </button>
+            </AlertDialog.Trigger>
+            <AlertDialog.Portal>
+              <AlertDialog.Overlay className={styles.confirmBackdrop} />
+              <AlertDialog.Content className={styles.confirmDialog}>
+                <AlertDialog.Title className={styles.confirmTitle}>Account verwijderen?</AlertDialog.Title>
+                <AlertDialog.Description className={styles.confirmDescription}>
+                  Dit verwijdert je account en alle bijbehorende gegevens permanent. Dit kan niet ongedaan
+                  worden gemaakt.
+                </AlertDialog.Description>
+                <div className={styles.confirmActions}>
+                  <AlertDialog.Cancel asChild>
+                    <button type="button" className={styles.logoutButton}>
+                      Annuleren
+                    </button>
+                  </AlertDialog.Cancel>
+                  <AlertDialog.Action asChild>
+                    <button type="button" className={styles.confirmDeleteButton} onClick={handleDeleteAccount}>
+                      Ja, verwijderen
+                    </button>
+                  </AlertDialog.Action>
+                </div>
+              </AlertDialog.Content>
+            </AlertDialog.Portal>
+          </AlertDialog.Root>
         </div>
       </div>
     </div>

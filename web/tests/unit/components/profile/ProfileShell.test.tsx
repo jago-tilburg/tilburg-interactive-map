@@ -232,12 +232,24 @@ describe("ProfileShell", () => {
     expect(screen.getByText(/Kermis/)).toBeInTheDocument();
   });
 
+  it("asks for confirmation before deleting and does nothing if cancelled", async () => {
+    const user = userEvent.setup();
+    render(<ProfileShell />);
+
+    await user.click(screen.getByText("Account verwijderen"));
+    expect(await screen.findByText("Account verwijderen?")).toBeInTheDocument();
+    await user.click(screen.getByText("Annuleren"));
+
+    expect(deleteAccountCascade).not.toHaveBeenCalled();
+  });
+
   it("no-ops when there is no current auth user", async () => {
     mockUseAuth.mockReturnValue(authState({ currentUser: null }));
     const user = userEvent.setup();
     render(<ProfileShell />);
 
     await user.click(screen.getByText("Account verwijderen"));
+    await user.click(await screen.findByText("Ja, verwijderen"));
 
     expect(deleteAccountCascade).not.toHaveBeenCalled();
   });
@@ -247,6 +259,7 @@ describe("ProfileShell", () => {
     render(<ProfileShell />);
 
     await user.click(screen.getByText("Account verwijderen"));
+    await user.click(await screen.findByText("Ja, verwijderen"));
 
     expect(deleteAccountCascade).toHaveBeenCalledWith("u1");
     expect(deleteCurrentUser).toHaveBeenCalledWith({ uid: "u1" });
@@ -259,6 +272,7 @@ describe("ProfileShell", () => {
     render(<ProfileShell />);
 
     await user.click(screen.getByText("Account verwijderen"));
+    await user.click(await screen.findByText("Ja, verwijderen"));
 
     expect(await screen.findByText("requires recent login")).toBeInTheDocument();
   });
@@ -269,6 +283,7 @@ describe("ProfileShell", () => {
     render(<ProfileShell />);
 
     await user.click(screen.getByText("Account verwijderen"));
+    await user.click(await screen.findByText("Ja, verwijderen"));
 
     expect(await screen.findByText("Account verwijderen mislukt.")).toBeInTheDocument();
   });
