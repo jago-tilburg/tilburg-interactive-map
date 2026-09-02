@@ -8,7 +8,7 @@ import { updateBusinessProfile, deleteBusinessProfileCascade } from "@/lib/fireb
 import { extractCoordsFromMapsUrl } from "@/lib/maps/extractCoordsFromUrl";
 import styles from "./BusinessProfileTab.module.css";
 
-// Bedrijfsnaam, standaardadres, en (nieuw) het e-mailadres read-only plus
+// Organisatienaam, standaardadres, en (nieuw) het e-mailadres read-only plus
 // "Event-profiel verwijderen" — wachtwoord wijzigen verhuisde naar het
 // bezoekersprofiel, want dat hangt aan het account, niet aan deze rol
 // (PLAN-INLOGGEN.md §9).
@@ -56,7 +56,7 @@ export function BusinessProfileTab() {
     if (!currentBusiness) return;
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError("Bedrijfsnaam mag niet leeg zijn");
+      setError("Organisatienaam mag niet leeg zijn");
       return;
     }
     setError(null);
@@ -93,7 +93,7 @@ export function BusinessProfileTab() {
 
   return (
     <form className={styles.form} onSubmit={handleSave}>
-      <label htmlFor="biz-profile-name">Bedrijfsnaam</label>
+      <label htmlFor="biz-profile-name">Organisatienaam</label>
       <input id="biz-profile-name" type="text" value={name} onChange={(e) => setName(e.target.value)} />
 
       <label htmlFor="biz-profile-email">E-mail</label>
@@ -129,7 +129,7 @@ export function BusinessProfileTab() {
       <div className={styles.dangerZone}>
         <h3>Event-profiel verwijderen</h3>
         <p>
-          Verwijdert je bedrijfsnaam en al je evenementen. Je bezoekersaccount blijft bestaan — je rol opgeven is
+          Verwijdert je organisatienaam en al je evenementen. Je bezoekersaccount blijft bestaan — je rol opgeven is
           niet hetzelfde als je account opzeggen.
         </p>
         <button

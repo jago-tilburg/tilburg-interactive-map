@@ -71,7 +71,7 @@ export function PostAuthFlow({ open, onClose, startStep, onOpenProfile, onGoToBu
     if (!currentUser) return;
     const trimmed = businessName.trim();
     if (!trimmed) {
-      setError("Bedrijfsnaam is verplicht.");
+      setError("Organisatienaam is verplicht.");
       return;
     }
     setSubmitting(true);
@@ -148,7 +148,7 @@ export function PostAuthFlow({ open, onClose, startStep, onOpenProfile, onGoToBu
 
       {step === "createBusiness" && (
         <form className={styles.onboardingForm} onSubmit={handleCreateBusiness}>
-          <label htmlFor="onboarding-business-name">Bedrijfsnaam</label>
+          <label htmlFor="onboarding-business-name">Organisatienaam</label>
           <input
             id="onboarding-business-name"
             type="text"

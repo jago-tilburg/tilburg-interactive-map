@@ -59,10 +59,10 @@ describe("BusinessProfileTab", () => {
     const user = userEvent.setup();
     render(<BusinessProfileTab />);
 
-    await user.clear(screen.getByLabelText("Bedrijfsnaam"));
+    await user.clear(screen.getByLabelText("Organisatienaam"));
     await user.click(screen.getByText("Instellingen opslaan"));
 
-    expect(await screen.findByText("Bedrijfsnaam mag niet leeg zijn")).toBeInTheDocument();
+    expect(await screen.findByText("Organisatienaam mag niet leeg zijn")).toBeInTheDocument();
     expect(updateBusinessProfile).not.toHaveBeenCalled();
   });
 
@@ -70,8 +70,8 @@ describe("BusinessProfileTab", () => {
     const user = userEvent.setup();
     render(<BusinessProfileTab />);
 
-    await user.clear(screen.getByLabelText("Bedrijfsnaam"));
-    await user.type(screen.getByLabelText("Bedrijfsnaam"), "Renamed Shop");
+    await user.clear(screen.getByLabelText("Organisatienaam"));
+    await user.type(screen.getByLabelText("Organisatienaam"), "Renamed Shop");
     await user.type(screen.getByLabelText("Standaardadres"), "Heuvelstraat 1");
     await user.click(screen.getByText("Instellingen opslaan"));
 

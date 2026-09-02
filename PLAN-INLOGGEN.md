@@ -27,7 +27,7 @@ wachtwoord + Google — zie §1 voor waarom.
 
 ### Aanname die ik zelf heb ingevuld
 Op het keuzescherm staat de derde knop er **altijd**. Heb je nog geen event-profiel, dan leest
-die "Event-profiel aanmaken" en vraagt hij om je bedrijfsnaam. Zo is de upgrade van bezoeker
+die "Event-profiel aanmaken" en vraagt hij om je organisatienaam. Zo is de upgrade van bezoeker
 naar event owner altijd één klik weg, precies het punt van "zowel bezoeker als event owner
 kunnen zijn". Zeg het als je liever alleen de knoppen ziet die je al hebt.
 
@@ -238,7 +238,7 @@ Drie standen in één component:
 - **wachtwoord vergeten** — alleen e-mail, dan "Check je inbox". Geef **dezelfde** melding of
   het adres bestaat of niet, anders is dit scherm een gratis account-checker.
 
-Bewust géén bedrijfsnaam en géén displaynaam in de registratiestand: die horen bij de
+Bewust géén organisatienaam en géén displaynaam in de registratiestand: die horen bij de
 onboarding-stap in §8. Reden is niet netheid maar noodzaak — wie via Google binnenkomt ziet
 nooit een registratieformulier, dus alles wat je van een nieuwe gebruiker wil weten moet ná de
 authenticatie gebeuren, anders bestaat het voor Google-gebruikers niet.
@@ -302,12 +302,12 @@ Google-login is de naam voorgevuld uit `user.displayName`.
   │  └────────────────────────┘  │
   │  ┌────────────────────────┐  │
   │  │ 🏢  Event-profiel      │  │  → /bedrijf
-  │  └────────────────────────┘  │     of eerst: bedrijfsnaam
+  │  └────────────────────────┘  │     of eerst: organisatienaam
   └──────────────────────────────┘
 ```
 
 Heb je nog geen event-profiel, dan leest knop 3 "Event-profiel aanmaken" en vraagt hij eerst om
-je bedrijfsnaam (`createBusinessProfile`, bestaat al) voordat hij je naar `/bedrijf` stuurt.
+je organisatienaam (`createBusinessProfile`, bestaat al) voordat hij je naar `/bedrijf` stuurt.
 
 Dit is één component met drie standen (`onboarding` → `chooser` → `createBusiness`) in hetzelfde
 venster als het inlogscherm. Geen route-gedoe, geen flits van de kaart ertussen.
@@ -395,7 +395,7 @@ sluiten, dus na opslaan springt de app naar de Inzicht-tab met een toast. `onClo
 `onDone`.
 
 ### Profiel-tab
-Bedrijfsnaam, standaardadres/lat/lng (bestaat al), plus:
+Organisatienaam, standaardadres/lat/lng (bestaat al), plus:
 - **eruit:** wachtwoord wijzigen — dat verhuist naar het bezoekersprofiel, want het hangt aan
   je account en niet aan deze rol
 - **erbij:** het e-mailadres, alleen-lezen (dat ís je inlog)

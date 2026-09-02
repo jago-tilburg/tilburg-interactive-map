@@ -187,7 +187,7 @@ describe("PostAuthFlow — createBusiness", () => {
     );
 
     await user.click(screen.getByText("Aanmaken"));
-    expect(screen.getByText("Bedrijfsnaam is verplicht.")).toBeInTheDocument();
+    expect(screen.getByText("Organisatienaam is verplicht.")).toBeInTheDocument();
     expect(createBusinessProfile).not.toHaveBeenCalled();
   });
 
@@ -205,7 +205,7 @@ describe("PostAuthFlow — createBusiness", () => {
       />,
     );
 
-    await user.type(screen.getByLabelText("Bedrijfsnaam"), "  My Shop  ");
+    await user.type(screen.getByLabelText("Organisatienaam"), "  My Shop  ");
     await user.click(screen.getByText("Aanmaken"));
 
     await waitFor(() => expect(createBusinessProfile).toHaveBeenCalledWith("u1", "My Shop", "user@example.com"));
@@ -228,7 +228,7 @@ describe("PostAuthFlow — createBusiness", () => {
       />,
     );
 
-    await user.type(screen.getByLabelText("Bedrijfsnaam"), "My Shop");
+    await user.type(screen.getByLabelText("Organisatienaam"), "My Shop");
     await user.click(screen.getByText("Aanmaken"));
 
     expect(await screen.findByText("offline")).toBeInTheDocument();
@@ -242,7 +242,7 @@ describe("PostAuthFlow — createBusiness", () => {
       <PostAuthFlow open startStep="createBusiness" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
-    await user.type(screen.getByLabelText("Bedrijfsnaam"), "My Shop");
+    await user.type(screen.getByLabelText("Organisatienaam"), "My Shop");
     await user.click(screen.getByText("Aanmaken"));
 
     expect(await screen.findByText("Aanmaken mislukt.")).toBeInTheDocument();
@@ -255,7 +255,7 @@ describe("PostAuthFlow — createBusiness", () => {
       <PostAuthFlow open startStep="createBusiness" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
-    await user.type(screen.getByLabelText("Bedrijfsnaam"), "My Shop");
+    await user.type(screen.getByLabelText("Organisatienaam"), "My Shop");
     await user.click(screen.getByText("Aanmaken"));
 
     await waitFor(() => expect(createBusinessProfile).toHaveBeenCalledWith("u1", "My Shop", ""));
@@ -268,7 +268,7 @@ describe("PostAuthFlow — createBusiness", () => {
       <PostAuthFlow open startStep="createBusiness" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
 
-    await user.type(screen.getByLabelText("Bedrijfsnaam"), "My Shop");
+    await user.type(screen.getByLabelText("Organisatienaam"), "My Shop");
     await user.click(screen.getByText("Aanmaken"));
     expect(createBusinessProfile).not.toHaveBeenCalled();
   });
@@ -291,7 +291,7 @@ describe("PostAuthFlow re-sync on open", () => {
       <PostAuthFlow open startStep="chooser" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,
     );
     await user.click(screen.getByText("🏢 Event-profiel aanmaken"));
-    await user.type(screen.getByLabelText("Bedrijfsnaam"), "Draft Name");
+    await user.type(screen.getByLabelText("Organisatienaam"), "Draft Name");
 
     rerender(
       <PostAuthFlow open={false} startStep="chooser" onClose={vi.fn()} onOpenProfile={vi.fn()} onGoToBusiness={vi.fn()} />,

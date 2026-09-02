@@ -25,7 +25,7 @@ export function PrivacyModal({ open, onClose }: PrivacyModalProps) {
             demo. Eén account kan zowel bezoeker als event owner zijn.
           </li>
           <li>
-            <strong>Event-profiel</strong> (optioneel, bovenop je account): bedrijfsnaam, plus de
+            <strong>Event-profiel</strong> (optioneel, bovenop je account): organisatienaam, plus de
             evenementen die je aanmaakt (titel, locatie, datum, prijzen).
           </li>
           <li>
