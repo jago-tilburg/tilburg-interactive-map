@@ -8,4 +8,18 @@
 
 .embedWrapper {
   min-height: 200px;
+  width: 100%;
+}
+
+/* Instagram's own embed.js writes inline min-width/max-width onto the
+   blockquote (pre-processing) and the iframe it swaps in (post-processing)
+   — both capped well under a typical phone's viewport width by default.
+   :global is required for .instagram-media since that literal class name
+   comes from the unhashed string in InstagramEmbed.tsx's JSX (what
+   instgrm.Embeds.process() itself queries for), not a CSS-module class. */
+.embedWrapper :global(.instagram-media),
+.embedWrapper iframe {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 100% !important;
 }
