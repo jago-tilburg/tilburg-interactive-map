@@ -21,6 +21,11 @@ vi.mock("@/lib/photos/resolvePhotoUpdate", () => ({
   resolvePhotoUpdate: (...a: unknown[]) => resolvePhotoUpdate(...a),
 }));
 
+const trackEvent = vi.fn();
+vi.mock("@/lib/analytics/trackEvent", () => ({
+  trackEvent: (...a: unknown[]) => trackEvent(...a),
+}));
+
 const showToast = vi.fn();
 vi.mock("@/hooks/useToast", () => ({
   useToast: () => ({ showToast }),
@@ -195,8 +200,38 @@ describe("BusinessEventForm — direct-to-payment redirect on create", () => {
     expect(createCheckoutSession).toHaveBeenCalledWith("new-evt-1");
     expect(window.location.href).toBe("https://checkout.stripe.com/session123");
     expect(showToast).not.toHaveBeenCalled();
+    expect(trackEvent).toHaveBeenCalledWith("event_checkout_redirect");
 
     Object.defineProperty(window, "location", { value: originalLocation, writable: true, configurable: true });
+  });
+
+  it("tracks the money funnel's open and submit-attempt steps for the primary business flow", async () => {
+    const user = userEvent.setup();
+    render(<BusinessEventForm active ownerId="owner-uid" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />);
+    expect(trackEvent).toHaveBeenCalledWith("event_form_opened");
+
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByText("Opslaan"));
+    expect(trackEvent).toHaveBeenCalledWith("event_form_submit_attempt");
+  });
+
+  it("does not track the money funnel for an admin quick-event (skipPaymentRedirect)", async () => {
+    const user = userEvent.setup();
+    render(
+      <BusinessEventForm
+        active
+        ownerId="admin-uid"
+        editingEvent={null}
+        duplicateFrom={null}
+        umbrellaEvents={[]}
+        onDone={vi.fn()}
+        skipPaymentRedirect
+      />,
+    );
+    expect(trackEvent).not.toHaveBeenCalledWith("event_form_opened");
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByText("Opslaan"));
+    expect(trackEvent).not.toHaveBeenCalledWith("event_form_submit_attempt");
   });
 
   it("falls back to a toast and onDone() if starting checkout fails after the event was already saved", async () => {

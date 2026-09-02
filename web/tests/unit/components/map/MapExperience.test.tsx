@@ -166,8 +166,9 @@ vi.mock("@/lib/firebase/requests", () => ({
   submitRequest: (...a: unknown[]) => submitRequest(...a),
 }));
 
+const trackEvent = vi.fn();
 vi.mock("@/lib/analytics/trackEvent", () => ({
-  trackEvent: vi.fn(),
+  trackEvent: (...a: unknown[]) => trackEvent(...a),
 }));
 
 import { MapExperience } from "@/components/map/MapExperience";
@@ -485,5 +486,33 @@ describe("MapExperience — deep-link URL sync", () => {
     render(<MapExperience apiKey="test-key" initialSelection={{ type: "umbrella", id: "does-not-exist" }} />);
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+});
+
+// The money funnel's far end (see BusinessEventForm.test.tsx for the near
+// end: event_form_opened/submit_attempt/checkout_redirect) — a return trip
+// from Stripe Checkout via the ?payment=success|cancelled query param.
+describe("MapExperience — Stripe Checkout return tracking", () => {
+  it("shows a success toast and tracks event_checkout_return_success on a successful payment return", () => {
+    render(<MapExperience apiKey="test-key" paymentStatus="success" />);
+
+    expect(showToast).toHaveBeenCalledWith("Betaling gelukt — je evenement is nu live op de kaart.", "success");
+    expect(trackEvent).toHaveBeenCalledWith("event_checkout_return_success");
+    expect(trackEvent).not.toHaveBeenCalledWith("event_checkout_return_cancelled");
+  });
+
+  it("shows an info toast and tracks event_checkout_return_cancelled on a cancelled payment return", () => {
+    render(<MapExperience apiKey="test-key" paymentStatus="cancelled" />);
+
+    expect(showToast).toHaveBeenCalledWith("Betaling geannuleerd.", "info");
+    expect(trackEvent).toHaveBeenCalledWith("event_checkout_return_cancelled");
+    expect(trackEvent).not.toHaveBeenCalledWith("event_checkout_return_success");
+  });
+
+  it("tracks nothing when there's no payment status at all", () => {
+    render(<MapExperience apiKey="test-key" />);
+
+    expect(trackEvent).not.toHaveBeenCalledWith("event_checkout_return_success");
+    expect(trackEvent).not.toHaveBeenCalledWith("event_checkout_return_cancelled");
   });
 });

@@ -6,6 +6,7 @@ import { EVENT_CATEGORIES } from "@/lib/events/eventHelpers";
 import { DatePickerPopover } from "./DatePickerPopover";
 import { filterShops, filterEvents, toggleInList } from "@/lib/filters/filterHelpers";
 import { photoVariantUrl } from "@/lib/photos/photoVariants";
+import { trackEvent } from "@/lib/analytics/trackEvent";
 import type { MapFilterState, MapFilterActions } from "@/hooks/useMapFilterState";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, EventCategory, UmbrellaEvent } from "@/types/events";
@@ -218,7 +219,10 @@ export function MapFilterPanel({
                   ? { backgroundImage: `url(${photoVariantUrl(u.photoUrl, "thumb")})` }
                   : { background: u.color }
               }
-              onClick={() => setUmbrellaFilter(umbrellaFilter === u.id ? null : u.id)}
+              onClick={() => {
+                trackEvent("filter_applied", { filter_type: "umbrella" });
+                setUmbrellaFilter(umbrellaFilter === u.id ? null : u.id);
+              }}
             >
               <span className={styles.umbrellaPillLabel}>{u.title}</span>
             </button>
@@ -263,7 +267,13 @@ export function MapFilterPanel({
               type="text"
               placeholder="Zoek op naam, locatie, organisator..."
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                // Fires once per fresh search (the empty->first-character
+                // transition), not on every keystroke — a per-keystroke
+                // event would be pure noise for "was search used" analysis.
+                if (query === "" && e.target.value !== "") trackEvent("search_used");
+                setQuery(e.target.value);
+              }}
               aria-label="Zoeken"
             />
           </div>
@@ -277,7 +287,10 @@ export function MapFilterPanel({
                     <input
                       type="checkbox"
                       checked={dietary.includes(b.key)}
-                      onChange={() => setDietary((cur) => toggleInList(cur, b.key))}
+                      onChange={() => {
+                        trackEvent("filter_applied", { filter_type: "dietary" });
+                        setDietary((cur) => toggleInList(cur, b.key));
+                      }}
                     />
                     <span>
                       {b.emoji} {b.label}
@@ -298,7 +311,10 @@ export function MapFilterPanel({
                     <input
                       type="checkbox"
                       checked={categories.includes(key)}
-                      onChange={() => setCategories((cur) => toggleInList(cur, key))}
+                      onChange={() => {
+                        trackEvent("filter_applied", { filter_type: "category" });
+                        setCategories((cur) => toggleInList(cur, key));
+                      }}
                     />
                     <span>
                       {EVENT_CATEGORIES[key].emoji} {EVENT_CATEGORIES[key].label}
@@ -315,7 +331,10 @@ export function MapFilterPanel({
                     <input
                       type="checkbox"
                       checked={dateFilter === "today"}
-                      onChange={() => setDateFilter((cur) => (cur === "today" ? null : "today"))}
+                      onChange={() => {
+                        trackEvent("filter_applied", { filter_type: "date" });
+                        setDateFilter((cur) => (cur === "today" ? null : "today"));
+                      }}
                     />
                     <span>Vandaag</span>
                     <span className={styles.checkboxCount}>({vandaagCount})</span>
@@ -326,7 +345,10 @@ export function MapFilterPanel({
                     <input
                       type="checkbox"
                       checked={dateFilter === "tomorrow"}
-                      onChange={() => setDateFilter((cur) => (cur === "tomorrow" ? null : "tomorrow"))}
+                      onChange={() => {
+                        trackEvent("filter_applied", { filter_type: "date" });
+                        setDateFilter((cur) => (cur === "tomorrow" ? null : "tomorrow"));
+                      }}
                     />
                     <span>Morgen</span>
                     <span className={styles.checkboxCount}>({morgenCount})</span>

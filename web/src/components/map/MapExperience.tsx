@@ -17,6 +17,7 @@ import { subscribeShops } from "@/lib/firebase/shops";
 import { subscribeApprovedBusinessEvents } from "@/lib/firebase/businessEvents";
 import { subscribeUmbrellaEvents } from "@/lib/firebase/umbrellaEvents";
 import { reverseGeocode } from "@/lib/maps/reverseGeocode";
+import { trackEvent } from "@/lib/analytics/trackEvent";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
 import styles from "./MapExperience.module.css";
@@ -172,8 +173,10 @@ export function MapExperience({ apiKey, initialSelection, paymentStatus }: MapEx
     if (!paymentStatus) return;
     if (paymentStatus === "success") {
       showToast("Betaling gelukt — je evenement is nu live op de kaart.", "success");
+      trackEvent("event_checkout_return_success");
     } else {
       showToast("Betaling geannuleerd.", "info");
+      trackEvent("event_checkout_return_cancelled");
     }
     router.replace(pathname, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps

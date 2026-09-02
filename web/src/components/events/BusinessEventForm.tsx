@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Switch } from "radix-ui";
 import { FormRow } from "@/components/common/FormRow";
 import { PhotoUploadField, type PendingPhoto } from "@/components/common/PhotoUploadField";
@@ -8,6 +8,7 @@ import { createBusinessEvent, updateBusinessEvent } from "@/lib/firebase/busines
 import { createCheckoutSession } from "@/lib/firebase/functions";
 import { resolvePhotoUpdate } from "@/lib/photos/resolvePhotoUpdate";
 import { geocodeAddress } from "@/lib/maps/geocodeAddress";
+import { trackEvent } from "@/lib/analytics/trackEvent";
 import { useToast } from "@/hooks/useToast";
 import { EVENT_CATEGORIES, dateRangeArray, isMultiDay, activeUmbrellaEvents } from "@/lib/events/eventHelpers";
 import type { BusinessEvent, DailyTime, EventCategory, EventPriceTier, UmbrellaEvent } from "@/types/events";
@@ -127,6 +128,19 @@ export function BusinessEventForm({
     setPendingPhoto(null);
   }
 
+  // Money-funnel tracking (see the analytics architecture pass, 2026-09-02):
+  // the "opened a blank new-event form" step, paired with
+  // event_form_submit_attempt/event_checkout_redirect below and
+  // event_checkout_return_success/cancelled in MapExperience.tsx. Excludes
+  // editing/duplicating (not a new paid listing) and skipPaymentRedirect
+  // (AdminPanel's admin-owned quick-event shortcut, not part of this funnel).
+  useEffect(() => {
+    if (active && !editingEvent && !duplicateFrom && !skipPaymentRedirect) {
+      trackEvent("event_form_opened");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, editingEvent, duplicateFrom, skipPaymentRedirect]);
+
   const multiDay = isMultiDay(form.startDate, form.endDate || form.startDate);
   const usePerDay = multiDay && form.differentTimesPerDay;
   const visibleDates = form.startDate ? dateRangeArray(form.startDate, form.endDate || form.startDate) : [];
@@ -189,6 +203,7 @@ export function BusinessEventForm({
   // doesn't.
   async function redirectToCheckout(eventId: string) {
     const url = await createCheckoutSession(eventId);
+    trackEvent("event_checkout_redirect");
     // False positive: this component adjusts state during render (the
     // formIdentity resync above, an intentional React pattern per
     // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
@@ -203,6 +218,10 @@ export function BusinessEventForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!editingEvent && !skipPaymentRedirect) {
+      trackEvent("event_form_submit_attempt");
+    }
 
     const dailyTimesToSave = usePerDay
       ? Object.fromEntries(visibleDates.map((date) => [date, dailyTimeFor(date)]))

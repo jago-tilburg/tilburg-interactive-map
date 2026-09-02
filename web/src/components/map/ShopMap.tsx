@@ -14,6 +14,7 @@ import {
   DEFAULT_CARD_BORDER,
 } from "@/lib/maps/markerIcons";
 import { categoryOf, isEventHappeningNow } from "@/lib/events/eventHelpers";
+import { trackEvent } from "@/lib/analytics/trackEvent";
 import {
   DROP_COLLECT_MS,
   DROP_DURATION_MS,
@@ -144,7 +145,10 @@ export function ShopMap({
         title: shop.name,
         icon: shopIcon(shop.rating, showLabel),
       });
-      marker.addListener("click", () => onShopClick(shop.id));
+      marker.addListener("click", () => {
+        trackEvent("shop_marker_click");
+        onShopClick(shop.id);
+      });
       shopMarkersRef.current.set(shop.id, marker);
       return marker;
     },
@@ -185,7 +189,10 @@ export function ShopMap({
         title: event.title,
         icon: buildEventIcon(event, resolvedPhoto),
       });
-      marker.addListener("click", () => onBusinessEventClick(event.id));
+      marker.addListener("click", () => {
+        trackEvent("event_marker_click");
+        onBusinessEventClick(event.id);
+      });
       eventMarkersRef.current.set(event.id, marker);
       return marker;
     },
