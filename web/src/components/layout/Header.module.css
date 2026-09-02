@@ -142,18 +142,26 @@
    populate env(safe-area-inset-top) in a regular tab (confirmed live: it's
    0px there, only a standalone home-screen PWA gets a real value), so the
    real inset above can't clear it. This is a best-effort fixed buffer for
-   that specific case — verify live on an iOS 26 device, since there's no
-   feature-detectable signal to size it exactly. @supports with a
-   webkit-only feature (not user-agent sniffing) scopes this to iOS
-   Safari/WebKit specifically, leaving Android Chrome and desktop untouched.
-   If Apple ships a fix that makes the real inset non-zero here, max()
-   already prefers the larger, correct value automatically. Placed last on
-   purpose — same specificity as the mobile block above, so source order is
-   what makes this win at the same breakpoint. */
+   that specific case — confirmed working live on iOS 26 (staging), no
+   feature-detectable signal existed to size it exactly so it was tuned by
+   eye. @supports with a webkit-only feature (not user-agent sniffing)
+   scopes this to iOS Safari/WebKit specifically, leaving Android Chrome and
+   desktop untouched. If Apple ships a fix that makes the real inset
+   non-zero here, max() already prefers the larger, correct value
+   automatically. Placed last on purpose — same specificity as the mobile
+   block above, so source order is what makes this win at the same
+   breakpoint.
+
+   padding-bottom is bumped to match — the buffer only needs to push the top
+   down, but leaving bottom at the plain mobile value (0.5rem) made the
+   colored bar visibly top-heavy (24px above the title/buttons vs. 8px
+   below); matching it keeps the row centered in the bar the way it always
+   was pre-buffer. */
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 768px) {
     .header {
       padding-top: max(calc(0.5rem + env(safe-area-inset-top, 0px)), 24px);
+      padding-bottom: 24px;
     }
   }
 }
