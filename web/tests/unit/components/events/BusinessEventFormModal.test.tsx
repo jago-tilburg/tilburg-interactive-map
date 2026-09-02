@@ -77,18 +77,46 @@ const umbrella: UmbrellaEvent = {
   createdAt: null as never,
 };
 
+// Stubs window.google.maps.Geocoder the same way tests/unit/lib/maps/
+// geocodeAddress.test.ts and reverseGeocode.test.ts do — geocodeAddress()
+// (called by the Locatie row's "Zoek adres" button) needs this real global,
+// not a mock of the helper itself, since that's what actually proves the
+// wiring works end to end. Defaults to a successful lookup; individual
+// tests override `geocode.mockImplementation` for the failure case.
+const geocode = vi.fn();
+
 beforeEach(() => {
   vi.clearAllMocks();
   createBusinessEvent.mockResolvedValue({ id: "evt1" });
   updateBusinessEvent.mockResolvedValue(undefined);
   resolvePhotoUpdate.mockResolvedValue("");
+  geocode.mockReset();
+  geocode.mockImplementation((_req, cb) => {
+    cb(
+      [{ formatted_address: "Heuvelplein 1, Tilburg", geometry: { location: { lat: () => 51.55, lng: () => 5.09 } } }],
+      "OK",
+    );
+  });
+  window.google = {
+    maps: {
+      Geocoder: function Geocoder(this: { geocode: typeof geocode }) {
+        this.geocode = geocode;
+      },
+    },
+  } as never;
 });
 
+// Opens the Locatie row, looks up an address via the (mocked) Geocoder, and
+// fills the other three required fields — the one sequence nearly every
+// "successful save" test needs before clicking Opslaan.
 async function fillMinimalRequiredFields(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Titel"), "My Event");
   await user.type(screen.getByLabelText("Beschrijving"), "Description");
   await user.type(screen.getByLabelText("Startdatum"), "2026-09-01");
-  await user.type(screen.getByLabelText("Adres"), "Some Address 1");
+  await user.click(screen.getByText("Locatie"));
+  await user.type(screen.getByLabelText("Postcode"), "5038 AB");
+  await user.type(screen.getByLabelText("Huisnummer"), "1");
+  await user.click(screen.getByText("Zoek adres"));
   await user.type(screen.getByLabelText("Starttijd"), "10:00");
   await user.type(screen.getByLabelText("Eindtijd"), "18:00");
 }
@@ -109,13 +137,15 @@ describe("BusinessEventFormModal create mode", () => {
     expect(screen.getByLabelText("Titel")).toBeRequired();
     expect(screen.getByLabelText("Beschrijving")).toBeRequired();
     expect(screen.getByLabelText("Startdatum")).toBeRequired();
+
+    await user.click(screen.getByText("Locatie"));
     expect(screen.getByLabelText("Adres")).toBeRequired();
 
     await user.click(screen.getByText("Opslaan"));
     expect(createBusinessEvent).not.toHaveBeenCalled();
   });
 
-  it("extracts lat/lng from a Google Maps URL and then allows saving", async () => {
+  it("geocodes a postcode + huisnummer to an address and coordinates, then allows saving", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
     render(
@@ -129,8 +159,7 @@ describe("BusinessEventFormModal create mode", () => {
     );
 
     await fillMinimalRequiredFields(user);
-    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
-    await user.click(screen.getByText("Extract"));
+    await user.click(screen.getByText("Website"));
     await user.type(screen.getByLabelText("Website-URL"), "https://example.com");
     await user.click(screen.getByText("Opslaan"));
 
@@ -156,8 +185,7 @@ describe("BusinessEventFormModal create mode", () => {
     );
 
     await fillMinimalRequiredFields(user);
-    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
-    await user.click(screen.getByText("Extract"));
+    await user.click(screen.getByText("Foto"));
     await user.click(screen.getByText("FakeSelectPhoto"));
     await user.click(screen.getByText("Opslaan"));
 
@@ -183,8 +211,7 @@ describe("BusinessEventFormModal create mode", () => {
     );
 
     await fillMinimalRequiredFields(user);
-    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
-    await user.click(screen.getByText("Extract"));
+    await user.click(screen.getByText("Foto"));
     await user.click(screen.getByText("FakeRemovePhoto"));
     await user.click(screen.getByText("Opslaan"));
 
@@ -200,8 +227,7 @@ describe("BusinessEventFormModal create mode", () => {
     );
 
     await fillMinimalRequiredFields(user);
-    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
-    await user.click(screen.getByText("Extract"));
+    await user.click(screen.getByText("Foto"));
     await user.click(screen.getByText("FakeSelectPhoto"));
     await user.click(screen.getByText("Opslaan"));
 
@@ -219,6 +245,7 @@ describe("BusinessEventFormModal create mode", () => {
       <BusinessEventFormModal open onClose={vi.fn()} ownerId="owner-uid" editingEvent={null} umbrellaEvents={[]} />,
     );
 
+    await user.click(screen.getByText("Toegangsprijzen"));
     await user.click(screen.getByText("+ Voeg toegangsprijs toe"));
     await user.type(screen.getByLabelText("Prijslabel 1"), "Vroegboekticket");
     await user.type(screen.getByLabelText("Prijsbedrag 1"), "12.5");
@@ -240,6 +267,7 @@ describe("BusinessEventFormModal create mode", () => {
       <BusinessEventFormModal open onClose={vi.fn()} ownerId="owner-uid" editingEvent={null} umbrellaEvents={[]} />,
     );
 
+    await user.click(screen.getByText("Toegangsprijzen"));
     await user.click(screen.getByText("+ Voeg toegangsprijs toe"));
     await user.click(screen.getByText("+ Voeg toegangsprijs toe"));
     await user.type(screen.getByLabelText("Prijslabel 1"), "Vroegboekticket");
@@ -257,15 +285,17 @@ describe("BusinessEventFormModal create mode", () => {
     );
 
     await fillMinimalRequiredFields(user);
-    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
-    await user.click(screen.getByText("Extract"));
+    await user.click(screen.getByText("Toegangsprijzen"));
     await user.click(screen.getByText("+ Voeg toegangsprijs toe"));
     await user.click(screen.getByText("Opslaan"));
 
     expect(createBusinessEvent).toHaveBeenCalledWith("owner-uid", expect.objectContaining({ prices: [] }));
   });
 
-  it("shows an error when the Maps URL has no extractable coordinates", async () => {
+  it("shows an error when the postcode + huisnummer can't be geocoded", async () => {
+    geocode.mockImplementation((_req, cb) => {
+      cb(null, "ZERO_RESULTS");
+    });
     const user = userEvent.setup();
     render(
       <BusinessEventFormModal
@@ -277,10 +307,12 @@ describe("BusinessEventFormModal create mode", () => {
       />,
     );
 
-    await user.type(screen.getByLabelText("Google Maps URL"), "https://example.com/not-a-maps-link");
-    await user.click(screen.getByText("Extract"));
+    await user.click(screen.getByText("Locatie"));
+    await user.type(screen.getByLabelText("Postcode"), "0000 ZZ");
+    await user.type(screen.getByLabelText("Huisnummer"), "1");
+    await user.click(screen.getByText("Zoek adres"));
 
-    expect(screen.getByText("Coördinaten niet gevonden")).toBeInTheDocument();
+    expect(screen.getByText("Adres niet gevonden")).toBeInTheDocument();
   });
 
   it("shows the per-day-times toggle and umbrella select only when applicable, and computes startTime/endTime from the sorted per-day range", async () => {
@@ -315,9 +347,10 @@ describe("BusinessEventFormModal create mode", () => {
     await user.type(screen.getByLabelText("Starttijd 2026-09-02"), "11:00");
     await user.clear(screen.getByLabelText("Eindtijd 2026-09-02"));
     await user.type(screen.getByLabelText("Eindtijd 2026-09-02"), "20:00");
-    await user.type(screen.getByLabelText("Adres"), "Some Address 1");
-    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
-    await user.click(screen.getByText("Extract"));
+    await user.click(screen.getByText("Locatie"));
+    await user.type(screen.getByLabelText("Postcode"), "5038 AB");
+    await user.type(screen.getByLabelText("Huisnummer"), "1");
+    await user.click(screen.getByText("Zoek adres"));
     await user.click(screen.getByText("Opslaan"));
 
     expect(createBusinessEvent).toHaveBeenCalledWith(
@@ -371,8 +404,6 @@ describe("BusinessEventFormModal create mode", () => {
     );
 
     await fillMinimalRequiredFields(user);
-    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
-    await user.click(screen.getByText("Extract"));
     await user.click(screen.getByText("Opslaan"));
 
     expect(await screen.findByText("Opslaan mislukt: network down")).toBeInTheDocument();
@@ -392,8 +423,6 @@ describe("BusinessEventFormModal create mode", () => {
     );
 
     await fillMinimalRequiredFields(user);
-    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
-    await user.click(screen.getByText("Extract"));
     await user.click(screen.getByText("Opslaan"));
 
     expect(await screen.findByText("Opslaan mislukt.")).toBeInTheDocument();
@@ -413,8 +442,6 @@ describe("BusinessEventFormModal create mode", () => {
 
     await user.selectOptions(screen.getByLabelText("Categorie"), "muziek");
     await fillMinimalRequiredFields(user);
-    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
-    await user.click(screen.getByText("Extract"));
     await user.click(screen.getByText("Opslaan"));
 
     expect(createBusinessEvent).toHaveBeenCalledWith(
@@ -437,8 +464,6 @@ describe("BusinessEventFormModal create mode", () => {
 
     await fillMinimalRequiredFields(user);
     await user.selectOptions(screen.getByLabelText("Onderdeel van groot evenement (optioneel)"), "u1");
-    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
-    await user.click(screen.getByText("Extract"));
     await user.click(screen.getByText("Opslaan"));
 
     expect(createBusinessEvent).toHaveBeenCalledWith(
@@ -559,6 +584,7 @@ describe("BusinessEventFormModal edit mode", () => {
       <BusinessEventFormModal open onClose={vi.fn()} ownerId="owner-uid" editingEvent={event} umbrellaEvents={[]} />,
     );
 
+    await user.click(screen.getByText("Foto"));
     await user.click(screen.getByText("FakeSelectPhoto"));
     await user.click(screen.getByText("Opslaan"));
 
@@ -582,6 +608,7 @@ describe("BusinessEventFormModal edit mode", () => {
       <BusinessEventFormModal open onClose={vi.fn()} ownerId="owner-uid" editingEvent={event} umbrellaEvents={[]} />,
     );
 
+    await user.click(screen.getByText("Foto"));
     await user.click(screen.getByText("FakeRemovePhoto"));
     await user.click(screen.getByText("Opslaan"));
 

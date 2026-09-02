@@ -1,17 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { Switch } from "radix-ui";
+import { FormRow } from "@/components/common/FormRow";
 import { PhotoUploadField, type PendingPhoto } from "@/components/common/PhotoUploadField";
 import { createBusinessEvent, updateBusinessEvent } from "@/lib/firebase/businessEvents";
 import { resolvePhotoUpdate } from "@/lib/photos/resolvePhotoUpdate";
+import { geocodeAddress } from "@/lib/maps/geocodeAddress";
 import { useToast } from "@/hooks/useToast";
-import {
-  EVENT_CATEGORIES,
-  dateRangeArray,
-  extractCoordsFromMapsUrl,
-  isMultiDay,
-  activeUmbrellaEvents,
-} from "@/lib/events/eventHelpers";
+import { EVENT_CATEGORIES, dateRangeArray, isMultiDay, activeUmbrellaEvents } from "@/lib/events/eventHelpers";
 import type { BusinessEvent, DailyTime, EventCategory, EventPriceTier, UmbrellaEvent } from "@/types/events";
 import styles from "./BusinessEventForm.module.css";
 
@@ -44,7 +41,8 @@ function emptyForm() {
     address: "",
     lat: null as number | null,
     lng: null as number | null,
-    mapUrl: "",
+    postcode: "",
+    huisnummer: "",
     differentTimesPerDay: false,
     dailyTimes: {} as Record<string, DailyTime>,
     umbrellaEventId: "",
@@ -66,7 +64,8 @@ function formFromEvent(ev: BusinessEvent, titleSuffix = "") {
     address: ev.address,
     lat: ev.lat,
     lng: ev.lng,
-    mapUrl: "",
+    postcode: "",
+    huisnummer: "",
     differentTimesPerDay: !!ev.dailyTimes,
     dailyTimes: ev.dailyTimes ?? {},
     umbrellaEventId: ev.umbrellaEventId ?? "",
@@ -74,6 +73,15 @@ function formFromEvent(ev: BusinessEvent, titleSuffix = "") {
     websiteUrl: ev.websiteUrl ?? "",
     prices: ev.prices ?? [],
   };
+}
+
+// Short collapsed-row summary for the price tiers — not persisted, purely
+// for the Toegangsprijzen row's right-aligned value text.
+function summarizePrices(prices: EventPriceTier[]): string {
+  if (prices.length === 0 || prices.every((p) => p.amount === 0)) return "Gratis";
+  const first = prices.find((p) => p.amount > 0)!;
+  const othersCount = prices.length - 1;
+  return othersCount > 0 ? `€${first.amount} + ${othersCount} andere` : `€${first.amount}`;
 }
 
 export function BusinessEventForm({
@@ -154,14 +162,14 @@ export function BusinessEventForm({
     setForm((f) => ({ ...f, prices: f.prices.filter((_, i) => i !== index) }));
   }
 
-  function handleExtractCoords() {
-    const coords = extractCoordsFromMapsUrl(form.mapUrl);
-    if (!coords) {
-      setError("Coördinaten niet gevonden");
+  async function handleGeocodeAddress() {
+    const result = await geocodeAddress(form.postcode, form.huisnummer);
+    if (!result) {
+      setError("Adres niet gevonden");
       return;
     }
     setError(null);
-    setForm((f) => ({ ...f, lat: coords.lat, lng: coords.lng }));
+    setForm((f) => ({ ...f, address: result.formattedAddress, lat: result.lat, lng: result.lng }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -192,7 +200,7 @@ export function BusinessEventForm({
       !startTime ||
       !endTime
     ) {
-      setError("Vul alle verplichte velden in (incl. locatie via Google Maps URL)");
+      setError("Vul alle verplichte velden in (incl. locatie via postcode en huisnummer)");
       return;
     }
 
@@ -260,9 +268,12 @@ export function BusinessEventForm({
     }
   }
 
+  const photoValue = pendingPhoto?.action === "remove" ? "Geen" : pendingPhoto?.action === "replace" || form.photoUrl ? "Toegevoegd" : "Geen";
+
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
       <input
+        className={styles.titleInput}
         type="text"
         placeholder="Titel"
         aria-label="Titel"
@@ -271,20 +282,8 @@ export function BusinessEventForm({
         onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
       />
 
-      <label htmlFor="be-category">Categorie</label>
-      <select
-        id="be-category"
-        value={form.category}
-        onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as EventCategory }))}
-      >
-        {Object.entries(EVENT_CATEGORIES).map(([key, cat]) => (
-          <option key={key} value={key}>
-            {cat.emoji} {cat.label}
-          </option>
-        ))}
-      </select>
-
       <textarea
+        className={styles.descriptionInput}
         placeholder="Beschrijving"
         aria-label="Beschrijving"
         required
@@ -292,8 +291,9 @@ export function BusinessEventForm({
         onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
       />
 
-      <div className={styles.row}>
-        <div>
+      <div className={styles.dateTimeBox}>
+        <span className={styles.dateTimeIcon}>🕐</span>
+        <div className={styles.dateTimeSide}>
           <label htmlFor="be-start-date">Startdatum</label>
           <input
             id="be-start-date"
@@ -302,8 +302,20 @@ export function BusinessEventForm({
             value={form.startDate}
             onChange={(e) => updateDateRange({ startDate: e.target.value })}
           />
+          {!usePerDay && (
+            <>
+              <label htmlFor="be-start-time">Starttijd</label>
+              <input
+                id="be-start-time"
+                type="time"
+                value={form.startTime}
+                onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
+              />
+            </>
+          )}
         </div>
-        <div>
+        <span className={styles.dateTimeArrow}>→</span>
+        <div className={styles.dateTimeSide}>
           <label htmlFor="be-end-date">Einddatum</label>
           <input
             id="be-end-date"
@@ -311,21 +323,35 @@ export function BusinessEventForm({
             value={form.endDate}
             onChange={(e) => updateDateRange({ endDate: e.target.value })}
           />
+          {!usePerDay && (
+            <>
+              <label htmlFor="be-end-time">Eindtijd</label>
+              <input
+                id="be-end-time"
+                type="time"
+                value={form.endTime}
+                onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
+              />
+            </>
+          )}
         </div>
       </div>
 
       {multiDay && (
-        <label className={styles.checkboxRow}>
-          <input
-            type="checkbox"
+        <div className={styles.switchRow}>
+          <label htmlFor="be-per-day-toggle">Verschillende tijden per dag</label>
+          <Switch.Root
+            id="be-per-day-toggle"
+            className={styles.switch}
             checked={form.differentTimesPerDay}
-            onChange={(e) => setForm((f) => ({ ...f, differentTimesPerDay: e.target.checked }))}
-          />
-          Verschillende tijden per dag
-        </label>
+            onCheckedChange={(checked) => setForm((f) => ({ ...f, differentTimesPerDay: checked }))}
+          >
+            <Switch.Thumb className={styles.switchThumb} />
+          </Switch.Root>
+        </div>
       )}
 
-      {usePerDay ? (
+      {usePerDay && (
         <div className={styles.dailyTimes}>
           {visibleDates.map((date) => {
             const t = dailyTimeFor(date);
@@ -348,34 +374,26 @@ export function BusinessEventForm({
             );
           })}
         </div>
-      ) : (
-        <div className={styles.row}>
-          <div>
-            <label htmlFor="be-start-time">Starttijd</label>
-            <input
-              id="be-start-time"
-              type="time"
-              value={form.startTime}
-              onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label htmlFor="be-end-time">Eindtijd</label>
-            <input
-              id="be-end-time"
-              type="time"
-              value={form.endTime}
-              onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
-            />
-          </div>
-        </div>
       )}
 
+      <FormRow label="Categorie" expandable={false}>
+        <select
+          aria-label="Categorie"
+          value={form.category}
+          onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as EventCategory }))}
+        >
+          {Object.entries(EVENT_CATEGORIES).map(([key, cat]) => (
+            <option key={key} value={key}>
+              {cat.emoji} {cat.label}
+            </option>
+          ))}
+        </select>
+      </FormRow>
+
       {eligibleUmbrellas.length > 0 && (
-        <div>
-          <label htmlFor="be-umbrella">Onderdeel van groot evenement (optioneel)</label>
+        <FormRow label="Onderdeel van" expandable={false}>
           <select
-            id="be-umbrella"
+            aria-label="Onderdeel van groot evenement (optioneel)"
             value={form.umbrellaEventId}
             onChange={(e) => setForm((f) => ({ ...f, umbrellaEventId: e.target.value }))}
           >
@@ -386,86 +404,106 @@ export function BusinessEventForm({
               </option>
             ))}
           </select>
-        </div>
+        </FormRow>
       )}
 
-      <label htmlFor="be-map-url">Google Maps URL</label>
-      <div className={styles.row}>
-        <input
-          id="be-map-url"
-          type="text"
-          placeholder="https://maps.google.com/..."
-          value={form.mapUrl}
-          onChange={(e) => setForm((f) => ({ ...f, mapUrl: e.target.value }))}
-        />
-        <button type="button" onClick={handleExtractCoords}>
-          Extract
-        </button>
-      </div>
-
-      <input
-        type="text"
-        placeholder="Adres"
-        aria-label="Adres"
-        required
-        value={form.address}
-        onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-      />
-
-      <PhotoUploadField
-        label="Foto"
-        aspectRatio={3 / 4}
-        currentUrl={form.photoUrl}
-        pendingPhoto={pendingPhoto}
-        onPendingPhotoChange={setPendingPhoto}
-        disabled={submitting}
-      />
-
-      <input
-        type="url"
-        placeholder="Website-URL (optioneel)"
-        aria-label="Website-URL"
-        value={form.websiteUrl}
-        onChange={(e) => setForm((f) => ({ ...f, websiteUrl: e.target.value }))}
-      />
-
-      <div className={styles.priceRows}>
-        <span>Toegangsprijzen (optioneel)</span>
-        {form.prices.map((price, index) => (
-          <div key={index} className={styles.priceRow}>
+      <FormRow label="Locatie" value={form.address || "Niet opgegeven"}>
+        <div className={styles.row}>
+          <div>
+            <label htmlFor="be-postcode">Postcode</label>
             <input
+              id="be-postcode"
               type="text"
-              placeholder="Label (bv. Vroegboekticket)"
-              aria-label={`Prijslabel ${index + 1}`}
-              value={price.label}
-              onChange={(e) => updatePriceRow(index, { label: e.target.value })}
+              aria-label="Postcode"
+              placeholder="5038 AB"
+              value={form.postcode}
+              onChange={(e) => setForm((f) => ({ ...f, postcode: e.target.value }))}
             />
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              aria-label={`Prijsbedrag ${index + 1}`}
-              value={price.amount}
-              onChange={(e) => updatePriceRow(index, { amount: Number(e.target.value) })}
-            />
-            <label>
-              <input
-                type="checkbox"
-                aria-label={`Gratis ${index + 1}`}
-                checked={price.amount === 0}
-                onChange={(e) => updatePriceRow(index, { amount: e.target.checked ? 0 : price.amount })}
-              />
-              Gratis
-            </label>
-            <button type="button" onClick={() => removePriceRow(index)}>
-              Verwijderen
-            </button>
           </div>
-        ))}
-        <button type="button" onClick={addPriceRow}>
-          + Voeg toegangsprijs toe
+          <div>
+            <label htmlFor="be-huisnummer">Huisnummer</label>
+            <input
+              id="be-huisnummer"
+              type="text"
+              aria-label="Huisnummer"
+              placeholder="12"
+              value={form.huisnummer}
+              onChange={(e) => setForm((f) => ({ ...f, huisnummer: e.target.value }))}
+            />
+          </div>
+        </div>
+        <button type="button" onClick={handleGeocodeAddress}>
+          Zoek adres
         </button>
-      </div>
+        <input
+          type="text"
+          placeholder="Adres"
+          aria-label="Adres"
+          required
+          value={form.address}
+          onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+        />
+      </FormRow>
+
+      <FormRow label="Foto" value={photoValue}>
+        <PhotoUploadField
+          label="Foto"
+          aspectRatio={3 / 4}
+          currentUrl={form.photoUrl}
+          pendingPhoto={pendingPhoto}
+          onPendingPhotoChange={setPendingPhoto}
+          disabled={submitting}
+        />
+      </FormRow>
+
+      <FormRow label="Website" value={form.websiteUrl || "Niet opgegeven"}>
+        <input
+          type="url"
+          placeholder="Website-URL (optioneel)"
+          aria-label="Website-URL"
+          value={form.websiteUrl}
+          onChange={(e) => setForm((f) => ({ ...f, websiteUrl: e.target.value }))}
+        />
+      </FormRow>
+
+      <FormRow label="Toegangsprijzen" value={summarizePrices(form.prices)}>
+        <div className={styles.priceRows}>
+          {form.prices.map((price, index) => (
+            <div key={index} className={styles.priceRow}>
+              <input
+                type="text"
+                placeholder="Label (bv. Vroegboekticket)"
+                aria-label={`Prijslabel ${index + 1}`}
+                value={price.label}
+                onChange={(e) => updatePriceRow(index, { label: e.target.value })}
+              />
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                aria-label={`Prijsbedrag ${index + 1}`}
+                value={price.amount}
+                onChange={(e) => updatePriceRow(index, { amount: Number(e.target.value) })}
+              />
+              <label>
+                <input
+                  type="checkbox"
+                  aria-label={`Gratis ${index + 1}`}
+                  checked={price.amount === 0}
+                  onChange={(e) => updatePriceRow(index, { amount: e.target.checked ? 0 : price.amount })}
+                />
+                Gratis
+              </label>
+              <button type="button" onClick={() => removePriceRow(index)}>
+                Verwijderen
+              </button>
+            </div>
+          ))}
+          <button type="button" onClick={addPriceRow}>
+            + Voeg toegangsprijs toe
+          </button>
+        </div>
+      </FormRow>
 
       {error && <p className={styles.error} role="alert">{error}</p>}
 

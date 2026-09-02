@@ -1,7 +1,7 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.75rem;
 }
 
 .form input[type="text"],
@@ -33,8 +33,146 @@
   box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
 }
 
-.form textarea {
-  min-height: 80px;
+/* Titel — a big borderless heading-style input at the very top, matching
+   the iOS-Calendar-style reference's title field. */
+.titleInput.titleInput {
+  border: none;
+  border-bottom: 1px solid var(--color-border, #e7e0d6);
+  border-radius: 0;
+  padding: 0.5rem 0.1rem 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: var(--font-heading, inherit);
+}
+
+.titleInput.titleInput:focus {
+  border-bottom-color: #22c55e;
+  box-shadow: none;
+}
+
+/* Beschrijving — required and substantial, unlike the reference's optional
+   "Notes", so it stays always-visible rather than collapsed behind a tap. */
+.descriptionInput.descriptionInput {
+  border: none;
+  background: var(--color-surface-alt, #f0ebe4);
+  min-height: 70px;
+}
+
+.descriptionInput.descriptionInput:focus {
+  box-shadow: none;
+  background: var(--color-surface, #fff);
+  border: 1px solid #22c55e;
+}
+
+.dateTimeBox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e7e0d6);
+  border-radius: var(--radius-card, 16px);
+  padding: 0.75rem 1rem;
+}
+
+.dateTimeIcon {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  color: var(--color-text-muted, #a8a29e);
+}
+
+.dateTimeSide {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.dateTimeSide label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #a8a29e);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.dateTimeSide input[type="date"] {
+  border: none;
+  padding: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #57534e);
+  min-width: 0;
+}
+
+.dateTimeSide input[type="date"]:focus {
+  box-shadow: none;
+}
+
+.dateTimeSide input[type="time"] {
+  border: none;
+  padding: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--color-orange-dark, #e55a28);
+  min-width: 0;
+}
+
+.dateTimeSide input[type="time"]:focus {
+  box-shadow: none;
+}
+
+.dateTimeArrow {
+  flex-shrink: 0;
+  color: var(--color-text-muted, #a8a29e);
+  font-size: 1.1rem;
+}
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e7e0d6);
+  border-radius: var(--radius-button, 10px);
+  padding: 0.875rem 1rem;
+}
+
+.switchRow label {
+  font-weight: 600;
+  color: var(--color-text, #1c1917);
+  cursor: pointer;
+}
+
+.switch {
+  all: unset;
+  width: 42px;
+  height: 24px;
+  background: var(--color-border, #e7e0d6);
+  border-radius: var(--radius-pill, 999px);
+  position: relative;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.switch[data-state="checked"] {
+  background: var(--color-green, #22c55e);
+}
+
+.switchThumb {
+  display: block;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transform: translateX(2px);
+  transition: transform 0.2s;
+}
+
+.switchThumb[data-state="checked"] {
+  transform: translateX(20px);
 }
 
 .row {
@@ -47,18 +185,16 @@
   /* A flex item's default min-width is auto (its content's intrinsic
      minimum), not 0 — native <input type="date">/type="time"> controls
      report a fairly wide fixed rendering as that minimum regardless of the
-     input's own width: 100%, so without this the second column (Einddatum/
-     Eindtijd) gets pushed off the right edge on a narrow phone instead of
-     shrinking. Same bug class as MapExperience.module.css's .mainContent
-     min-height: 0, just the horizontal axis. */
+     input's own width: 100%, so without this the second column would get
+     pushed off the right edge on a narrow phone instead of shrinking. Same
+     bug class as MapExperience.module.css's .mainContent min-height: 0,
+     just the horizontal axis. */
   min-width: 0;
 }
 
-.checkboxRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.875rem;
+.row label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary, #57534e);
 }
 
 .dailyTimes {
@@ -71,6 +207,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e7e0d6);
+  border-radius: var(--radius-button, 10px);
+  padding: 0.6rem 0.75rem;
 }
 
 .dailyTimeRow span {

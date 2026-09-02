@@ -171,6 +171,11 @@ function makeReport(overrides: Partial<Report> = {}): Report {
   };
 }
 
+// Stubs window.google.maps.Geocoder — the quick-add business event form's
+// Locatie row calls geocodeAddress() via this global, same as
+// BusinessEventFormModal.test.tsx.
+const geocode = vi.fn();
+
 beforeEach(() => {
   vi.clearAllMocks();
   emittedShops = [];
@@ -190,6 +195,20 @@ beforeEach(() => {
   getShopViews.mockResolvedValue(0);
   createBusinessEvent.mockResolvedValue(undefined);
   mockUseAuth.mockReturnValue({ currentUser: { uid: "admin-uid" } });
+  geocode.mockReset();
+  geocode.mockImplementation((_req, cb) => {
+    cb(
+      [{ formatted_address: "Heuvelplein 1, Tilburg", geometry: { location: { lat: () => 51.55, lng: () => 5.09 } } }],
+      "OK",
+    );
+  });
+  window.google = {
+    maps: {
+      Geocoder: function Geocoder(this: { geocode: typeof geocode }) {
+        this.geocode = geocode;
+      },
+    },
+  } as never;
 });
 
 describe("AdminPanel shops tab", () => {
@@ -384,11 +403,12 @@ describe("AdminPanel businessEvents tab", () => {
     await user.type(screen.getByLabelText("Titel"), "Kermis opening");
     await user.type(screen.getByLabelText("Beschrijving"), "Opening van de kermis");
     await user.type(screen.getByLabelText("Startdatum"), "2026-09-01");
-    await user.type(screen.getByLabelText("Adres"), "Heuvelplein 1");
+    await user.click(screen.getByText("Locatie"));
+    await user.type(screen.getByLabelText("Postcode"), "5038 AB");
+    await user.type(screen.getByLabelText("Huisnummer"), "1");
+    await user.click(screen.getByText("Zoek adres"));
     await user.type(screen.getByLabelText("Starttijd"), "10:00");
     await user.type(screen.getByLabelText("Eindtijd"), "18:00");
-    await user.type(screen.getByLabelText("Google Maps URL"), "https://maps.google.com/@51.55,5.09,15z");
-    await user.click(screen.getByText("Extract"));
     await user.click(screen.getByText("Opslaan"));
 
     expect(createBusinessEvent).toHaveBeenCalledWith("admin-uid", expect.objectContaining({ title: "Kermis opening" }));
