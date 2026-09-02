@@ -1,5 +1,12 @@
 .page {
-  min-height: 100vh;
+  /* body (globals.css) is a fixed-height (100dvh on mobile), overflow:hidden
+     flex column — needed app-wide for the map page's fixed viewport. /bedrijf
+     is genuinely scrollable content though, so it needs its own scroll
+     container instead of inheriting that clip: without this, any dashboard
+     content taller than one screen was silently unreachable. */
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: #faf8f5;
 }
 
@@ -41,6 +48,14 @@
   gap: 1.25rem;
   border-bottom: 1px solid #eee6da;
   margin-top: 1rem;
+  /* Horizontally scrollable rather than squeezing on narrow phones — 3 tabs
+     is short enough that a scroll strip reads better than hiding options
+     behind a menu, and it needs no JS state (matches MapFilterPanel's
+     mobile sheet, which is also pure-CSS). Harmless on wider viewports,
+     where the tabs already fit and never scroll. */
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
 }
 
 .tab,
@@ -55,6 +70,8 @@
   color: #78716c;
   cursor: pointer;
   margin-bottom: -1px;
+  white-space: nowrap;
+  scroll-snap-align: start;
 }
 
 .tabActive {
@@ -67,7 +84,7 @@
   max-width: 960px;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .header {
     padding: 0.75rem 1rem;
   }
