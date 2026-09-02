@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { hasCookieConsent, acceptCookies } from "@/lib/cookieConsent";
+import { hasCookieConsent, acceptNecessaryOnly, acceptAll } from "@/lib/cookieConsent";
 import { PrivacyModal } from "./PrivacyModal";
 import styles from "./CookieBanner.module.css";
 
@@ -28,8 +28,13 @@ export function CookieBanner() {
 
   if (storedConsent || justAccepted) return null;
 
-  function handleAccept() {
-    acceptCookies();
+  function handleNecessaryOnly() {
+    acceptNecessaryOnly();
+    setJustAccepted(true);
+  }
+
+  function handleAcceptAll() {
+    acceptAll();
     setJustAccepted(true);
   }
 
@@ -37,14 +42,18 @@ export function CookieBanner() {
     <div className={styles.banner} role="dialog" aria-label="Cookiemelding">
       <p>
         We gebruiken functionele cookies/lokale opslag om likes, ratings en accounts te laten
-        werken.
+        werken. Met jouw toestemming gebruiken we ook Google Analytics om te zien welke
+        onderdelen van de app gebruikt worden.
       </p>
       <div className={styles.actions}>
         <button type="button" className={styles.infoButton} onClick={() => setPrivacyOpen(true)}>
           Meer info
         </button>
-        <button type="button" className={styles.acceptButton} onClick={handleAccept}>
-          Akkoord
+        <button type="button" className={styles.necessaryButton} onClick={handleNecessaryOnly}>
+          Alleen noodzakelijk
+        </button>
+        <button type="button" className={styles.acceptButton} onClick={handleAcceptAll}>
+          Accepteren
         </button>
       </div>
       <PrivacyModal open={privacyOpen} onClose={() => setPrivacyOpen(false)} />

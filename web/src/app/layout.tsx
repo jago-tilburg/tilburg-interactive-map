@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Paytone_One, DM_Sans } from "next/font/google";
-import Script from "next/script";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ToastProvider } from "@/hooks/useToast";
 import { CookieBanner } from "@/components/common/CookieBanner";
+import { GoogleAnalytics } from "@/components/common/GoogleAnalytics";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -36,22 +36,10 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
-  const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
-
   return (
     <html lang="nl" className={`${fraunces.variable} ${paytoneOne.variable} ${dmSans.variable}`}>
       <body>
-        {gaId && (
-          <>
-            <Script src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} strategy="afterInteractive" />
-            <Script id="ga4-init" strategy="afterInteractive">
-              {`window.dataLayer = window.dataLayer || [];
-                function gtag(){window.dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '${gaId}');`}
-            </Script>
-          </>
-        )}
+        <GoogleAnalytics />
         <ToastProvider>
           <AuthProvider>
             {children}

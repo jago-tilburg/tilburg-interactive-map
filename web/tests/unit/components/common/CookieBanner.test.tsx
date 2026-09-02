@@ -3,10 +3,12 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const hasCookieConsent = vi.fn();
-const acceptCookies = vi.fn();
+const acceptNecessaryOnly = vi.fn();
+const acceptAll = vi.fn();
 vi.mock("@/lib/cookieConsent", () => ({
   hasCookieConsent: () => hasCookieConsent(),
-  acceptCookies: () => acceptCookies(),
+  acceptNecessaryOnly: () => acceptNecessaryOnly(),
+  acceptAll: () => acceptAll(),
 }));
 
 import { CookieBanner } from "@/components/common/CookieBanner";
@@ -28,14 +30,27 @@ describe("CookieBanner", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("accepts cookies and hides the banner", async () => {
+  it("accepts necessary-only cookies and hides the banner", async () => {
     hasCookieConsent.mockReturnValue(false);
     const user = userEvent.setup();
     render(<CookieBanner />);
 
-    await user.click(screen.getByText("Akkoord"));
+    await user.click(screen.getByText("Alleen noodzakelijk"));
 
-    expect(acceptCookies).toHaveBeenCalled();
+    expect(acceptNecessaryOnly).toHaveBeenCalled();
+    expect(acceptAll).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "Cookiemelding" })).not.toBeInTheDocument();
+  });
+
+  it("accepts all cookies (incl. analytics) and hides the banner", async () => {
+    hasCookieConsent.mockReturnValue(false);
+    const user = userEvent.setup();
+    render(<CookieBanner />);
+
+    await user.click(screen.getByText("Accepteren"));
+
+    expect(acceptAll).toHaveBeenCalled();
+    expect(acceptNecessaryOnly).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog", { name: "Cookiemelding" })).not.toBeInTheDocument();
   });
 
