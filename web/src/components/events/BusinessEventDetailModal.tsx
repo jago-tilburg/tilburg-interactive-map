@@ -19,6 +19,7 @@ import { trackEvent } from "@/lib/analytics/trackEvent";
 import { useToast } from "@/hooks/useToast";
 import { ReportModal } from "@/components/common/ReportModal";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
+import type { SelectionSource } from "@/components/map/MapExperience";
 import styles from "./BusinessEventDetailModal.module.css";
 
 interface BusinessEventDetailModalProps {
@@ -27,6 +28,9 @@ interface BusinessEventDetailModalProps {
   event: BusinessEvent | null;
   umbrellaEvents: UmbrellaEvent[];
   onOpenUmbrella?: (umbrellaId: string) => void;
+  // How this event got selected (map marker vs. list overview vs. deep link
+  // vs. cross-nav from another modal) — reported alongside event_detail_open.
+  source?: SelectionSource;
   // True when rendering a live, unsaved draft from BusinessEventForm's
   // preview button — the event has no real Firestore doc yet, so every
   // write path (analytics, interest/save persistence, click/share counters,
@@ -55,6 +59,7 @@ export function BusinessEventDetailModal({
   onOpenUmbrella,
   previewMode = false,
   markerPreview,
+  source,
 }: BusinessEventDetailModalProps) {
   const { currentVisitor } = useAuth();
   const { showToast } = useToast();
@@ -78,9 +83,10 @@ export function BusinessEventDetailModal({
 
   useEffect(() => {
     if (!open || !event || previewMode) return;
-    trackEvent("event_detail_open");
+    trackEvent("event_detail_open", { source });
+    trackEvent("poi_open", { poi_type: "event", source });
     trackEventView(event.id).catch(() => {});
-  }, [open, event, previewMode]);
+  }, [open, event, previewMode, source]);
 
   if (!event) return null;
   const cat = categoryOf(event.category);

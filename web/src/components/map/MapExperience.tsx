@@ -36,6 +36,13 @@ export type InitialSelection =
   | { type: "event"; id: string }
   | { type: "umbrella"; id: string };
 
+// How the currently-selected shop/event/umbrella was opened — threaded into
+// the detail modals so GA4 can tell "opened via the map marker" apart from
+// "opened via the hamburger list overview" per the site owner's request.
+// "nav" covers cross-navigation within a modal itself (an event's umbrella
+// pill, an umbrella's child-event row) — neither map nor list.
+export type SelectionSource = "map" | "list" | "nav" | "deep_link";
+
 interface MapExperienceProps {
   apiKey: string;
   initialSelection?: InitialSelection;
@@ -69,6 +76,9 @@ export function MapExperience({ apiKey, initialSelection, paymentStatus }: MapEx
   );
   const [selectedUmbrellaId, setSelectedUmbrellaId] = useState<string | null>(
     initialSelection?.type === "umbrella" ? initialSelection.id : null,
+  );
+  const [selectionSource, setSelectionSource] = useState<SelectionSource | undefined>(
+    initialSelection ? "deep_link" : undefined,
   );
   const [shopFormMode, setShopFormMode] = useState<"closed" | "create" | "edit">("closed");
   const [shopBeingEdited, setShopBeingEdited] = useState<Shop | null>(null);
@@ -216,8 +226,14 @@ export function MapExperience({ apiKey, initialSelection, paymentStatus }: MapEx
         shops={shops}
         businessEvents={businessEvents}
         umbrellaEvents={umbrellaEvents}
-        onSelectShop={setSelectedShopId}
-        onSelectEvent={setSelectedEventId}
+        onSelectShop={(id) => {
+          setSelectionSource("list");
+          setSelectedShopId(id);
+        }}
+        onSelectEvent={(id) => {
+          setSelectionSource("list");
+          setSelectedEventId(id);
+        }}
         loading={!shopsLoaded || !eventsLoaded}
         filterState={filterState}
       />
@@ -229,8 +245,14 @@ export function MapExperience({ apiKey, initialSelection, paymentStatus }: MapEx
           shops={visibleShops}
           businessEvents={visibleEvents}
           umbrellaEvents={umbrellaEvents}
-          onShopClick={setSelectedShopId}
-          onBusinessEventClick={setSelectedEventId}
+          onShopClick={(id) => {
+            setSelectionSource("map");
+            setSelectedShopId(id);
+          }}
+          onBusinessEventClick={(id) => {
+            setSelectionSource("map");
+            setSelectedEventId(id);
+          }}
           isAdmin={isAdmin}
           onLongPressAdd={handleLongPressAdd}
         />
@@ -254,6 +276,7 @@ export function MapExperience({ apiKey, initialSelection, paymentStatus }: MapEx
         open={selectedShopId !== null}
         onClose={() => setSelectedShopId(null)}
         shop={selectedShop}
+        source={selectionSource}
         onEditRequested={(shop) => {
           setSelectedShopId(null);
           setShopBeingEdited(shop);
@@ -277,7 +300,9 @@ export function MapExperience({ apiKey, initialSelection, paymentStatus }: MapEx
         onClose={() => setSelectedEventId(null)}
         event={selectedEvent}
         umbrellaEvents={umbrellaEvents}
+        source={selectionSource}
         onOpenUmbrella={(umbrellaId) => {
+          setSelectionSource("nav");
           setSelectedEventId(null);
           setSelectedUmbrellaId(umbrellaId);
         }}
@@ -288,7 +313,9 @@ export function MapExperience({ apiKey, initialSelection, paymentStatus }: MapEx
         onClose={() => setSelectedUmbrellaId(null)}
         umbrella={selectedUmbrella}
         approvedBusinessEvents={businessEvents}
+        source={selectionSource}
         onOpenEvent={(eventId) => {
+          setSelectionSource("nav");
           setSelectedUmbrellaId(null);
           setSelectedEventId(eventId);
         }}

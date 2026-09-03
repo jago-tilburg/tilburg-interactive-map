@@ -191,7 +191,11 @@ export function MapFilterPanel({
           <button
             type="button"
             className={contentType === "broodjes" ? styles.typeBtnActive : styles.typeBtn}
-            onClick={() => setContentType((c) => (c === "broodjes" ? "alles" : "broodjes"))}
+            onClick={() => {
+              const next = contentType === "broodjes" ? "alles" : "broodjes";
+              trackEvent("filter_applied", { filter_type: "content_type", filter_value: next });
+              setContentType(next);
+            }}
           >
             🥪 Broodjes <span className={styles.count}>({shopsFinal.length})</span>
           </button>
@@ -200,7 +204,11 @@ export function MapFilterPanel({
           <button
             type="button"
             className={contentType === "events" ? styles.typeBtnActive : styles.typeBtn}
-            onClick={() => setContentType((c) => (c === "events" ? "alles" : "events"))}
+            onClick={() => {
+              const next = contentType === "events" ? "alles" : "events";
+              trackEvent("filter_applied", { filter_type: "content_type", filter_value: next });
+              setContentType(next);
+            }}
           >
             🎉 Events <span className={styles.count}>({eventsFinal.length})</span>
           </button>
@@ -220,8 +228,9 @@ export function MapFilterPanel({
                   : { background: u.color }
               }
               onClick={() => {
-                trackEvent("filter_applied", { filter_type: "umbrella" });
-                setUmbrellaFilter(umbrellaFilter === u.id ? null : u.id);
+                const next = umbrellaFilter === u.id ? null : u.id;
+                trackEvent("filter_applied", { filter_type: "umbrella", filter_value: next });
+                setUmbrellaFilter(next);
               }}
             >
               <span className={styles.umbrellaPillLabel}>{u.title}</span>
@@ -233,7 +242,14 @@ export function MapFilterPanel({
       <div className={styles.resultsRow}>
         <span>{resultsCount} resultaten</span>
         {activeFilterCount > 0 && (
-          <button type="button" className={styles.clearBtn} onClick={clearAll}>
+          <button
+            type="button"
+            className={styles.clearBtn}
+            onClick={() => {
+              trackEvent("filter_cleared");
+              clearAll();
+            }}
+          >
             Wis filters
           </button>
         )}
@@ -271,7 +287,7 @@ export function MapFilterPanel({
                 // Fires once per fresh search (the empty->first-character
                 // transition), not on every keystroke — a per-keystroke
                 // event would be pure noise for "was search used" analysis.
-                if (query === "" && e.target.value !== "") trackEvent("search_used");
+                if (query === "" && e.target.value !== "") trackEvent("filter_applied", { filter_type: "search" });
                 setQuery(e.target.value);
               }}
               aria-label="Zoeken"
@@ -288,7 +304,7 @@ export function MapFilterPanel({
                       type="checkbox"
                       checked={dietary.includes(b.key)}
                       onChange={() => {
-                        trackEvent("filter_applied", { filter_type: "dietary" });
+                        trackEvent("filter_applied", { filter_type: "dietary", filter_value: b.key });
                         setDietary((cur) => toggleInList(cur, b.key));
                       }}
                     />
@@ -312,7 +328,7 @@ export function MapFilterPanel({
                       type="checkbox"
                       checked={categories.includes(key)}
                       onChange={() => {
-                        trackEvent("filter_applied", { filter_type: "category" });
+                        trackEvent("filter_applied", { filter_type: "category", filter_value: key });
                         setCategories((cur) => toggleInList(cur, key));
                       }}
                     />
@@ -332,7 +348,7 @@ export function MapFilterPanel({
                       type="checkbox"
                       checked={dateFilter === "today"}
                       onChange={() => {
-                        trackEvent("filter_applied", { filter_type: "date" });
+                        trackEvent("filter_applied", { filter_type: "date", filter_value: "today" });
                         setDateFilter((cur) => (cur === "today" ? null : "today"));
                       }}
                     />
@@ -346,7 +362,7 @@ export function MapFilterPanel({
                       type="checkbox"
                       checked={dateFilter === "tomorrow"}
                       onChange={() => {
-                        trackEvent("filter_applied", { filter_type: "date" });
+                        trackEvent("filter_applied", { filter_type: "date", filter_value: "tomorrow" });
                         setDateFilter((cur) => (cur === "tomorrow" ? null : "tomorrow"));
                       }}
                     />
@@ -361,7 +377,10 @@ export function MapFilterPanel({
                   triggerLabel={`📅 ${isCustomDate ? dateFilter : "Kies specifieke datum"}`}
                   events={businessEvents}
                   today={today}
-                  onSelectDate={setDateFilter}
+                  onSelectDate={(date) => {
+                    trackEvent("filter_applied", { filter_type: "date", filter_value: date });
+                    setDateFilter(date);
+                  }}
                 />
               </div>
             </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,6 +17,7 @@ import {
   type DietaryKey,
   type SortOption,
 } from "@/lib/filters/filterHelpers";
+import { trackEvent } from "@/lib/analytics/trackEvent";
 import type { MapFilterState, MapFilterActions } from "@/hooks/useMapFilterState";
 import type { Shop } from "@/types/shops";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
@@ -79,6 +80,14 @@ export function MenuModal({
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   useLayoutEffect(() => {
     if (open) previouslyFocusedRef.current = document.activeElement as HTMLElement;
+  }, [open]);
+
+  // Fires once per open, not per render — mirrors the detail modals'
+  // open-tracking effects (ShopDetailModal, BusinessEventDetailModal), so
+  // "how many people open the list overview" is comparable to "how many
+  // people open a shop/event detail" in GA4.
+  useEffect(() => {
+    if (open) trackEvent("list_overview_open");
   }, [open]);
 
   // Bail out before the filtering work below, not just before the JSX —
@@ -148,7 +157,10 @@ export function MenuModal({
               key={type}
               type="button"
               className={contentType === type ? styles.filterBtnActive : styles.filterBtn}
-              onClick={() => setContentType(type)}
+              onClick={() => {
+                trackEvent("filter_applied", { filter_type: "content_type", filter_value: type, source: "list_overview" });
+                setContentType(type);
+              }}
             >
               {type === "alles" ? "Alles" : type === "broodjes" ? "🥪 Broodjes" : "🎉 Events"}
             </button>
@@ -175,7 +187,10 @@ export function MenuModal({
                 key={key}
                 type="button"
                 className={activeDietaryPreset === key ? styles.filterBtnActive : styles.filterBtn}
-                onClick={() => setDietaryPreset(key)}
+                onClick={() => {
+                  trackEvent("filter_applied", { filter_type: "dietary_preset", filter_value: key, source: "list_overview" });
+                  setDietaryPreset(key);
+                }}
               >
                 {key === "all" ? "Alles" : key === "glutenvrij" ? "🌾 Glutenvrij" : key === "halal" ? "☪️ Halal" : "🌿 Vega"}
               </button>

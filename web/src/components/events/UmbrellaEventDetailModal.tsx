@@ -7,6 +7,7 @@ import { shareCurrentUrl } from "@/lib/shareUrl";
 import { trackEvent } from "@/lib/analytics/trackEvent";
 import { useToast } from "@/hooks/useToast";
 import type { BusinessEvent, UmbrellaEvent } from "@/types/events";
+import type { SelectionSource } from "@/components/map/MapExperience";
 import styles from "./UmbrellaEventDetailModal.module.css";
 
 interface UmbrellaEventDetailModalProps {
@@ -15,6 +16,9 @@ interface UmbrellaEventDetailModalProps {
   umbrella: UmbrellaEvent | null;
   approvedBusinessEvents: BusinessEvent[];
   onOpenEvent?: (eventId: string) => void;
+  // How this umbrella got selected (list overview vs. deep link vs. cross-nav
+  // from an event's umbrella pill) — reported alongside umbrella_detail_open.
+  source?: SelectionSource;
 }
 
 export function UmbrellaEventDetailModal({
@@ -23,13 +27,15 @@ export function UmbrellaEventDetailModal({
   umbrella,
   approvedBusinessEvents,
   onOpenEvent,
+  source,
 }: UmbrellaEventDetailModalProps) {
   const { showToast } = useToast();
 
   useEffect(() => {
     if (!open || !umbrella) return;
-    trackEvent("umbrella_detail_open");
-  }, [open, umbrella]);
+    trackEvent("umbrella_detail_open", { source });
+    trackEvent("poi_open", { poi_type: "umbrella", source });
+  }, [open, umbrella, source]);
 
   if (!umbrella) return null;
   const children = approvedBusinessEvents.filter((ev) => ev.umbrellaEventId === umbrella.id);

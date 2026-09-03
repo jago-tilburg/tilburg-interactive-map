@@ -29,6 +29,7 @@ import { CommentNameModal } from "./CommentNameModal";
 import { UserReviewModal } from "./UserReviewModal";
 import { ReportModal } from "@/components/common/ReportModal";
 import type { Shop } from "@/types/shops";
+import type { SelectionSource } from "@/components/map/MapExperience";
 import styles from "./ShopDetailModal.module.css";
 
 interface ShopDetailModalProps {
@@ -36,6 +37,10 @@ interface ShopDetailModalProps {
   onClose: () => void;
   shop: Shop | null;
   onEditRequested?: (shop: Shop) => void;
+  // How this shop got selected (map marker vs. the hamburger list overview
+  // vs. a deep link) — reported alongside shop_detail_open so GA4 can break
+  // opens down by entry point.
+  source?: SelectionSource;
 }
 
 // No real external subscription needed — the anon id is stable for the
@@ -63,7 +68,7 @@ function useCurrentUserId(): string | null {
   return currentVisitor?.uid ?? anonId;
 }
 
-export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDetailModalProps) {
+export function ShopDetailModal({ open, onClose, shop, onEditRequested, source }: ShopDetailModalProps) {
   const { isAdmin } = useAuth();
   const { showToast } = useToast();
   const userId = useCurrentUserId();
@@ -86,13 +91,18 @@ export function ShopDetailModal({ open, onClose, shop, onEditRequested }: ShopDe
 
   useEffect(() => {
     if (!open || !shop) return;
-    trackEvent("shop_detail_open");
+    trackEvent("shop_detail_open", { source });
+    // Fired alongside every kind of detail-modal open (shop/event/umbrella)
+    // under one event name so "average POIs opened per visit" can be
+    // computed in GA4 as this event's count per session, without having to
+    // combine three differently-named events.
+    trackEvent("poi_open", { poi_type: "shop", source });
     trackShopView(shop.id).catch(() => {});
     getShopViews(shop.id)
       .then(setViewCount)
       .catch(() => setViewCount(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only shop.id identity matters, not the whole object
-  }, [open, shop?.id]);
+  }, [open, shop?.id, source]);
 
   if (!shop) return null;
 
