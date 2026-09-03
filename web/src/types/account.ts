@@ -13,6 +13,10 @@ export interface Visitor {
   marketingConsent?: boolean;
   marketingConsentAt?: Timestamp;
   marketingConsentSource?: "signup" | "profile";
+  // Recorded at account creation (§3's "ToS acceptance checkbox recorded
+  // with timestamp" — GO-LIVE-CHECKLIST.md). Absent on any account created
+  // before 2026-09-03, which is expected — not backfilled retroactively.
+  tosAcceptedAt?: Timestamp;
 }
 
 export interface Business {

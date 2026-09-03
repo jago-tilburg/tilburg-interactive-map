@@ -48,11 +48,15 @@ export function subscribeVisitorProfile(
 // createdAt uses serverTimestamp() instead of the monolith's Date.now() —
 // deliberate improvement, but callers must treat it as a Firestore Timestamp,
 // not a number.
-export async function createVisitorProfile(uid: string, email: string): Promise<Visitor> {
+export async function createVisitorProfile(uid: string, email: string, tosAccepted = false): Promise<Visitor> {
   const profile = {
     email,
     displayName: (email || "Bezoeker").split("@")[0],
     createdAt: serverTimestamp(),
+    // Only stamped when true — an absent field (not tosAcceptedAt: null)
+    // distinguishes "never asked/accepted" from "explicitly declined",
+    // and keeps every pre-2026-09-03 account's shape unaffected.
+    ...(tosAccepted ? { tosAcceptedAt: serverTimestamp() } : {}),
   };
   await setDoc(doc(getDb(), "visitors", uid), profile);
   return { uid, ...profile } as Visitor;

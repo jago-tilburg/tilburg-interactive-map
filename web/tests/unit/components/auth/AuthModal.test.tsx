@@ -97,7 +97,7 @@ describe("AuthModal — login", () => {
     await user.type(screen.getByLabelText("Wachtwoord"), "pw123456");
     await user.click(screen.getByRole("button", { name: "Inloggen" }));
 
-    await waitFor(() => expect(createVisitorProfile).toHaveBeenCalledWith("u1", "user@example.com"));
+    await waitFor(() => expect(createVisitorProfile).toHaveBeenCalledWith("u1", "user@example.com", false));
     expect(refreshCurrentVisitor).toHaveBeenCalledWith("u1");
     expect(suppressAutoProfileLoadRef.current).toBe(false);
     expect(onAuthenticated).toHaveBeenCalledWith(visitor);
@@ -121,11 +121,15 @@ describe("AuthModal — login", () => {
     const user = userEvent.setup();
     render(<AuthModal open onClose={vi.fn()} onAuthenticated={vi.fn()} />);
 
+    expect(screen.queryByText(/ga je akkoord met onze/)).not.toBeInTheDocument();
+
     await user.click(screen.getByText("Nog geen account? Registreer"));
     expect(screen.getByRole("heading", { name: "Account aanmaken" })).toBeInTheDocument();
+    expect(screen.getByText(/ga je akkoord met onze/)).toBeInTheDocument();
 
     await user.click(screen.getByText("Al een account? Inloggen"));
     expect(screen.getByRole("heading", { name: "Inloggen" })).toBeInTheDocument();
+    expect(screen.queryByText(/ga je akkoord met onze/)).not.toBeInTheDocument();
   });
 
   it("switches to the forgot-password step from the login form", async () => {
@@ -151,7 +155,22 @@ describe("AuthModal — register", () => {
     expect(registerWithPassword).not.toHaveBeenCalled();
   });
 
-  it("registers, creates a suppressed visitor profile, sends verification, and reports success", async () => {
+  it("blocks registration until the ToS checkbox is checked, without calling Firebase", async () => {
+    const user = userEvent.setup();
+    render(<AuthModal open onClose={vi.fn()} onAuthenticated={vi.fn()} />);
+
+    await user.click(screen.getByText("Nog geen account? Registreer"));
+    await user.type(screen.getByLabelText("E-mailadres"), "user@example.com");
+    await user.type(screen.getByLabelText("Wachtwoord"), "pw123456");
+    await user.click(screen.getByRole("button", { name: "Account aanmaken" }));
+
+    expect(
+      screen.getByText("Je moet akkoord gaan met de voorwaarden en het privacybeleid om een account aan te maken."),
+    ).toBeInTheDocument();
+    expect(registerWithPassword).not.toHaveBeenCalled();
+  });
+
+  it("registers, creates a suppressed visitor profile (ToS accepted), sends verification, and reports success", async () => {
     registerWithPassword.mockResolvedValue({ user: { uid: "u1", email: "user@example.com" } });
     createVisitorProfile.mockResolvedValue(visitor);
     sendVerificationEmail.mockResolvedValue(undefined);
@@ -163,11 +182,12 @@ describe("AuthModal — register", () => {
     await user.click(screen.getByText("Nog geen account? Registreer"));
     await user.type(screen.getByLabelText("E-mailadres"), "user@example.com");
     await user.type(screen.getByLabelText("Wachtwoord"), "pw123456");
+    await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Account aanmaken" }));
 
     await waitFor(() => expect(onAuthenticated).toHaveBeenCalledWith(visitor));
     expect(registerWithPassword).toHaveBeenCalledWith("user@example.com", "pw123456");
-    expect(createVisitorProfile).toHaveBeenCalledWith("u1", "user@example.com");
+    expect(createVisitorProfile).toHaveBeenCalledWith("u1", "user@example.com", true);
     expect(sendVerificationEmail).toHaveBeenCalledWith();
     expect(refreshCurrentVisitor).toHaveBeenCalledWith("u1");
     expect(onClose).toHaveBeenCalled();
@@ -185,6 +205,7 @@ describe("AuthModal — register", () => {
     await user.click(screen.getByText("Nog geen account? Registreer"));
     await user.type(screen.getByLabelText("E-mailadres"), "user@example.com");
     await user.type(screen.getByLabelText("Wachtwoord"), "pw123456");
+    await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Account aanmaken" }));
 
     await waitFor(() => expect(onAuthenticated).toHaveBeenCalled());
@@ -200,6 +221,7 @@ describe("AuthModal — register", () => {
     await user.click(screen.getByText("Nog geen account? Registreer"));
     await user.type(screen.getByLabelText("E-mailadres"), "user@example.com");
     await user.type(screen.getByLabelText("Wachtwoord"), "pw123456");
+    await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Account aanmaken" }));
 
     expect(await screen.findByText("Dit e-mailadres is al in gebruik.")).toBeInTheDocument();
@@ -285,7 +307,7 @@ describe("AuthModal — Google", () => {
     await user.click(screen.getByText("Doorgaan met Google"));
 
     await waitFor(() => expect(onAuthenticated).toHaveBeenCalledWith(visitor));
-    expect(createVisitorProfile).toHaveBeenCalledWith("u1", "user@example.com");
+    expect(createVisitorProfile).toHaveBeenCalledWith("u1", "user@example.com", true);
     expect(getVisitorProfile).not.toHaveBeenCalled();
     expect(refreshCurrentBusiness).toHaveBeenCalledWith("u1");
   });
@@ -317,7 +339,7 @@ describe("AuthModal — Google", () => {
 
     await user.click(screen.getByText("Doorgaan met Google"));
 
-    await waitFor(() => expect(createVisitorProfile).toHaveBeenCalledWith("u1", "user@example.com"));
+    await waitFor(() => expect(createVisitorProfile).toHaveBeenCalledWith("u1", "user@example.com", false));
     expect(onAuthenticated).toHaveBeenCalledWith(visitor);
   });
 
@@ -364,7 +386,7 @@ describe("AuthModal — Google", () => {
 
     await user.click(screen.getByText("Doorgaan met Google"));
 
-    await waitFor(() => expect(createVisitorProfile).toHaveBeenCalledWith("u1", ""));
+    await waitFor(() => expect(createVisitorProfile).toHaveBeenCalledWith("u1", "", true));
   });
 });
 

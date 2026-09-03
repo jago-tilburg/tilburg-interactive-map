@@ -100,6 +100,20 @@ describe("createVisitorProfile", () => {
     const profile = await createVisitorProfile("uid2", "");
     expect(profile.displayName).toBe("Bezoeker");
   });
+
+  it("does not write tosAcceptedAt when tosAccepted is omitted/false", async () => {
+    await createVisitorProfile("uid3", "someone@example.com");
+    const written = vi.mocked(setDoc).mock.calls.at(-1)![1] as Record<string, unknown>;
+    expect(written).not.toHaveProperty("tosAcceptedAt");
+  });
+
+  it("stamps tosAcceptedAt with a serverTimestamp when tosAccepted is true", async () => {
+    await createVisitorProfile("uid4", "someone@example.com", true);
+    expect(setDoc).toHaveBeenCalledWith(
+      docRef("visitors/uid4"),
+      expect.objectContaining({ tosAcceptedAt: "SERVER_TIMESTAMP" }),
+    );
+  });
 });
 
 describe("deleteVisitorProfile", () => {

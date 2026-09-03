@@ -66,6 +66,7 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [tosAccepted, setTosAccepted] = useState(false);
 
   function reset() {
     setStep("login");
@@ -74,6 +75,7 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
     setError(null);
     setSubmitting(false);
     setResetSent(false);
+    setTosAccepted(false);
   }
 
   function handleClose() {
@@ -95,10 +97,10 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
   // deterministically instead of racing the listener's async chain
   // (PLAN-INLOGGEN.md §6, mirrors the pre-existing business-registration
   // pattern this replaces).
-  async function createFreshVisitorProfile(uid: string, userEmail: string): Promise<Visitor> {
+  async function createFreshVisitorProfile(uid: string, userEmail: string, tosAcceptedNow = false): Promise<Visitor> {
     suppressAutoProfileLoadRef.current = true;
     try {
-      const visitor = await createVisitorProfile(uid, userEmail);
+      const visitor = await createVisitorProfile(uid, userEmail, tosAcceptedNow);
       await refreshCurrentVisitor(uid);
       return visitor;
     } finally {
@@ -132,10 +134,14 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
       setError(`Wachtwoord moet minimaal ${MIN_PASSWORD_LENGTH} tekens zijn.`);
       return;
     }
+    if (!tosAccepted) {
+      setError("Je moet akkoord gaan met de voorwaarden en het privacybeleid om een account aan te maken.");
+      return;
+    }
     setSubmitting(true);
     try {
       const cred = await registerWithPassword(email, password);
-      const visitor = await createFreshVisitorProfile(cred.user.uid, email);
+      const visitor = await createFreshVisitorProfile(cred.user.uid, email, true);
       trackEvent("register_success", { method: "password" });
       // Fire-and-forget from the user's point of view — a failure here
       // (rate limiting, etc.) shouldn't block registration itself; the
@@ -184,8 +190,12 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
       const uid = cred.user.uid;
       const userEmail = cred.user.email ?? "";
       const isNew = isNewGoogleUser(cred);
+      // A new account implies ToS acceptance via the disclaimer text next to
+      // the Google button (no separate checkbox for a one-click OAuth flow,
+      // same pattern most apps use) — see handleRegister for the explicit
+      // checkbox on the email/password path.
       const visitor = isNew
-        ? await createFreshVisitorProfile(uid, userEmail)
+        ? await createFreshVisitorProfile(uid, userEmail, true)
         : ((await getVisitorProfile(uid)) ?? (await createFreshVisitorProfile(uid, userEmail)));
       trackEvent(isNew ? "register_success" : "login_success", { method: "google" });
       // Returning users may already have a business profile — warm it in
@@ -216,6 +226,19 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
           </span>
           Doorgaan met Google
         </button>
+        {step === "register" && (
+          <p className={styles.tosDisclaimer}>
+            Door verder te gaan ga je akkoord met onze{" "}
+            <a href="/voorwaarden" target="_blank" rel="noopener noreferrer">
+              voorwaarden
+            </a>{" "}
+            en{" "}
+            <a href="/privacybeleid" target="_blank" rel="noopener noreferrer">
+              privacybeleid
+            </a>
+            .
+          </p>
+        )}
 
         {step !== "forgot" && (
           <div className={styles.divider}>
@@ -275,6 +298,24 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <label className={styles.tosCheckboxRow}>
+              <input
+                type="checkbox"
+                checked={tosAccepted}
+                onChange={(e) => setTosAccepted(e.target.checked)}
+              />
+              <span>
+                Ik ga akkoord met de{" "}
+                <a href="/voorwaarden" target="_blank" rel="noopener noreferrer">
+                  voorwaarden
+                </a>{" "}
+                en het{" "}
+                <a href="/privacybeleid" target="_blank" rel="noopener noreferrer">
+                  privacybeleid
+                </a>
+                .
+              </span>
+            </label>
             {error && <p className={styles.error} role="alert">{error}</p>}
             <button type="submit" className={styles.submitButton} disabled={submitting}>
               Account aanmaken
