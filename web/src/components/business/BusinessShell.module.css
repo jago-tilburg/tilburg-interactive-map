@@ -10,35 +10,6 @@
   background: #faf8f5;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.9rem 1.25rem;
-  background: white;
-  border-bottom: 1px solid #eee6da;
-}
-
-.brand {
-  font-weight: 800;
-  font-size: 1.1rem;
-  color: #ff6b35;
-}
-
-.backLink {
-  background: none;
-  border: none;
-  color: #57534e;
-  font-family: inherit;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.backLink:hover {
-  color: #15803d;
-}
-
 .tabsRoot {
   padding: 0 1.25rem;
 }
@@ -85,10 +56,6 @@
 }
 
 @media (max-width: 768px) {
-  .header {
-    padding: 0.75rem 1rem;
-  }
-
   .tabsRoot {
     padding: 0 1rem;
   }

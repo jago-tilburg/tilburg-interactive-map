@@ -1,0 +1,35 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  background: var(--header-gradient, linear-gradient(135deg, #22c55e 0%, #ff6b35 100%));
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.brand {
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: white;
+}
+
+.backLink {
+  background: none;
+  border: none;
+  color: white;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.backLink:hover {
+  opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+  .header {
+    padding: 0.75rem 1rem;
+  }
+}

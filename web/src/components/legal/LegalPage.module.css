@@ -5,35 +5,6 @@
   background: var(--background, #faf8f5);
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.9rem 1.25rem;
-  background: var(--color-surface, #fff);
-  border-bottom: 1px solid var(--color-border, #eee6da);
-}
-
-.brand {
-  font-weight: 800;
-  font-size: 1.1rem;
-  color: var(--color-orange, #ff6b35);
-}
-
-.backLink {
-  background: none;
-  border: none;
-  color: var(--color-text-secondary, #57534e);
-  font-family: inherit;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.backLink:hover {
-  color: var(--color-green-dark, #15803d);
-}
-
 .content {
   max-width: 760px;
   margin: 0 auto;

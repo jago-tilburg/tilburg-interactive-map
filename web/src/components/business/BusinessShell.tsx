@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs } from "radix-ui";
+import { PageHeader } from "@/components/common/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { EmailVerifyNotice } from "@/components/auth/EmailVerifyNotice";
 import { InsightsTab } from "./InsightsTab";
@@ -84,12 +85,7 @@ export function BusinessShell() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.header}>
-        <span className={styles.brand}>2happies</span>
-        <button type="button" className={styles.backLink} onClick={() => router.push("/")}>
-          ← Naar de kaart
-        </button>
-      </div>
+      <PageHeader />
       <EmailVerifyNotice />
 
       <Tabs.Root value={tab} onValueChange={(v) => changeTab(v as TabKey)} className={styles.tabsRoot}>

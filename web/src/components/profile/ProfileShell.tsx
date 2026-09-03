@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertDialog } from "radix-ui";
+import { PageHeader } from "@/components/common/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { signOutCurrentUser, deleteCurrentUser, changeAccountPassword } from "@/lib/firebase/auth";
@@ -146,12 +147,7 @@ export function ProfileShell() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.header}>
-        <span className={styles.brand}>2happies</span>
-        <button type="button" className={styles.backLink} onClick={() => router.push("/")}>
-          ← Naar de kaart
-        </button>
-      </div>
+      <PageHeader />
 
       <div className={styles.content}>
         <p className={styles.email}>{currentVisitor.email}</p>
