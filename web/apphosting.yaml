@@ -29,8 +29,13 @@ env:
   - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     secret: google-maps-api-key-staging
     availability: [BUILD, RUNTIME]
-  # Deliberately unset — see GO-LIVE-CHECKLIST.md §7. A real prod measurement
-  # ID (G-V0S98HPQ52) sat here from 2026-08-23 until 2026-09-03, which meant
-  # staging traffic that accepted analytics consent was sending real events
-  # into prod's actual GA4 property. Do not set this to prod's ID again —
-  # staging needs its own separate GA4 property once one exists.
+  # Own dedicated GA4 property for staging — see GO-LIVE-CHECKLIST.md §7. A
+  # real prod measurement ID (G-V0S98HPQ52) sat here from 2026-08-23 until
+  # 2026-09-03, which meant staging traffic that accepted analytics consent
+  # was sending real events into prod's actual GA4 property. This is a
+  # separate property ("2happies (staging)", manually installed — NOT linked
+  # to/sharing prod's Google tag), created 2026-09-03. Do not set this to
+  # prod's ID.
+  - variable: NEXT_PUBLIC_GA_MEASUREMENT_ID
+    value: G-FL4WNQ0BW0
+    availability: [BUILD, RUNTIME]
