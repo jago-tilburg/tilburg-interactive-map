@@ -27,11 +27,22 @@ const PDOK_FREE_URL = "https://api.pdok.nl/bzk/locatieserver/search/v3_1/free";
 // PDOK is purpose-built for exactly this lookup and is what Dutch sites
 // generally use for it instead of Google for this reason.
 //
-// Filters to an exact numeric house-number match (`fq=huisnummer:`)
-// rather than relying on free-text relevance ranking — confirmed via the
-// same investigation that an ranking-only match can silently return a
-// *different*, nearby real address when the requested number doesn't
-// exist, which would be worse than "not found".
+// Filters to an EXACT match on both postcode and house number (`fq=`,
+// Solr filter queries — hard constraints, not relevance ranking) rather
+// than putting them in the free-text `q` and relying on ranking to sort
+// the right one to the top. This was a real bug found and fixed the same
+// day this file was written: with only `fq=huisnummer:` and the postcode
+// left in free-text `q`, a nonexistent combination (a real postcode with
+// a house number that isn't actually on that postcode) didn't resolve to
+// "not found" — it silently matched some *entirely different, unrelated*
+// address elsewhere in the Netherlands that happened to share that house
+// number and score tolerably on loose text similarity (reproduced live:
+// postcode 5045PZ + huisnummer 12, which doesn't exist, returned an
+// address in Lelystad, ~130km away). Hard-filtering both fields means a
+// nonexistent combination correctly returns zero results instead of a
+// wrong real address in a different city. `q=*` is Solr's match-all
+// wildcard — no free-text relevance ranking is needed once both fields
+// are exact filters.
 //
 // Resolves null (never throws) on no results, a non-numeric huisnummer,
 // or any error, so callers don't need a separate error-handling path.
@@ -41,8 +52,9 @@ export async function geocodeAddress(postcode: string, huisnummer: string): Prom
   if (!normalizedPostcode || !numericHuisnummer) return null;
 
   const url = new URL(PDOK_FREE_URL);
-  url.searchParams.set("q", `${normalizedPostcode} ${huisnummer}`);
+  url.searchParams.set("q", "*");
   url.searchParams.append("fq", "type:adres");
+  url.searchParams.append("fq", `postcode:${normalizedPostcode}`);
   url.searchParams.append("fq", `huisnummer:${numericHuisnummer}`);
   url.searchParams.set("rows", "1");
 
