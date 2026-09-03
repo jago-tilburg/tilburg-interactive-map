@@ -2,15 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { Switch } from "radix-ui";
+import { Timestamp } from "firebase/firestore";
 import { FormRow } from "@/components/common/FormRow";
 import { PhotoUploadField, type PendingPhoto } from "@/components/common/PhotoUploadField";
+import { BusinessEventDetailModal } from "./BusinessEventDetailModal";
+import { EventMarkerPreview } from "@/components/map/EventMarkerPreview";
 import { createBusinessEvent, updateBusinessEvent } from "@/lib/firebase/businessEvents";
 import { createCheckoutSession } from "@/lib/firebase/functions";
 import { resolvePhotoUpdate } from "@/lib/photos/resolvePhotoUpdate";
 import { geocodeAddress } from "@/lib/maps/geocodeAddress";
 import { trackEvent } from "@/lib/analytics/trackEvent";
 import { useToast } from "@/hooks/useToast";
-import { EVENT_CATEGORIES, dateRangeArray, isMultiDay, activeUmbrellaEvents } from "@/lib/events/eventHelpers";
+import {
+  EVENT_CATEGORIES,
+  dateRangeArray,
+  isMultiDay,
+  activeUmbrellaEvents,
+  isEventHappeningNow,
+} from "@/lib/events/eventHelpers";
 import type { BusinessEvent, DailyTime, EventCategory, EventPriceTier, UmbrellaEvent } from "@/types/events";
 import styles from "./BusinessEventForm.module.css";
 
@@ -114,6 +123,7 @@ export function BusinessEventForm({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [pendingPhoto, setPendingPhoto] = useState<PendingPhoto | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   if (active && formIdentity !== renderedIdentity) {
     setRenderedIdentity(formIdentity);
@@ -145,6 +155,57 @@ export function BusinessEventForm({
   const visibleDates = form.startDate ? dateRangeArray(form.startDate, form.endDate || form.startDate) : [];
   const today = new Date().toISOString().slice(0, 10);
   const eligibleUmbrellas = activeUmbrellaEvents(umbrellaEvents, today);
+
+  // Everything the preview button needs, derived from the live form state —
+  // deliberately allowed to reflect an incomplete draft (no date yet, empty
+  // title) so "preview" works at any point while filling the form, not only
+  // once every required field is valid.
+  const selectedUmbrella = form.umbrellaEventId ? umbrellaEvents.find((u) => u.id === form.umbrellaEventId) : undefined;
+  const previewEndDate = form.endDate || form.startDate;
+  const previewDailyTimes = usePerDay ? Object.fromEntries(visibleDates.map((date) => [date, dailyTimeFor(date)])) : null;
+  const previewHappeningNow = form.startDate
+    ? isEventHappeningNow(
+        { startDate: form.startDate, endDate: previewEndDate, startTime: form.startTime, endTime: form.endTime, dailyTimes: previewDailyTimes },
+        new Date(),
+      )
+    : false;
+  // A not-yet-uploaded pick (pendingPhoto.blob) takes priority over an
+  // already-saved photoUrl for the marker preview, same precedence as the
+  // detail-hero preview below.
+  const previewPhotoBlob = pendingPhoto?.action === "replace" ? pendingPhoto.blob : undefined;
+  const previewPhotoUrl = pendingPhoto ? undefined : form.photoUrl || undefined;
+
+  // Throwaway BusinessEvent-shaped object for BusinessEventDetailModal's
+  // previewMode — never touches Firestore, id/ownerId/createdAt are
+  // placeholders only the modal's own props actually need to exist.
+  function buildPreviewEvent(): BusinessEvent {
+    const photoUrl =
+      pendingPhoto?.action === "remove" ? undefined : pendingPhoto?.action === "replace" ? pendingPhoto.previewUrl : form.photoUrl || undefined;
+    return {
+      id: "preview",
+      title: form.title,
+      category: form.category,
+      description: form.description,
+      startDate: form.startDate,
+      endDate: previewEndDate,
+      startTime: form.startTime,
+      endTime: form.endTime,
+      address: form.address,
+      lat: form.lat ?? 0,
+      lng: form.lng ?? 0,
+      ownerId,
+      city: "Tilburg",
+      status: "pending",
+      paid: false,
+      createdAt: Timestamp.now(),
+      dailyTimes: previewDailyTimes,
+      umbrellaEventId: form.umbrellaEventId || null,
+      photoUrl,
+      websiteUrl: form.websiteUrl,
+      prices: form.prices.filter((p) => p.label.trim()),
+      interest: 0,
+    };
+  }
 
   function updateDateRange(patch: Partial<{ startDate: string; endDate: string }>) {
     setForm((f) => {
@@ -335,6 +396,9 @@ export function BusinessEventForm({
 
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
+      <button type="button" className={styles.previewButton} onClick={() => setPreviewOpen(true)}>
+        👁️ Voorbeeld bekijken
+      </button>
       {!editingEvent && !skipPaymentRedirect && (
         // Shown for both a brand-new event and a duplicate — both create a
         // new paid listing. Hardcoded client-side: there's no cheap way to
@@ -592,6 +656,25 @@ export function BusinessEventForm({
           Annuleren
         </button>
       </div>
+
+      {previewOpen && (
+        <BusinessEventDetailModal
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          event={buildPreviewEvent()}
+          umbrellaEvents={umbrellaEvents}
+          previewMode
+          markerPreview={
+            <EventMarkerPreview
+              category={form.category}
+              umbrellaColor={selectedUmbrella?.color}
+              happeningNow={previewHappeningNow}
+              photoBlob={previewPhotoBlob}
+              photoUrl={previewPhotoUrl}
+            />
+          }
+        />
+      )}
     </form>
   );
 }

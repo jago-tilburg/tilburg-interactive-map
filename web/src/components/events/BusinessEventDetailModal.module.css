@@ -27,6 +27,12 @@
   background: #f0ebe4;
 }
 
+.markerPreviewSlot {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+}
+
 .closeButton {
   position: absolute;
   top: 1rem;
@@ -293,6 +299,10 @@
   }
 
   .closeButton {
+    top: calc(1rem + env(safe-area-inset-top, 0px));
+  }
+
+  .markerPreviewSlot {
     top: calc(1rem + env(safe-area-inset-top, 0px));
   }
 

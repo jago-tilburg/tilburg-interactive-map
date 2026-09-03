@@ -27,6 +27,14 @@ interface BusinessEventDetailModalProps {
   event: BusinessEvent | null;
   umbrellaEvents: UmbrellaEvent[];
   onOpenUmbrella?: (umbrellaId: string) => void;
+  // True when rendering a live, unsaved draft from BusinessEventForm's
+  // preview button — the event has no real Firestore doc yet, so every
+  // write path (analytics, interest/save persistence, click/share counters,
+  // reporting) is skipped instead of hitting Firestore with a fake id.
+  previewMode?: boolean;
+  // Small corner overlay in the hero photo showing how this event's marker
+  // will look on the map — only ever passed from the preview button.
+  markerPreview?: React.ReactNode;
 }
 
 const DESCRIPTION_TRUNCATE_LENGTH = 220;
@@ -45,6 +53,8 @@ export function BusinessEventDetailModal({
   event,
   umbrellaEvents,
   onOpenUmbrella,
+  previewMode = false,
+  markerPreview,
 }: BusinessEventDetailModalProps) {
   const { currentVisitor } = useAuth();
   const { showToast } = useToast();
@@ -67,10 +77,10 @@ export function BusinessEventDetailModal({
   }
 
   useEffect(() => {
-    if (!open || !event) return;
+    if (!open || !event || previewMode) return;
     trackEvent("event_detail_open");
     trackEventView(event.id).catch(() => {});
-  }, [open, event]);
+  }, [open, event, previewMode]);
 
   if (!event) return null;
   const cat = categoryOf(event.category);
@@ -89,8 +99,9 @@ export function BusinessEventDetailModal({
   });
 
   async function handleInterest() {
-    trackEvent("event_interest_click");
     setInterest((n) => n + 1);
+    if (previewMode) return;
+    trackEvent("event_interest_click");
     try {
       await incrementEventInterest(event!.id);
     } catch {
@@ -99,6 +110,10 @@ export function BusinessEventDetailModal({
   }
 
   async function handleToggleSave() {
+    if (previewMode) {
+      setSaved((s) => !s);
+      return;
+    }
     if (!currentVisitor) {
       setSaveHint("Log in om evenementen te bewaren.");
       return;
@@ -115,11 +130,14 @@ export function BusinessEventDetailModal({
 
   function handleWebsiteClick() {
     if (!isSafeHttpUrl(event!.websiteUrl)) return;
-    incrementEventClicks(event!.id).catch(() => {});
+    if (!previewMode) incrementEventClicks(event!.id).catch(() => {});
     window.open(event!.websiteUrl, "_blank", "noopener,noreferrer");
   }
 
   async function handleShare() {
+    // Sharing a not-yet-saved draft's URL doesn't make sense — there's no
+    // real event page behind it yet.
+    if (previewMode) return;
     const usedNativeShare = typeof navigator.share === "function";
     const success = await shareCurrentUrl(event!.title);
     if (!success) return;
@@ -155,6 +173,7 @@ export function BusinessEventDetailModal({
           ) : (
             <div className={styles.photoPlaceholder}>{cat.emoji}</div>
           )}
+          {markerPreview && <div className={styles.markerPreviewSlot}>{markerPreview}</div>}
           <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Sluiten">
             ×
           </button>
@@ -245,19 +264,23 @@ export function BusinessEventDetailModal({
             🔗
           </button>
         </div>
-        <div className={styles.secondaryBar}>
-          <button type="button" className={styles.reportButton} onClick={() => setReportModalOpen(true)}>
-            🚩 Melden
-          </button>
-        </div>
+        {!previewMode && (
+          <div className={styles.secondaryBar}>
+            <button type="button" className={styles.reportButton} onClick={() => setReportModalOpen(true)}>
+              🚩 Melden
+            </button>
+          </div>
+        )}
         {saveHint && <p className={styles.saveHint}>{saveHint}</p>}
       </Modal>
-      <ReportModal
-        open={reportModalOpen}
-        onClose={() => setReportModalOpen(false)}
-        contentType="businessEvent"
-        contentId={event.id}
-      />
+      {!previewMode && (
+        <ReportModal
+          open={reportModalOpen}
+          onClose={() => setReportModalOpen(false)}
+          contentType="businessEvent"
+          contentId={event.id}
+        />
+      )}
     </>
   );
 }

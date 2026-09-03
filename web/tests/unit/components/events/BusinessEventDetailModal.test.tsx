@@ -477,4 +477,89 @@ describe("BusinessEventDetailModal", () => {
       expect(showToast).not.toHaveBeenCalled();
     });
   });
+
+  // BusinessEventForm's preview button renders a live, unsaved draft through
+  // this same component (event.id is a placeholder, no real Firestore doc
+  // exists) — previewMode must guarantee every write path stays a no-op
+  // rather than hitting Firestore with that fake id.
+  describe("previewMode", () => {
+    it("does not track a view or call trackEventView when opened", () => {
+      render(<BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent()} umbrellaEvents={[]} previewMode />);
+      expect(trackEventView).not.toHaveBeenCalled();
+    });
+
+    it("increments the interest counter locally without writing to Firestore", async () => {
+      const user = userEvent.setup();
+      render(
+        <BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent({ interest: 0 })} umbrellaEvents={[]} previewMode />,
+      );
+      await user.click(screen.getByText("👍 0"));
+      expect(screen.getByText("👍 1")).toBeInTheDocument();
+      expect(incrementEventInterest).not.toHaveBeenCalled();
+    });
+
+    it("toggles saved locally without requiring a logged-in visitor or writing to Firestore", async () => {
+      const user = userEvent.setup();
+      render(<BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent()} umbrellaEvents={[]} previewMode />);
+
+      await user.click(screen.getByText("🔖 Bewaar"));
+      expect(screen.getByText("🔖 Bewaard")).toBeInTheDocument();
+      expect(setEventSaved).not.toHaveBeenCalled();
+      expect(screen.queryByText("Log in om evenementen te bewaren.")).not.toBeInTheDocument();
+    });
+
+    it("still opens the website link but does not bump the click counter", async () => {
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+      const user = userEvent.setup();
+      render(
+        <BusinessEventDetailModal
+          open
+          onClose={vi.fn()}
+          event={makeEvent({ websiteUrl: "https://example.com" })}
+          umbrellaEvents={[]}
+          previewMode
+        />,
+      );
+
+      await user.click(screen.getByText("🎟️ Ik wil hierheen!"));
+
+      expect(openSpy).toHaveBeenCalledWith("https://example.com", "_blank", "noopener,noreferrer");
+      expect(incrementEventClicks).not.toHaveBeenCalled();
+      openSpy.mockRestore();
+    });
+
+    it("does not share or bump the share counter — there's no real event URL yet", async () => {
+      const user = userEvent.setup();
+      render(<BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent()} umbrellaEvents={[]} previewMode />);
+
+      await user.click(screen.getByLabelText("Delen"));
+
+      expect(shareCurrentUrl).not.toHaveBeenCalled();
+      expect(incrementEventShares).not.toHaveBeenCalled();
+    });
+
+    it("hides the report button entirely — reporting your own draft doesn't make sense", () => {
+      render(<BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent()} umbrellaEvents={[]} previewMode />);
+      expect(screen.queryByText("🚩 Melden")).not.toBeInTheDocument();
+    });
+
+    it("renders a passed markerPreview inside the hero", () => {
+      render(
+        <BusinessEventDetailModal
+          open
+          onClose={vi.fn()}
+          event={makeEvent()}
+          umbrellaEvents={[]}
+          previewMode
+          markerPreview={<div data-testid="marker-preview-stub">marker</div>}
+        />,
+      );
+      expect(screen.getByTestId("marker-preview-stub")).toBeInTheDocument();
+    });
+
+    it("does not render a markerPreview slot when none is passed", () => {
+      render(<BusinessEventDetailModal open onClose={vi.fn()} event={makeEvent()} umbrellaEvents={[]} previewMode />);
+      expect(screen.queryByTestId("marker-preview-stub")).not.toBeInTheDocument();
+    });
+  });
 });

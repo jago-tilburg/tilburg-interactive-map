@@ -40,6 +40,22 @@ vi.mock("@/components/common/PhotoUploadField", () => ({
   PhotoUploadField: (_props: { onPendingPhotoChange: (p: PendingPhoto | null) => void }) => <div />,
 }));
 
+vi.mock("@/components/events/BusinessEventDetailModal", () => ({
+  BusinessEventDetailModal: (props: { open: boolean; onClose: () => void; event: { title: string }; previewMode?: boolean }) =>
+    props.open ? (
+      <div data-testid="preview-modal">
+        title={props.event.title} previewMode={String(props.previewMode)}
+        <button type="button" onClick={props.onClose}>
+          stub-close
+        </button>
+      </div>
+    ) : null,
+}));
+
+vi.mock("@/components/map/EventMarkerPreview", () => ({
+  EventMarkerPreview: () => <div data-testid="marker-preview" />,
+}));
+
 import { BusinessEventForm } from "@/components/events/BusinessEventForm";
 
 function makeEvent(overrides: Partial<BusinessEvent> = {}): BusinessEvent {
@@ -128,6 +144,41 @@ describe("BusinessEventForm — identity resync while mounted", () => {
       <BusinessEventForm active={false} ownerId="u1" editingEvent={eventB} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />,
     );
     expect(screen.getByDisplayValue("Event A")).toBeInTheDocument();
+  });
+});
+
+describe("BusinessEventForm — preview button", () => {
+  it("is not open by default", () => {
+    render(
+      <BusinessEventForm active ownerId="u1" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />,
+    );
+    expect(screen.queryByTestId("preview-modal")).not.toBeInTheDocument();
+  });
+
+  it("opens a live preview reflecting the title as currently typed, even before the form is otherwise valid", async () => {
+    const user = userEvent.setup();
+    render(
+      <BusinessEventForm active ownerId="u1" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />,
+    );
+    await user.type(screen.getByLabelText("Titel"), "Draft Title");
+
+    await user.click(screen.getByText("👁️ Voorbeeld bekijken"));
+
+    const preview = screen.getByTestId("preview-modal");
+    expect(preview).toHaveTextContent("title=Draft Title");
+    expect(preview).toHaveTextContent("previewMode=true");
+  });
+
+  it("closes when the modal reports onClose", async () => {
+    const user = userEvent.setup();
+    render(
+      <BusinessEventForm active ownerId="u1" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />,
+    );
+    await user.click(screen.getByText("👁️ Voorbeeld bekijken"));
+    expect(screen.getByTestId("preview-modal")).toBeInTheDocument();
+
+    await user.click(screen.getByText("stub-close"));
+    expect(screen.queryByTestId("preview-modal")).not.toBeInTheDocument();
   });
 });
 
