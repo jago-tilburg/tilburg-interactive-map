@@ -19,21 +19,21 @@ vi.mock("@/lib/firebase/app", () => ({
   getFirebaseApp: vi.fn(() => ({ name: "mock-app" })),
 }));
 
-import { getPhotoStorage, uploadPhoto, deleteOwnPhoto } from "@/lib/firebase/storage";
+import { getPhotoStorage, uploadPhoto, deleteOwnPhoto, UNAUTHORIZED_RETRY_DELAYS_MS } from "@/lib/firebase/storage";
 
-function makeFakeTask(outcome: "success" | "error") {
+function makeFakeTask(outcome: "success" | "error", error: unknown = new Error("upload failed")) {
   return {
     snapshot: { ref: "fake-object-ref" },
     on: (
       _event: string,
       onProgress: (s: { bytesTransferred: number; totalBytes: number }) => void,
-      onError: (err: Error) => void,
+      onError: (err: unknown) => void,
       onComplete: () => void,
     ) => {
       queueMicrotask(() => {
         onProgress({ bytesTransferred: 50, totalBytes: 100 });
         if (outcome === "success") onComplete();
-        else onError(new Error("upload failed"));
+        else onError(error);
       });
     },
   };
@@ -88,6 +88,51 @@ describe("uploadPhoto", () => {
 
     await expect(uploadPhoto("umbrellaEvents", "u1", new Blob(["x"]))).rejects.toThrow("upload failed");
     expect(getDownloadURL).not.toHaveBeenCalled();
+  });
+
+  it("retries a transient storage/unauthorized (the parent doc not yet visible to Storage Rules) and succeeds", async () => {
+    vi.useFakeTimers();
+    try {
+      uploadBytesResumable
+        .mockReturnValueOnce(makeFakeTask("error", { code: "storage/unauthorized" }))
+        .mockReturnValueOnce(makeFakeTask("success"));
+      getDownloadURL.mockResolvedValue("https://storage.example/businessEvents/evt1/fixed-uuid.webp");
+
+      const promise = uploadPhoto("businessEvents", "evt1", new Blob(["x"]));
+      await vi.advanceTimersByTimeAsync(UNAUTHORIZED_RETRY_DELAYS_MS[0]);
+
+      await expect(promise).resolves.toBe("https://storage.example/businessEvents/evt1/fixed-uuid.webp");
+      expect(uploadBytesResumable).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives up after exhausting all retries and rejects with the final storage/unauthorized error", async () => {
+    vi.useFakeTimers();
+    try {
+      uploadBytesResumable.mockImplementation(() => makeFakeTask("error", { code: "storage/unauthorized" }));
+
+      const promise = uploadPhoto("businessEvents", "evt1", new Blob(["x"]));
+      const assertion = expect(promise).rejects.toEqual({ code: "storage/unauthorized" });
+      for (const delay of UNAUTHORIZED_RETRY_DELAYS_MS) {
+        await vi.advanceTimersByTimeAsync(delay);
+      }
+      await assertion;
+
+      expect(uploadBytesResumable).toHaveBeenCalledTimes(UNAUTHORIZED_RETRY_DELAYS_MS.length + 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not retry a non-unauthorized error even if it has an unrelated .code", async () => {
+    uploadBytesResumable.mockReturnValue(makeFakeTask("error", { code: "storage/quota-exceeded" }));
+
+    await expect(uploadPhoto("businessEvents", "evt1", new Blob(["x"]))).rejects.toEqual({
+      code: "storage/quota-exceeded",
+    });
+    expect(uploadBytesResumable).toHaveBeenCalledTimes(1);
   });
 });
 
