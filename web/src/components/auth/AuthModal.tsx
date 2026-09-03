@@ -117,6 +117,14 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
       const visitor =
         (await getVisitorProfile(cred.user.uid)) ?? (await createFreshVisitorProfile(cred.user.uid, email));
       trackEvent("login_success", { method: "password" });
+      // Warm currentBusiness in context before the post-login chooser
+      // renders — without this (a real bug found and fixed 2026-09-03),
+      // an account that already has a business profile could briefly see
+      // PostAuthFlow's "Event-profiel aanmaken" (create) instead of
+      // "Event-profiel" (open existing), since the ambient useAuth
+      // listener hadn't necessarily resolved currentBusiness yet. Mirrors
+      // handleGoogle's existing call below.
+      await refreshCurrentBusiness(cred.user.uid);
       handleClose();
       onAuthenticated(visitor);
     } catch (err) {

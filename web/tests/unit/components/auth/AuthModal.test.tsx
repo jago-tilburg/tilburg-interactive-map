@@ -83,6 +83,11 @@ describe("AuthModal — login", () => {
     expect(signInWithPassword).toHaveBeenCalledWith("user@example.com", "pw123456");
     expect(onClose).toHaveBeenCalled();
     expect(createVisitorProfile).not.toHaveBeenCalled();
+    // A real bug, found and fixed 2026-09-03: without this, an account that
+    // already has a business profile could briefly see PostAuthFlow's
+    // "create" chooser instead of "open existing", since currentBusiness
+    // hadn't necessarily resolved yet via the ambient useAuth listener.
+    expect(refreshCurrentBusiness).toHaveBeenCalledWith("u1");
   });
 
   it("creates a fresh visitor profile (suppressed) when a login somehow has none yet", async () => {
