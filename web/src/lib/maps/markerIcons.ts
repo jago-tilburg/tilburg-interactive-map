@@ -146,10 +146,19 @@ export interface EventCardIconOptions {
   // "happening now" treatment for events currently in progress (see
   // isEventHappeningNow in eventHelpers.ts).
   happeningNow?: boolean;
+  // Overrides the random uid normally used for this icon's SVG element ids
+  // (clip paths / gradients). ShopMap.tsx builds icons purely client-side
+  // (inside a Maps callback), where a fresh random id every render is fine
+  // and even desirable. EventMarkerPreview.tsx renders during SSR though —
+  // a random uid there means the server-rendered `src` and the client's
+  // first hydration pass produce two different strings for the exact same
+  // props, which React reports as a hydration mismatch. Passing a stable
+  // id (e.g. from useId()) avoids that without changing ShopMap's behavior.
+  idSeed?: string;
 }
 
 export function buildEventCardIconDataUrl(options: EventCardIconOptions): EventCardIconMeta {
-  const { photoUrl, categoryEmoji, borderColors, happeningNow = false } = options;
+  const { photoUrl, categoryEmoji, borderColors, happeningNow = false, idSeed } = options;
   const t = MARKER_TUNING;
   const [gradStart, gradEnd] = borderColors;
   // Position + sharpness of the color transition: at spread=100 the color
@@ -178,7 +187,7 @@ export function buildEventCardIconDataUrl(options: EventCardIconOptions): EventC
   const contentW = cardW + glowPad * 2;
   const contentH = cardH + glowPad * 2;
 
-  const uid = Math.random().toString(36).slice(2, 10);
+  const uid = idSeed ?? Math.random().toString(36).slice(2, 10);
   const clipId = `evclip-${uid}`;
   const outlineClipId = `evoutline-${uid}`;
   const gradId = `evgrad-${uid}`;

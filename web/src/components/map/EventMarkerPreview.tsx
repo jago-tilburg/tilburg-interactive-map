@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   buildEventCardIconDataUrl,
   computeMarkerSize,
@@ -36,6 +36,13 @@ const PREVIEW_ZOOM = 15;
 // just "what does the detail page look like".
 export function EventMarkerPreview({ category, umbrellaColor, happeningNow = false, photoBlob, photoUrl }: EventMarkerPreviewProps) {
   const [resolvedPhoto, setResolvedPhoto] = useState<string | undefined>(undefined);
+  // React's useId() (not Math.random()) — stable across the server render
+  // and the client's hydration pass, unlike buildEventCardIconDataUrl's own
+  // default random uid. Stripped of colons: useId() returns something like
+  // ":r0:", and a colon inside an SVG id/url(#...) reference is asking for
+  // trouble in a CSS context. See buildEventCardIconDataUrl's idSeed doc
+  // comment for why this only matters here, not in ShopMap.tsx.
+  const idSeed = useId().replace(/:/g, "");
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +79,7 @@ export function EventMarkerPreview({ category, umbrellaColor, happeningNow = fal
     categoryEmoji: categoryOf(category).emoji,
     borderColors,
     happeningNow,
+    idSeed,
   });
   const { w, h } = computeMarkerSize(PREVIEW_ZOOM);
   const { scaledSize } = computeIconScaledSize(iconMeta, w, h);

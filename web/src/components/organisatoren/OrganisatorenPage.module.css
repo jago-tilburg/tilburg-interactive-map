@@ -1,0 +1,305 @@
+/* Same page shell as BusinessShell/LegalPage (.page, max-width 960px
+   content), same button/card/badge treatment as RequestModal/MapFilterPanel/
+   ShopDetailModal — this page borrows the app's own chrome rather than
+   inventing a separate marketing identity. */
+.page {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #faf8f5;
+}
+
+.content {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 3rem;
+}
+
+@media (max-width: 640px) {
+  .content {
+    padding: 1rem 1rem 2.5rem;
+  }
+}
+
+.content h1,
+.content h2 {
+  font-family: var(--font-heading, inherit);
+  font-weight: 600;
+  text-wrap: balance;
+  color: #1c1917;
+  margin: 0;
+}
+
+.eyebrow {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #78716c;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 0.4rem;
+}
+
+/* orange-dark, not the flatter #ff6b35 used for fills/badges below — plain
+   orange only clears ~2.7:1 against the cream page background, short of the
+   3:1 floor for large text; orange-dark clears it. */
+.accent {
+  color: #e55a28;
+}
+
+/* ---------- buttons (exact copy of RequestModal.module.css) ---------- */
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.btnPrimary,
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0.875rem 1.5rem;
+  border-radius: 10px;
+  border: none;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnPrimary {
+  background: #ff6b35;
+  color: white;
+}
+
+.btnPrimary:hover {
+  background: #e55a28;
+  transform: scale(1.02);
+}
+
+.btnGhost {
+  background: white;
+  color: #1c1917;
+  border: 1px solid #d2d2d7;
+}
+
+.btnGhost:hover {
+  background: #f5f0eb;
+}
+
+/* ---------- hero ---------- */
+.hero {
+  padding: 2rem 0 2.5rem;
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 2.5rem;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 1.5rem 0 1.25rem;
+  }
+}
+
+.hero h1 {
+  font-size: clamp(1.9rem, 4vw, 2.65rem);
+  line-height: 1.12;
+  margin: 0.4rem 0 1rem;
+}
+
+.lede {
+  color: #78716c;
+  font-size: 1.0625rem;
+  max-width: 46ch;
+  margin: 0 0 1.5rem;
+}
+
+.markerStage {
+  display: flex;
+  justify-content: center;
+  /* EventMarkerPreview renders at its real in-app map size (small, meant
+     for a corner overlay) — scaled up here since this is the marker's
+     moment to be the hero visual, not a corner detail. */
+  transform: scale(1.7);
+}
+
+@media (max-width: 768px) {
+  .markerStage {
+    transform: scale(1.4);
+    margin: 1rem 0;
+  }
+}
+
+/* ---------- sections ---------- */
+.section {
+  padding-top: 2.25rem;
+  margin-top: 2.25rem;
+  border-top: 1px solid #eee6da;
+}
+
+.section h2 {
+  font-size: clamp(1.35rem, 2.6vw, 1.6rem);
+  margin: 0.4rem 0 0.5rem;
+}
+
+.intro {
+  color: #78716c;
+  max-width: 58ch;
+  margin: 0 0 1.5rem;
+}
+
+/* value cards — white surface + soft shadow, no border, matching
+   MapFilterPanel's .panel treatment */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 1.25rem 1.375rem;
+}
+
+.card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 0.4rem;
+  color: #1c1917;
+}
+
+.card p {
+  color: #78716c;
+  font-size: 0.9375rem;
+  margin: 0;
+}
+
+/* steps — solid badge circles, matching .ratingBadge's solid-fill style */
+.steps {
+  display: flex;
+  flex-direction: column;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 1.1rem;
+  padding: 1.1rem 0;
+  border-top: 1px solid #eee6da;
+}
+
+.step:first-child {
+  border-top: none;
+}
+
+.stepNum {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #16a34a;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.step h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+}
+
+.step p {
+  color: #78716c;
+  font-size: 0.9375rem;
+  max-width: 56ch;
+  margin: 0;
+}
+
+/* practical fact card */
+.facts {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem 1.5rem 1.75rem;
+}
+
+.priceBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  background: #ff6b35;
+  color: white;
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  margin-bottom: 1.1rem;
+}
+
+.facts ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+}
+
+.facts li {
+  font-size: 0.9375rem;
+  color: #78716c;
+  padding-left: 1.35rem;
+  position: relative;
+}
+
+.facts li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.5rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #22c55e;
+}
+
+.facts li strong {
+  color: #1c1917;
+  font-weight: 700;
+}
+
+/* ---------- closing ---------- */
+.closing {
+  text-align: center;
+  padding: 2.75rem 0 1rem;
+}
+
+.closing h2 {
+  font-size: clamp(1.5rem, 3.2vw, 1.9rem);
+  margin-bottom: 0.6rem;
+}
+
+.closing p {
+  color: #78716c;
+  max-width: 44ch;
+  margin: 0 auto 1.5rem;
+}
+
+.closing .ctaRow {
+  justify-content: center;
+}
