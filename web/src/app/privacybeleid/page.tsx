@@ -1,4 +1,4 @@
-import { LegalPage, Placeholder } from "@/components/legal/LegalPage";
+import { LegalPage } from "@/components/legal/LegalPage";
 
 export const metadata = {
   title: "Privacybeleid — 2happies",
@@ -113,8 +113,13 @@ export default function PrivacybeleidPage() {
       <ul>
         <li>
           <strong>Firebase/Google Cloud (Europa, region europe-west1/west4)</strong> — hosting,
-          authenticatie, database, foto-opslag. Google is subverwerker; een
-          verwerkersovereenkomst met Google Cloud is <Placeholder>wel/niet geaccepteerd — controleren</Placeholder>.
+          authenticatie, database, foto-opslag. Google is subverwerker; de Cloud Data Processing
+          Addendum van Google is automatisch onderdeel van onze overeenkomst met Google Cloud
+          (standaard voor self-service accounts, geen aparte acceptatiestap nodig — zie{" "}
+          <a href="https://cloud.google.com/terms/data-processing-terms" target="_blank" rel="noopener noreferrer">
+            cloud.google.com/terms/data-processing-terms
+          </a>
+          ).
         </li>
         <li>
           <strong>Google Maps Platform</strong> — voor het tonen van de kaart. Zie Google&apos;s
