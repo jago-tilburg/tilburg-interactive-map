@@ -19,6 +19,9 @@ interface PhotoUploadFieldProps {
   pendingPhoto: PendingPhoto | null;
   onPendingPhotoChange: (photo: PendingPhoto | null) => void;
   disabled?: boolean;
+  // Suppresses the visual label (a surrounding FormRow may already show one)
+  // while keeping `label` as the file input's accessible name.
+  showLabel?: boolean;
 }
 
 // Shared upload UI for shops/businessEvents/umbrellaEvents (single photo
@@ -36,6 +39,7 @@ export function PhotoUploadField({
   pendingPhoto,
   onPendingPhotoChange,
   disabled = false,
+  showLabel = true,
 }: PhotoUploadFieldProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -125,7 +129,7 @@ export function PhotoUploadField({
   if (cropSource) {
     return (
       <div className={styles.field}>
-        <span className={styles.label}>{label}</span>
+        {showLabel && <span className={styles.label}>{label}</span>}
         <div className={styles.cropStage} style={{ aspectRatio }}>
           <Cropper
             image={cropSource}

@@ -333,8 +333,6 @@ export function BusinessEventForm({
     }
   }
 
-  const photoValue = pendingPhoto?.action === "remove" ? "Geen" : pendingPhoto?.action === "replace" || form.photoUrl ? "Toegevoegd" : "Geen";
-
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
       {!editingEvent && !skipPaymentRedirect && (
@@ -484,7 +482,7 @@ export function BusinessEventForm({
         </FormRow>
       )}
 
-      <FormRow label="Locatie" value={form.address || "Niet opgegeven"}>
+      <FormRow label="Locatie" expandable={false} stacked>
         <div className={styles.row}>
           <div>
             <label htmlFor="be-postcode">Postcode</label>
@@ -509,7 +507,7 @@ export function BusinessEventForm({
             />
           </div>
         </div>
-        <button type="button" onClick={handleGeocodeAddress}>
+        <button type="button" className={styles.geocodeButton} onClick={handleGeocodeAddress}>
           Zoek adres
         </button>
         <input
@@ -522,9 +520,10 @@ export function BusinessEventForm({
         />
       </FormRow>
 
-      <FormRow label="Foto" value={photoValue}>
+      <FormRow label="Foto" expandable={false} stacked>
         <PhotoUploadField
           label="Foto"
+          showLabel={false}
           aspectRatio={3 / 4}
           currentUrl={form.photoUrl}
           pendingPhoto={pendingPhoto}
@@ -533,7 +532,7 @@ export function BusinessEventForm({
         />
       </FormRow>
 
-      <FormRow label="Website" value={form.websiteUrl || "Niet opgegeven"}>
+      <FormRow label="Website" expandable={false}>
         <input
           type="url"
           placeholder="Website-URL (optioneel)"

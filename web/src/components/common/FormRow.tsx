@@ -8,6 +8,11 @@ interface FormRowProps {
   label: string;
   value?: React.ReactNode;
   expandable?: boolean;
+  // Only meaningful when expandable={false}. Stacks the label above
+  // full-width content instead of the compact label-left/value-right row —
+  // for fields whose content is too tall/multi-part (several inputs, a
+  // photo picker) to sit next to a label on one line.
+  stacked?: boolean;
   children: React.ReactNode;
 }
 
@@ -15,14 +20,22 @@ interface FormRowProps {
 // BusinessEventForm's row-list layout. Expandable rows (the default) reveal
 // their real input behind a tap via Radix Collapsible, owning their own
 // open state internally — same self-managed-disclosure convention as
-// DatePickerPopover. expandable={false} rows render children inline in the
-// same row shell instead, no chevron — for fields that already have their
-// own built-in dropdown (a native <select>) and don't need a second
-// expand/collapse mechanism on top of it.
-export function FormRow({ label, value, expandable = true, children }: FormRowProps) {
+// DatePickerPopover. expandable={false} rows render children inline instead,
+// no chevron, no tap needed — for fields that don't benefit from being
+// hidden behind a disclosure (a native <select> that's its own compact
+// "dropdown" already, or a field that should just always be visible/editable).
+export function FormRow({ label, value, expandable = true, stacked = false, children }: FormRowProps) {
   const [open, setOpen] = useState(false);
 
   if (!expandable) {
+    if (stacked) {
+      return (
+        <div className={styles.stackedRow}>
+          <span className={styles.label}>{label}</span>
+          <div className={styles.stackedContent}>{children}</div>
+        </div>
+      );
+    }
     return (
       <div className={styles.row}>
         <span className={styles.label}>{label}</span>

@@ -78,6 +78,44 @@ button.row:hover {
   color: var(--color-text, #1c1917);
 }
 
+/* A plain <input> dropped into a compact row (e.g. Website) — borderless so
+   it doesn't double up with .row's own card border, left-aligned unlike the
+   select above since values here (URLs) read better left-to-right. */
+.staticValue input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font: inherit;
+  /* 16px minimum — anything smaller makes iOS Safari auto-zoom on focus. */
+  font-size: 1rem;
+  color: var(--color-text, #1c1917);
+}
+
+.staticValue input:focus {
+  outline: none;
+}
+
+.staticValue input::placeholder {
+  color: var(--color-text-muted, #a8a29e);
+}
+
+.stackedRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e7e0d6);
+  border-radius: var(--radius-button, 10px);
+  padding: 0.875rem 1rem;
+}
+
+.stackedContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .content {
   padding: 0.875rem 1rem 1rem;
   border: 1px solid var(--color-border, #e7e0d6);

@@ -61,17 +61,11 @@
 }
 
 /* Beschrijving — required and substantial, unlike the reference's optional
-   "Notes", so it stays always-visible rather than collapsed behind a tap. */
+   "Notes", so it stays always-visible rather than collapsed behind a tap;
+   otherwise styled like every other field (white background, same border/
+   focus treatment via the shared .form textarea rule above). */
 .descriptionInput.descriptionInput {
-  border: none;
-  background: var(--color-surface-alt, #f0ebe4);
   min-height: 70px;
-}
-
-.descriptionInput.descriptionInput:focus {
-  box-shadow: none;
-  background: var(--color-surface, #fff);
-  border: 1px solid #22c55e;
 }
 
 .dateTimeBox {
@@ -205,6 +199,24 @@
 .row label {
   font-size: 0.8rem;
   color: var(--color-text-secondary, #57534e);
+}
+
+.geocodeButton {
+  align-self: flex-start;
+  padding: 0.625rem 1rem;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.875rem;
+  background: var(--color-green, #22c55e);
+  color: white;
+  transition: filter 0.2s;
+}
+
+.geocodeButton:hover {
+  filter: brightness(0.95);
 }
 
 .dailyTimes {
