@@ -340,12 +340,13 @@ export function BusinessEventForm({
       {!editingEvent && !skipPaymentRedirect && (
         // Shown for both a brand-new event and a duplicate — both create a
         // new paid listing. Hardcoded client-side: there's no cheap way to
-        // share functions/index.js's EVENT_LISTING_PRICE_CENTS across the
-        // Cloud-Functions/web boundary for one stable number — keep the two
-        // in sync manually if the price ever changes.
+        // share functions/index.js's EVENT_LISTING_PRICE_CENTS/BTW_RATE_PERCENTAGE
+        // across the Cloud-Functions/web boundary for two stable numbers —
+        // keep these in sync manually if the price or BTW rate ever changes.
         <p className={styles.priceNotice}>
-          Het plaatsen van een evenement kost eenmalig €10. Na op &quot;Opslaan&quot; te klikken ga je direct
-          naar de betaalpagina — je evenement gaat live zodra de betaling is bevestigd.
+          Het plaatsen van een evenement kost eenmalig €10 (excl. BTW), €12,10 incl. 21% BTW. Na op
+          &quot;Opslaan&quot; te klikken ga je direct naar de betaalpagina — je evenement gaat live
+          zodra de betaling is bevestigd.
         </p>
       )}
       <input

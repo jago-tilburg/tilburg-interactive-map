@@ -10,7 +10,10 @@ import {
   setPasswordResetLinkError,
   restoreRealModules,
   stripeSessionsCreateCalls,
+  stripeTaxRatesCreateCalls,
   setStripeSessionResult,
+  setStripeTaxRatesListResult,
+  setStripeTaxRatesCreateResult,
   setStripeWebhookEvent,
   setStripeWebhookSignatureInvalid,
   resendSendCalls,
@@ -43,6 +46,9 @@ beforeEach(() => {
   authUsersByEmail.clear();
   store.set(`admins/${ADMIN_UID}`, { email: "admin@example.com" });
   stripeSessionsCreateCalls.length = 0;
+  stripeTaxRatesCreateCalls.length = 0;
+  setStripeTaxRatesListResult([]);
+  setStripeTaxRatesCreateResult({ id: "txr_fake_btw21", display_name: "BTW", percentage: 21, inclusive: false });
   resendSendCalls.length = 0;
   setResendSendError(null);
   setPasswordResetLinkError(null);
@@ -321,10 +327,33 @@ describe("createCheckoutSession", () => {
     expect(params.allow_promotion_codes).toBe(true);
     expect(params.invoice_creation).toEqual({ enabled: true });
     expect(params.metadata).toEqual({ eventId: "evt1" });
+    expect(params.line_items[0].tax_rates).toEqual(["txr_fake_btw21"]);
+    expect(params.line_items[0].price_data.unit_amount).toBe(1000);
     // Event doc's own paid/status are untouched here — only the webhook
     // (once Stripe confirms the money moved) is allowed to change them.
     expect(store.get("businessEvents/evt1")).toMatchObject({ status: "pending" });
     expect(store.get("businessEvents/evt1").paid).toBeUndefined();
+  });
+
+  it("creates a new 21% BTW tax rate when none exists yet", async () => {
+    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID, title: "Kermis" });
+
+    await createCheckoutSession.run({ data: { eventId: "evt1" }, auth: { uid: OWNER_UID } });
+
+    expect(stripeTaxRatesCreateCalls).toHaveLength(1);
+    expect(stripeTaxRatesCreateCalls[0]).toMatchObject({ display_name: "BTW", percentage: 21, inclusive: false });
+  });
+
+  it("reuses an existing 21% BTW tax rate instead of creating a duplicate", async () => {
+    setStripeTaxRatesListResult([
+      { id: "txr_existing", display_name: "BTW", percentage: 21, inclusive: false, active: true },
+    ]);
+    store.set("businessEvents/evt1", { status: "pending", ownerId: OWNER_UID, title: "Kermis" });
+
+    await createCheckoutSession.run({ data: { eventId: "evt1" }, auth: { uid: OWNER_UID } });
+
+    expect(stripeTaxRatesCreateCalls).toHaveLength(0);
+    expect(stripeSessionsCreateCalls[0].line_items[0].tax_rates).toEqual(["txr_existing"]);
   });
 });
 
@@ -425,7 +454,15 @@ describe("stripeWebhook", () => {
     store.set(`businesses/${OWNER_UID}`, { email: "owner@example.com" });
     setStripeWebhookEvent({
       type: "checkout.session.completed",
-      data: { object: { id: "cs_test_6", metadata: { eventId: "evt1" } } },
+      data: {
+        object: {
+          id: "cs_test_6",
+          metadata: { eventId: "evt1" },
+          amount_subtotal: 1000,
+          amount_total: 1210,
+          total_details: { amount_tax: 210 },
+        },
+      },
     });
 
     await stripeWebhook(fakeWebhookRequest(), fakeWebhookResponse());
@@ -435,6 +472,12 @@ describe("stripeWebhook", () => {
     expect(resendSendCalls[0].subject).toBe("Tilburg ziet nu jouw event!");
     expect(resendSendCalls[0].html).toContain("Kermis");
     expect(resendSendCalls[0].html).toContain("cs_test_6");
+    // The real charged amounts from the session (excl. BTW / BTW / total),
+    // not the EVENT_LISTING_PRICE_CENTS constant, which is the excl.-BTW
+    // base only.
+    expect(resendSendCalls[0].html).toContain("10,00");
+    expect(resendSendCalls[0].html).toContain("2,10");
+    expect(resendSendCalls[0].html).toContain("12,10");
   });
 
   it("still pays and publishes the event even when there is no business email to notify", async () => {

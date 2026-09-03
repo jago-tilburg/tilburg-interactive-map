@@ -112,13 +112,43 @@ function renderEmailTemplate(filename, vars, conditionals = {}) {
   return html;
 }
 
-// TEST-MODE PREPARATION — not live. Placeholder price for a single event
-// listing; matches GO-LIVE-CHECKLIST.md §2's "current mock: flat €10/event
-// fee" reference. The real business model (flat fee vs. subscription vs.
-// commission) and the real price are still open decisions — this constant
-// is the one place to change once that's settled, nothing else in this
-// file needs to know the amount.
+// Flat fee for a single event listing — DECIDED 2026-09-02 (GO-LIVE-CHECKLIST.md
+// §0/§2): €10, excl. BTW (decided 2026-09-03 — see BTW_RATE_PERCENTAGE below
+// for how the 21% is added on top at checkout, not baked into this number).
 const EVENT_LISTING_PRICE_CENTS = 1000;
+
+// Standard NL BTW rate — this is a B2B digital service (an event-host
+// paying for a listing), no reduced rate applies. Applied via a Stripe Tax
+// Rate object attached to the Checkout line item (see
+// getOrCreateBtwTaxRate), not folded into EVENT_LISTING_PRICE_CENTS, so
+// Stripe computes and displays the BTW as its own line on Checkout and the
+// generated invoice — the excl./incl. breakdown a real NL invoice needs,
+// not just one opaque total.
+const BTW_RATE_PERCENTAGE = 21;
+
+// Looked up (and created once, if missing) rather than hardcoded — a Tax
+// Rate is a real Stripe object with its own id per account/mode, not a
+// bare number you can pass directly to a Checkout Session. Idempotent: a
+// second call finds the first call's rate instead of creating a duplicate.
+async function getOrCreateBtwTaxRate(stripe) {
+  const existing = await stripe.taxRates.list({ active: true, limit: 100 });
+  const found = existing.data.find(
+    (r) => r.display_name === 'BTW' && r.percentage === BTW_RATE_PERCENTAGE && r.inclusive === false,
+  );
+  if (found) return found.id;
+  const created = await stripe.taxRates.create({
+    display_name: 'BTW',
+    percentage: BTW_RATE_PERCENTAGE,
+    inclusive: false,
+    country: 'NL',
+    description: '21% Nederlandse BTW',
+  });
+  return created.id;
+}
+
+function formatEuroCents(cents) {
+  return (cents / 100).toFixed(2).replace('.', ',');
+}
 
 // Where Stripe Checkout redirects back to after success/cancel — the
 // existing shareable-URL route (see MapExperience's initialSelection) that
@@ -417,6 +447,7 @@ exports.createCheckoutSession = onCall({ secrets: [stripeSecretKey] }, async (re
   }
 
   const stripe = new Stripe(stripeSecretKey.value());
+  const btwTaxRateId = await getOrCreateBtwTaxRate(stripe);
   const eventUrl = `${appBaseUrl.value()}/event/${ref.id}`;
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
@@ -440,6 +471,7 @@ exports.createCheckoutSession = onCall({ secrets: [stripeSecretKey] }, async (re
           product_data: { name: `Plaatsing: ${snap.data().title}` },
         },
         quantity: 1,
+        tax_rates: [btwTaxRateId],
       },
     ],
     // The webhook trusts this, not anything the client sends directly —
@@ -533,7 +565,13 @@ exports.stripeWebhook = onRequest({ secrets: [stripeWebhookSecret, stripeSecretK
           event_locatie: escapeHtml(eventData.address),
           listing_einddatum: escapeHtml(formatDutchLongDate(endDate)),
           event_url: eventUrl,
-          bedrag: (EVENT_LISTING_PRICE_CENTS / 100).toFixed(2).replace('.', ','),
+          // Sourced from the real completed session, not the
+          // EVENT_LISTING_PRICE_CENTS constant — that's the excl.-BTW base
+          // only; the session's own amounts reflect what was actually
+          // charged, including the BTW line Stripe added at checkout.
+          bedrag_excl_btw: formatEuroCents(session.amount_subtotal ?? EVENT_LISTING_PRICE_CENTS),
+          bedrag_btw: formatEuroCents(session.total_details?.amount_tax ?? 0),
+          bedrag: formatEuroCents(session.amount_total ?? EVENT_LISTING_PRICE_CENTS),
           betaaldatum: escapeHtml(formatDutchDateTime(new Date())),
           betaalmethode: 'Stripe',
           stripe_referentie: session.id,

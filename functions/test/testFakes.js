@@ -174,12 +174,25 @@ const fakeBucket = {
 // Configurable per-test fake Stripe client — see setStripeSessionResult/
 // setStripeWebhookEvent/setStripeWebhookSignatureInvalid below.
 export const stripeSessionsCreateCalls = [];
+export const stripeTaxRatesCreateCalls = [];
 let stripeSessionResult = { id: "cs_test_fake", url: "https://checkout.stripe.com/session/cs_test_fake" };
 let stripeWebhookEvent = null;
 let stripeWebhookSignatureInvalid = false;
+// Empty by default — most tests exercise the "not created yet, create one"
+// path, since that's the more interesting branch to get right.
+let stripeTaxRatesListResult = [];
+let stripeTaxRatesCreateResult = { id: "txr_fake_btw21", display_name: "BTW", percentage: 21, inclusive: false };
 
 export function setStripeSessionResult(result) {
   stripeSessionResult = result;
+}
+
+export function setStripeTaxRatesListResult(result) {
+  stripeTaxRatesListResult = result;
+}
+
+export function setStripeTaxRatesCreateResult(result) {
+  stripeTaxRatesCreateResult = result;
 }
 
 export function setStripeWebhookEvent(event) {
@@ -199,6 +212,13 @@ function FakeStripe() {
           stripeSessionsCreateCalls.push(params);
           return stripeSessionResult;
         },
+      },
+    },
+    taxRates: {
+      list: async () => ({ data: stripeTaxRatesListResult }),
+      create: async (params) => {
+        stripeTaxRatesCreateCalls.push(params);
+        return stripeTaxRatesCreateResult;
       },
     },
     webhooks: {

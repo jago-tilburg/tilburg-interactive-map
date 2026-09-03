@@ -81,10 +81,11 @@ export default function VoorwaardenPage() {
       <h2>5. Voor bedrijven &amp; event-hosts: evenementvermeldingen</h2>
       <h3>5.1 Kosten</h3>
       <p>
-        Het plaatsen van een evenement kost een eenmalig bedrag van <strong>€10</strong> per
-        evenement, inclusief BTW, te betalen via Stripe (iDEAL of creditcard). Dit bedrag wordt
-        getoond voordat je op &quot;Opslaan&quot; klikt. Na een geslaagde betaling ontvang je een
-        digitale factuur/kwitantie van Stripe.
+        Het plaatsen van een evenement kost een eenmalig bedrag van <strong>€10, exclusief BTW</strong>{" "}
+        per evenement — met 21% BTW erbij kom je uit op <strong>€12,10</strong>, te betalen via
+        Stripe (iDEAL of creditcard). Het excl./incl.-bedrag wordt getoond voordat je op
+        &quot;Opslaan&quot; klikt, en nogmaals uitgesplitst op de Stripe-betaalpagina zelf. Na een
+        geslaagde betaling ontvang je een digitale factuur van Stripe met de BTW apart vermeld.
       </p>
       <h3>5.2 Directe publicatie</h3>
       <p>
