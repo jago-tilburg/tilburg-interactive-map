@@ -177,11 +177,27 @@ async function requireAdmin(auth) {
   }
 }
 
+// Guards every businessEvents/{eventId} lookup below against a non-string
+// eventId reaching Firestore's .doc() call — found live 2026-09-03 via a
+// deliberate malformed-input test (eventId sent as a number, not a
+// string), which crashed with a raw, unhandled "not a valid resource
+// path" error (functions/internal, 500) instead of a clean rejection —
+// confirmed captured by Cloud Error Reporting, which is what surfaced this
+// as worth fixing. The pre-existing `!eventId` checks each of these
+// functions already had catch missing/empty values but not a wrong-typed
+// truthy one (a number, object, array, or boolean are all truthy).
+function requireValidEventId(eventId) {
+  if (!eventId || typeof eventId !== 'string') {
+    throw new HttpsError('invalid-argument', 'eventId ontbreekt of is ongeldig.');
+  }
+}
+
 async function getOwnedEvent(auth, eventId) {
   if (!auth) {
     logger.warn('getOwnedEvent: denied — unauthenticated call', { eventId: eventId || null });
     throw new HttpsError('unauthenticated', 'Login vereist.');
   }
+  requireValidEventId(eventId);
   const ref = db.collection('businessEvents').doc(eventId);
   const snap = await ref.get();
   if (!snap.exists) {
@@ -204,7 +220,7 @@ async function getOwnedEvent(auth, eventId) {
 exports.suspendEvent = onCall(async (request) => {
   await requireAdmin(request.auth);
   const { eventId, reason } = request.data || {};
-  if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
+  requireValidEventId(eventId);
   const update = {
     status: 'suspended',
     moderatedAt: FieldValue.serverTimestamp(),
@@ -222,7 +238,7 @@ exports.suspendEvent = onCall(async (request) => {
 exports.restoreEvent = onCall(async (request) => {
   await requireAdmin(request.auth);
   const { eventId } = request.data || {};
-  if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
+  requireValidEventId(eventId);
   await db.collection('businessEvents').doc(eventId).update({ status: 'approved' });
   logger.info('restoreEvent: event restored to approved', { eventId, adminUid: request.auth.uid });
   return { ok: true };
@@ -231,7 +247,7 @@ exports.restoreEvent = onCall(async (request) => {
 exports.blockEvent = onCall(async (request) => {
   await requireAdmin(request.auth);
   const { eventId, reason } = request.data || {};
-  if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
+  requireValidEventId(eventId);
   const update = {
     status: 'blocked',
     moderatedAt: FieldValue.serverTimestamp(),
@@ -388,7 +404,7 @@ exports.notifyAdminsOfNewReport = onDocumentCreated(
 exports.deleteEvent = onCall(async (request) => {
   await requireAdmin(request.auth);
   const { eventId } = request.data || {};
-  if (!eventId) throw new HttpsError('invalid-argument', 'eventId ontbreekt.');
+  requireValidEventId(eventId);
   await db.collection('businessEvents').doc(eventId).delete();
   logger.info('deleteEvent: event permanently deleted by admin', { eventId, adminUid: request.auth.uid });
   return { ok: true };

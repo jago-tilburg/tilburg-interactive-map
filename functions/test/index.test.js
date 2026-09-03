@@ -95,6 +95,12 @@ describe("suspendEvent", () => {
     ).rejects.toMatchObject({ code: "invalid-argument" });
   });
 
+  it("throws invalid-argument (not an unhandled crash) when eventId is a number, not a string", async () => {
+    await expect(
+      suspendEvent.run({ data: { eventId: 12345 }, auth: { uid: ADMIN_UID } }),
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
   it("suspends the event and stamps moderatedAt/moderatedBy for an admin caller", async () => {
     store.set("businessEvents/evt1", { status: "approved", ownerId: OWNER_UID });
 
@@ -156,6 +162,12 @@ describe("restoreEvent", () => {
     ).rejects.toMatchObject({ code: "invalid-argument" });
   });
 
+  it("throws invalid-argument (not an unhandled crash) when eventId is a number, not a string", async () => {
+    await expect(
+      restoreEvent.run({ data: { eventId: 12345 }, auth: { uid: ADMIN_UID } }),
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
   it("sets a suspended event back to approved for an admin caller", async () => {
     store.set("businessEvents/evt1", {
       status: "suspended",
@@ -189,6 +201,12 @@ describe("blockEvent", () => {
   it("throws invalid-argument when eventId is missing", async () => {
     await expect(
       blockEvent.run({ data: {}, auth: { uid: ADMIN_UID } }),
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("throws invalid-argument (not an unhandled crash) when eventId is a number, not a string", async () => {
+    await expect(
+      blockEvent.run({ data: { eventId: 12345 }, auth: { uid: ADMIN_UID } }),
     ).rejects.toMatchObject({ code: "invalid-argument" });
   });
 
@@ -226,6 +244,12 @@ describe("deleteEvent", () => {
   it("throws invalid-argument when eventId is missing", async () => {
     await expect(
       deleteEvent.run({ data: {}, auth: { uid: ADMIN_UID } }),
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("throws invalid-argument (not an unhandled crash) when eventId is a number, not a string", async () => {
+    await expect(
+      deleteEvent.run({ data: { eventId: 12345 }, auth: { uid: ADMIN_UID } }),
     ).rejects.toMatchObject({ code: "invalid-argument" });
   });
 
@@ -280,10 +304,27 @@ describe("createCheckoutSession", () => {
     ).rejects.toMatchObject({ code: "unauthenticated" });
   });
 
-  it("throws not-found when the event doc does not exist (including when eventId/data is missing)", async () => {
+  it("throws invalid-argument when eventId/data is missing (not silently treated as 'not found')", async () => {
     await expect(
       createCheckoutSession.run({ data: undefined, auth: { uid: OWNER_UID } }),
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("throws not-found when a real-but-nonexistent eventId is given", async () => {
+    await expect(
+      createCheckoutSession.run({ data: { eventId: "does-not-exist" }, auth: { uid: OWNER_UID } }),
     ).rejects.toMatchObject({ code: "not-found" });
+  });
+
+  // Regression test for a real bug found and fixed 2026-09-03: a
+  // non-string, truthy eventId (a number here) used to crash with a raw,
+  // unhandled Firestore path-validation error (functions/internal, 500),
+  // caught live via a deliberate malformed-input test and confirmed
+  // captured by Cloud Error Reporting — not a clean rejection like this.
+  it("throws invalid-argument (not an unhandled crash) when eventId is a number, not a string", async () => {
+    await expect(
+      createCheckoutSession.run({ data: { eventId: 12345 }, auth: { uid: OWNER_UID } }),
+    ).rejects.toMatchObject({ code: "invalid-argument" });
   });
 
   it("throws permission-denied when the caller does not own the event", async () => {
