@@ -8,11 +8,9 @@ export default function PrivacybeleidPage() {
   return (
     <LegalPage title="Privacybeleid" lastUpdated="3 september 2026">
       <p>
-        2happies (2happies.nl,{" "}
-        <Placeholder>volledige bedrijfsnaam</Placeholder>, KVK{" "}
-        <Placeholder>KVK-nummer</Placeholder>, <Placeholder>vestigingsadres</Placeholder>) is
+        2happies (2happies.nl, Bastiaanson, KVK 65871421, BTW-nummer NL002308042B51) is
         verwerkingsverantwoordelijke voor de persoonsgegevens beschreven in dit beleid. Vragen of
-        verzoeken over je gegevens: <Placeholder>contact-e-mailadres</Placeholder>.
+        verzoeken over je gegevens: 2happies@bastiaanson.com.
       </p>
 
       <h2>1. Welke gegevens we verwerken</h2>
@@ -88,9 +86,9 @@ export default function PrivacybeleidPage() {
         <li><strong>Intrekken van toestemming</strong> — marketingtoestemming en analytics-toestemming kun je op elk moment intrekken (marketing: in je profiel; analytics: bij een volgend bezoek via de cookiemelding).</li>
       </ul>
       <p>
-        Voor verzoeken die je niet zelf via de app kunt regelen: neem contact op via{" "}
-        <Placeholder>contact-e-mailadres</Placeholder>. Je hebt ook het recht een klacht in te
-        dienen bij de Autoriteit Persoonsgegevens.
+        Voor verzoeken die je niet zelf via de app kunt regelen: neem contact op via
+        2happies@bastiaanson.com. Je hebt ook het recht een klacht in te dienen bij de Autoriteit
+        Persoonsgegevens.
       </p>
 
       <h2>4. Cookies &amp; lokale opslag</h2>

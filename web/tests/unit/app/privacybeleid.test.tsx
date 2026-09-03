@@ -16,8 +16,16 @@ describe("PrivacybeleidPage", () => {
     expect(screen.getAllByText(/Autoriteit Persoonsgegevens/).length).toBeGreaterThan(0);
   });
 
-  it("flags the missing company details as placeholders", () => {
+  it("states the real company details, not placeholders", () => {
     render(<PrivacybeleidPage />);
-    expect(screen.getByText("[KVK-nummer]")).toBeInTheDocument();
+    expect(screen.getByText(/Bastiaanson/)).toBeInTheDocument();
+    expect(screen.getByText(/65871421/)).toBeInTheDocument();
+    expect(screen.getByText(/NL002308042B51/)).toBeInTheDocument();
+    expect(screen.getAllByText(/2happies@bastiaanson\.com/).length).toBeGreaterThan(0);
+  });
+
+  it("still flags the unresolved Google Cloud DPA question as a placeholder", () => {
+    render(<PrivacybeleidPage />);
+    expect(screen.getByText("[wel/niet geaccepteerd — controleren]")).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { LegalPage, Placeholder } from "@/components/legal/LegalPage";
+import { LegalPage } from "@/components/legal/LegalPage";
 
 export const metadata = {
   title: "Voorwaarden — 2happies",
@@ -10,11 +10,9 @@ export default function VoorwaardenPage() {
       <h2>1. Wie we zijn</h2>
       <p>
         2happies (2happies.nl) is een kaart met broodjeszaken en events in Tilburg. 2happies wordt
-        aangeboden door <Placeholder>volledige bedrijfsnaam</Placeholder>, ingeschreven bij de Kamer
-        van Koophandel onder nummer <Placeholder>KVK-nummer</Placeholder>, gevestigd op{" "}
-        <Placeholder>vestigingsadres</Placeholder>, BTW-nummer <Placeholder>BTW-nummer</Placeholder>{" "}
-        (&quot;2happies&quot;, &quot;we&quot;, &quot;wij&quot;). Vragen? Neem contact op via{" "}
-        <Placeholder>contact-e-mailadres</Placeholder>.
+        aangeboden door Bastiaanson, ingeschreven bij de Kamer van Koophandel onder nummer
+        65871421, BTW-nummer NL002308042B51 (&quot;2happies&quot;, &quot;we&quot;, &quot;wij&quot;).
+        Vragen? Neem contact op via 2happies@bastiaanson.com.
       </p>
       <p>
         Door 2happies te gebruiken ga je akkoord met deze voorwaarden. Onderdeel 3 hieronder geldt
@@ -73,7 +71,7 @@ export default function VoorwaardenPage() {
         die de content kan laten staan, tijdelijk verbergen (&quot;suspend&quot;, omkeerbaar), of
         permanent verwijderen/blokkeren. Denk je dat content op 2happies je rechten schendt (bijv.
         auteursrecht op een foto, of een lasterlijke review) — meld het via de knop op de content
-        zelf, of neem contact op via <Placeholder>contact-e-mailadres</Placeholder> als de
+        zelf, of neem contact op via 2happies@bastiaanson.com als de
         meldknop niet volstaat. We reageren op elke melding; hoe snel hangt af van de aard van de
         melding.
       </p>
@@ -120,9 +118,8 @@ export default function VoorwaardenPage() {
         </li>
       </ul>
       <p>
-        Neem voor een restitutieverzoek contact op via{" "}
-        <Placeholder>contact-e-mailadres</Placeholder> met je evenementnaam en betaalbevestiging.
-        We behandelen elk verzoek individueel.
+        Neem voor een restitutieverzoek contact op via 2happies@bastiaanson.com met je
+        evenementnaam en betaalbevestiging. We behandelen elk verzoek individueel.
       </p>
       <h3>5.5 Wat als je je account verwijdert?</h3>
       <p>

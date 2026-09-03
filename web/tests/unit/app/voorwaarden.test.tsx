@@ -16,9 +16,12 @@ describe("VoorwaardenPage", () => {
     expect(screen.getByText(/16 jaar of ouder/)).toBeInTheDocument();
   });
 
-  it("flags the missing company details as placeholders", () => {
+  it("states the real company details, not placeholders", () => {
     render(<VoorwaardenPage />);
-    expect(screen.getByText("[KVK-nummer]")).toBeInTheDocument();
-    expect(screen.getByText("[BTW-nummer]")).toBeInTheDocument();
+    expect(screen.getByText(/Bastiaanson/)).toBeInTheDocument();
+    expect(screen.getByText(/65871421/)).toBeInTheDocument();
+    expect(screen.getByText(/NL002308042B51/)).toBeInTheDocument();
+    expect(screen.getAllByText(/2happies@bastiaanson\.com/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/\[.*\]/)).not.toBeInTheDocument();
   });
 });
