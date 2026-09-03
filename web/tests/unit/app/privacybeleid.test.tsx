@@ -24,8 +24,10 @@ describe("PrivacybeleidPage", () => {
     expect(screen.getAllByText(/2happies@bastiaanson\.com/).length).toBeGreaterThan(0);
   });
 
-  it("still flags the unresolved Google Cloud DPA question as a placeholder", () => {
+  it("states the Google Cloud DPA is resolved, not a placeholder", () => {
     render(<PrivacybeleidPage />);
-    expect(screen.getByText("[wel/niet geaccepteerd — controleren]")).toBeInTheDocument();
+    expect(screen.queryByText(/wel\/niet geaccepteerd/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Cloud Data Processing Addendum/)).toBeInTheDocument();
+    expect(screen.getByText(/cloud\.google\.com\/terms\/data-processing-terms/)).toBeInTheDocument();
   });
 });
