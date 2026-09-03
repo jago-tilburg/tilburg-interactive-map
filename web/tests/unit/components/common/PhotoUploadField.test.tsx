@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const isHeic = vi.fn();
@@ -66,6 +66,7 @@ function renderField(overrides: Partial<Parameters<typeof PhotoUploadField>[0]> 
   const utils = render(
     <PhotoUploadField
       label="Foto"
+      hint="Kies een liggende foto (16:9)."
       aspectRatio={16 / 9}
       currentUrl=""
       pendingPhoto={null}
@@ -77,10 +78,11 @@ function renderField(overrides: Partial<Parameters<typeof PhotoUploadField>[0]> 
 }
 
 describe("PhotoUploadField — idle state", () => {
-  it("shows a placeholder when there's no current photo and no pending change", () => {
+  it("shows the hint and a picker button, no preview, when there's no current photo and no pending change", () => {
     renderField();
-    expect(screen.getByText("Sleep een foto hierheen of kies er een")).toBeInTheDocument();
+    expect(screen.getByText("Kies een liggende foto (16:9).")).toBeInTheDocument();
     expect(screen.getByText("Foto kiezen")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(screen.queryByText("Verwijderen")).not.toBeInTheDocument();
   });
 
@@ -131,35 +133,6 @@ describe("PhotoUploadField — file selection and validation", () => {
 
     await waitFor(() => expect(convertHeicToJpeg).toHaveBeenCalled());
     expect(await screen.findByText("FakeCropperReady")).toBeInTheDocument();
-  });
-
-  it("accepts a file dropped onto the placeholder", async () => {
-    renderField();
-    const dropzone = screen.getByText("Sleep een foto hierheen of kies er een");
-    const file = makeFile();
-
-    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } });
-
-    expect(await screen.findByText("FakeCropperReady")).toBeInTheDocument();
-  });
-
-  it("prevents the default browser behavior on dragover, so a drop is possible", () => {
-    renderField();
-    const dropzone = screen.getByText("Sleep een foto hierheen of kies er een");
-    const event = fireEvent.dragOver(dropzone);
-
-    // fireEvent returns false when preventDefault() was called on a
-    // cancelable event.
-    expect(event).toBe(false);
-  });
-
-  it("ignores a drop with no files", async () => {
-    renderField();
-    const dropzone = screen.getByText("Sleep een foto hierheen of kies er een");
-
-    fireEvent.drop(dropzone, { dataTransfer: { files: [] } });
-
-    expect(validatePhotoFile).not.toHaveBeenCalled();
   });
 
   it("enters the crop stage for a valid, large-enough file", async () => {

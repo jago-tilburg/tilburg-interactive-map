@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import { isHeic, convertHeicToJpeg } from "@/lib/photos/heicConvert";
 import { validatePhotoFile, loadImageDimensions, isLargeEnough } from "@/lib/photos/imageFile";
@@ -14,6 +14,11 @@ export type PendingPhoto = { action: "replace"; blob: Blob; previewUrl: string }
 
 interface PhotoUploadFieldProps {
   label: string;
+  // Short explanation of what to upload and why — orientation/aspect ratio
+  // isn't obvious from the crop tool alone, and differs by caller (shops/
+  // umbrella events want a landscape 16:9 cover photo, businessEvents wants
+  // a portrait 3:4 one), so each call site states its own.
+  hint: string;
   aspectRatio: number;
   currentUrl: string;
   pendingPhoto: PendingPhoto | null;
@@ -34,6 +39,7 @@ interface PhotoUploadFieldProps {
 // write check needs the Firestore doc to already exist).
 export function PhotoUploadField({
   label,
+  hint,
   aspectRatio,
   currentUrl,
   pendingPhoto,
@@ -81,13 +87,6 @@ export function PhotoUploadField({
   function handleInputChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (file) void handleFileSelected(file);
-  }
-
-  function handleDrop(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    if (disabled || busy) return;
-    const file = e.dataTransfer.files?.[0];
     if (file) void handleFileSelected(file);
   }
 
@@ -157,14 +156,12 @@ export function PhotoUploadField({
   return (
     <div className={styles.field}>
       {showLabel && <span className={styles.label}>{label}</span>}
-      <div
-        className={displayUrl ? styles.preview : styles.placeholder}
-        style={{ aspectRatio }}
-        onDrop={handleDrop}
-        onDragOver={(e) => e.preventDefault()}
-      >
-        {displayUrl ? <img src={displayUrl} alt={label} className={styles.previewImage} /> : "Sleep een foto hierheen of kies er een"}
-      </div>
+      <p className={styles.hint}>{hint}</p>
+      {displayUrl && (
+        <div className={styles.preview} style={{ aspectRatio }}>
+          <img src={displayUrl} alt={label} className={styles.previewImage} />
+        </div>
+      )}
       <input
         ref={fileInputRef}
         type="file"

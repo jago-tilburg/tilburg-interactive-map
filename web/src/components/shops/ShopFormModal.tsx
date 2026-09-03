@@ -224,6 +224,7 @@ export function ShopFormModal({ open, onClose, editingShop, prefill = null }: Sh
 
         <PhotoUploadField
           label="Foto"
+          hint="Kies een liggende foto (16:9) — deze wordt getoond als hoofdafbeelding van je zaak."
           aspectRatio={16 / 9}
           currentUrl={form.photoUrl}
           pendingPhoto={pendingPhoto}

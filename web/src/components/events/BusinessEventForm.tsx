@@ -524,6 +524,7 @@ export function BusinessEventForm({
         <PhotoUploadField
           label="Foto"
           showLabel={false}
+          hint="Kies een verticale foto (staand formaat, 3:4) — deze wordt getoond als hoofdafbeelding van je evenement."
           aspectRatio={3 / 4}
           currentUrl={form.photoUrl}
           pendingPhoto={pendingPhoto}

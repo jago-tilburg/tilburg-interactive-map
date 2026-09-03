@@ -147,6 +147,7 @@ export function UmbrellaFormModal({ open, onClose, editingUmbrella }: UmbrellaFo
         />
         <PhotoUploadField
           label="Foto"
+          hint="Kies een liggende foto (16:9) — deze wordt getoond als hoofdafbeelding van dit groepsevenement."
           aspectRatio={16 / 9}
           currentUrl={form.photoUrl}
           pendingPhoto={pendingPhoto}
