@@ -36,12 +36,10 @@ const stripeSecretKey = defineSecret('STRIPE_SECRET_KEY');
 const stripeWebhookSecret = defineSecret('STRIPE_WEBHOOK_SECRET');
 const resendApiKey = defineSecret('RESEND_API_KEY');
 
-// Resend's own shared sandbox address — works with zero setup, but Resend
-// only actually delivers sends from this address to the account owner's own
-// verified email, not real recipients. Swap this for a real
-// no-reply@2happies.nl (or similar) once that domain is verified in Resend;
-// nothing else in the send call sites needs to change.
-const EMAIL_FROM = 'onboarding@resend.dev';
+// mail.2happies.nl verified in Resend 2026-09-03 (DKIM + both CNAMEs) —
+// switched off the onboarding@resend.dev sandbox address, which only ever
+// delivered to the Resend account owner's own inbox.
+const EMAIL_FROM = '2happies <no-reply@mail.2happies.nl>';
 
 // Never throws — every call site treats a failed send as non-fatal (the
 // underlying action — payment recorded, report filed — already succeeded;
