@@ -38,6 +38,11 @@ vi.mock("@/lib/firebase/firestore", () => ({
   updateMarketingConsent: (...a: unknown[]) => updateMarketingConsent(...a),
 }));
 
+const exportMyData = vi.fn();
+vi.mock("@/lib/firebase/functions", () => ({
+  exportMyData: () => exportMyData(),
+}));
+
 const subscribeShops = vi.fn();
 vi.mock("@/lib/firebase/shops", () => ({
   subscribeShops: (...a: unknown[]) => subscribeShops(...a),
@@ -128,6 +133,8 @@ beforeEach(() => {
   deleteCurrentUser.mockResolvedValue(undefined);
   changeAccountPassword.mockResolvedValue(undefined);
   updateMarketingConsent.mockResolvedValue(undefined);
+  exportMyData.mockResolvedValue({ exportedAt: "2026-09-03T00:00:00.000Z", visitorProfile: {} });
+  vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:fake-export"), revokeObjectURL: vi.fn() });
   subscribeVisitorProfile.mockImplementation((_uid: string, onChange: (v: Visitor | null) => void) => {
     onChange(visitor);
     return vi.fn();
@@ -186,6 +193,27 @@ describe("ProfileShell", () => {
     await user.click(screen.getByText("Uitloggen"));
     expect(signOutCurrentUser).toHaveBeenCalled();
     expect(routerPush).toHaveBeenCalledWith("/");
+  });
+
+  it("exports the visitor's data and triggers a download", async () => {
+    const user = userEvent.setup();
+    render(<ProfileShell />);
+
+    await user.click(screen.getByText("Exporteer mijn gegevens"));
+
+    await waitFor(() => expect(exportMyData).toHaveBeenCalled());
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("Je gegevens zijn gedownload.", "success");
+  });
+
+  it("shows an error toast when exporting fails", async () => {
+    exportMyData.mockRejectedValue(new Error("network down"));
+    const user = userEvent.setup();
+    render(<ProfileShell />);
+
+    await user.click(screen.getByText("Exporteer mijn gegevens"));
+
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("network down", "error"));
   });
 
   it("shows liked shops, ratings given, and saved events for the visitor only", () => {

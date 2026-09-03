@@ -364,6 +364,38 @@ exports.deleteEvent = onCall(async (request) => {
   return { ok: true };
 });
 
+// Self-service data export (AVG/GDPR art. 20, data portability) — GO-LIVE-CHECKLIST.md
+// §3a. Returns everything Firestore knows about the caller's own account
+// (never someone else's — always request.auth.uid, never a client-supplied
+// id). Deliberately doesn't cover RTDB shop-level interactions (likes/
+// ratings/comments/reviews on individual shops) — those are keyed by uid
+// per-shop with no reverse index, so a full export would mean scanning
+// every shop; noted explicitly in the response rather than silently
+// omitted, see PRIVACY-COMPLIANCE.md.
+exports.exportMyData = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Log in om je gegevens te exporteren.');
+  const uid = request.auth.uid;
+
+  const [visitorSnap, businessSnap, eventsSnap] = await Promise.all([
+    db.collection('visitors').doc(uid).get(),
+    db.collection('businesses').doc(uid).get(),
+    db.collection('businessEvents').where('ownerId', '==', uid).get(),
+  ]);
+
+  logger.info('exportMyData: export generated', { uid });
+
+  return {
+    exportedAt: new Date().toISOString(),
+    visitorProfile: visitorSnap.exists ? visitorSnap.data() : null,
+    businessProfile: businessSnap.exists ? businessSnap.data() : null,
+    businessEvents: eventsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+    note:
+      'Shop-level interacties (likes, ratings, reacties en reviews op individuele broodjeszaken) ' +
+      'staan niet in dit bestand — die zijn technisch niet in één keer op te vragen. Neem contact ' +
+      'op als je deze specifiek nodig hebt.',
+  };
+});
+
 // Creates a Stripe Checkout Session for a single event listing — TEST-MODE
 // PREPARATION, not live (see STRIPE_SECRET_KEY's own comment above). Still
 // enforces the same security property the mock stub it replaces did:

@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { signOutCurrentUser, deleteCurrentUser, changeAccountPassword } from "@/lib/firebase/auth";
 import { subscribeVisitorProfile, deleteAccountCascade, updateMarketingConsent } from "@/lib/firebase/firestore";
+import { exportMyData } from "@/lib/firebase/functions";
 import { subscribeShops } from "@/lib/firebase/shops";
 import { subscribeApprovedBusinessEvents } from "@/lib/firebase/businessEvents";
 import { categoryOf, formatBusinessEventSchedule } from "@/lib/events/eventHelpers";
@@ -29,6 +30,7 @@ export function ProfileShell() {
   const [shops, setShops] = useState<Shop[]>([]);
   const [businessEvents, setBusinessEvents] = useState<BusinessEvent[]>([]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const [consentSaving, setConsentSaving] = useState(false);
 
@@ -72,6 +74,25 @@ export function ProfileShell() {
       router.push("/");
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Account verwijderen mislukt.");
+    }
+  }
+
+  async function handleExportData() {
+    setExporting(true);
+    try {
+      const data = await exportMyData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `2happies-gegevens-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast("Je gegevens zijn gedownload.", "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Exporteren mislukt.", "error");
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -245,6 +266,9 @@ export function ProfileShell() {
         {deleteError && <p className={styles.error} role="alert">{deleteError}</p>}
 
         <div className={styles.actions}>
+          <button type="button" className={styles.logoutButton} onClick={handleExportData} disabled={exporting}>
+            {exporting ? "Bezig…" : "Exporteer mijn gegevens"}
+          </button>
           <button type="button" className={styles.logoutButton} onClick={handleLogout}>
             Uitloggen
           </button>

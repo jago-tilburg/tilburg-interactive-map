@@ -20,6 +20,17 @@ export async function createCheckoutSession(eventId: string): Promise<string> {
   return result.data.url;
 }
 
+// Self-service data export (AVG art. 20) — returns everything Firestore
+// knows about the caller's own account. The shape is whatever the Cloud
+// Function returns (see functions/index.js's exportMyData); this wrapper
+// doesn't need to know the fields, it's opaque JSON headed straight to a
+// downloaded file.
+export async function exportMyData(): Promise<Record<string, unknown>> {
+  const callable = httpsCallable<undefined, Record<string, unknown>>(getFirebaseFunctions(), "exportMyData");
+  const result = await callable();
+  return result.data;
+}
+
 export async function suspendEvent(eventId: string, reason?: string) {
   const callable = httpsCallable(getFirebaseFunctions(), "suspendEvent");
   return callable({ eventId, reason });

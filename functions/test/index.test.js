@@ -24,6 +24,7 @@ const {
   restoreEvent,
   blockEvent,
   deleteEvent,
+  exportMyData,
   notifyAdminsOfNewReport,
   sendVerificationEmail,
   sendPasswordResetEmail,
@@ -232,6 +233,37 @@ describe("deleteEvent", () => {
 
     expect(result).toEqual({ ok: true });
     expect(store.has("businessEvents/evt1")).toBe(false);
+  });
+});
+
+describe("exportMyData", () => {
+  it("throws unauthenticated when there is no auth context", async () => {
+    await expect(exportMyData.run({ data: {}, auth: undefined })).rejects.toMatchObject({
+      code: "unauthenticated",
+    });
+  });
+
+  it("returns only the caller's own visitor/business profiles and owned events", async () => {
+    store.set(`visitors/${OWNER_UID}`, { email: "owner@example.com", displayName: "Owner" });
+    store.set(`businesses/${OWNER_UID}`, { businessName: "Owner Shop", email: "owner@example.com" });
+    store.set("businessEvents/evt1", { title: "My Event", ownerId: OWNER_UID });
+    store.set("businessEvents/evt2", { title: "Someone Else's Event", ownerId: OTHER_UID });
+
+    const result = await exportMyData.run({ data: {}, auth: { uid: OWNER_UID } });
+
+    expect(result.visitorProfile).toEqual({ email: "owner@example.com", displayName: "Owner" });
+    expect(result.businessProfile).toEqual({ businessName: "Owner Shop", email: "owner@example.com" });
+    expect(result.businessEvents).toEqual([{ id: "evt1", title: "My Event", ownerId: OWNER_UID }]);
+    expect(result.exportedAt).toEqual(expect.any(String));
+    expect(result.note).toMatch(/Shop-level interacties/);
+  });
+
+  it("returns null profiles when the caller has none yet, without throwing", async () => {
+    const result = await exportMyData.run({ data: {}, auth: { uid: "brand-new-uid" } });
+
+    expect(result.visitorProfile).toBeNull();
+    expect(result.businessProfile).toBeNull();
+    expect(result.businessEvents).toEqual([]);
   });
 });
 

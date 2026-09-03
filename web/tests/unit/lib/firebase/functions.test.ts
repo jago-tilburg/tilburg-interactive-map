@@ -15,6 +15,7 @@ vi.mock("@/lib/firebase/app", () => ({
 import {
   getFirebaseFunctions,
   createCheckoutSession,
+  exportMyData,
   suspendEvent,
   restoreEvent,
   blockEvent,
@@ -43,6 +44,19 @@ describe("createCheckoutSession", () => {
     expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "createCheckoutSession");
     expect(mockCallable).toHaveBeenCalledWith({ eventId: "evt1" });
     expect(url).toBe("https://checkout.stripe.com/session123");
+  });
+});
+
+describe("exportMyData", () => {
+  it("calls the exportMyData callable with no arguments and returns its data", async () => {
+    const exportPayload = { exportedAt: "2026-09-03T00:00:00.000Z", visitorProfile: { email: "a@b.com" } };
+    mockCallable.mockResolvedValue({ data: exportPayload });
+
+    const result = await exportMyData();
+
+    expect(httpsCallable).toHaveBeenCalledWith(mockFunctionsInstance, "exportMyData");
+    expect(mockCallable).toHaveBeenCalledWith();
+    expect(result).toEqual(exportPayload);
   });
 });
 
