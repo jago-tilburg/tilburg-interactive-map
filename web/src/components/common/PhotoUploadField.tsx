@@ -156,7 +156,7 @@ export function PhotoUploadField({
 
   return (
     <div className={styles.field}>
-      <span className={styles.label}>{label}</span>
+      {showLabel && <span className={styles.label}>{label}</span>}
       <div
         className={displayUrl ? styles.preview : styles.placeholder}
         style={{ aspectRatio }}
