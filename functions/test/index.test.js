@@ -287,6 +287,7 @@ describe("createCheckoutSession", () => {
     expect(params.mode).toBe("payment");
     expect(params.payment_method_types).toEqual(["card", "ideal"]);
     expect(params.allow_promotion_codes).toBe(true);
+    expect(params.invoice_creation).toEqual({ enabled: true });
     expect(params.metadata).toEqual({ eventId: "evt1" });
     // Event doc's own paid/status are untouched here — only the webhook
     // (once Stripe confirms the money moved) is allowed to change them.

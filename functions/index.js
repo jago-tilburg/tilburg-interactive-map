@@ -396,6 +396,10 @@ exports.createCheckoutSession = onCall({ secrets: [stripeSecretKey] }, async (re
     // actual codes are created/managed in the Stripe Dashboard, nothing
     // here needs to know a code was used beyond the final charged amount.
     allow_promotion_codes: true,
+    // A real, legally-required invoice per transaction (NL) — Stripe
+    // generates and emails a PDF invoice to the payer automatically once
+    // the session completes, no custom invoicing system needed.
+    invoice_creation: { enabled: true },
     line_items: [
       {
         price_data: {
