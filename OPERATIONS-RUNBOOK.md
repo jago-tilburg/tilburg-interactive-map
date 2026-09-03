@@ -82,6 +82,46 @@ issue, not built tonight.
 
 ---
 
+## 7. Disaster recovery — restoring Firestore or Realtime Database (§6)
+
+**Firestore** — daily backups, 7-day retention (`gcloud firestore backups schedules list` to see
+them). To restore: `gcloud firestore databases restore --source-backup=<backup-name>
+--destination-database=<new-database-id>` — this always creates a **new**, separate database, it
+never overwrites the live one in place. Point the app at the restored data by either (a)
+temporarily repointing `NEXT_PUBLIC_FIREBASE_PROJECT_ID`'s Firestore calls at the new database id
+(a config change, not a code change, since the SDK defaults to `(default)`), or (b) exporting the
+restored database's collections and importing them into `(default)` if a full in-place recovery is
+actually needed. Delete the temporary restored database once done — it's a second full copy of the
+data and bills accordingly. A real restore was tested 2026-09-02 (see `GO-LIVE-CHECKLIST.md` §6):
+took ~13 minutes end-to-end for the current (small) dataset size, and confirmed the restored
+collections came back with correct, real documents intact, not just an empty/errored restore.
+
+**Realtime Database** — no managed backup product exists for RTDB (unlike Firestore). Instead: a
+scheduled Cloud Function (`backupRealtimeDatabase`, `functions/index.js`) runs daily at 03:00
+Europe/Amsterdam, reads the entire RTDB tree via the Admin SDK, and writes it as one JSON file to
+`gs://tilburg-interactive-map-5710f.firebasestorage.app/rtdb-backups/<timestamp>.json`. A GCS
+lifecycle rule on that bucket auto-deletes anything under the `rtdb-backups/` prefix after 7 days,
+matching Firestore's retention. An admin-only callable, `triggerRtdbBackup`, exists for an
+on-demand backup before a risky manual RTDB change, without waiting for the schedule.
+
+To restore: download the relevant JSON file (`gcloud storage cat
+gs://.../rtdb-backups/<file>.json`) and write it back with the Admin SDK
+(`getDatabase().ref('/').set(JSON.parse(fileContents))`) — **this replaces the entire tree**, so
+only do this against the real database as a genuine last resort (data loss/corruption), and prefer
+restoring into a temporary standalone Firebase project first to inspect/diff against current data
+if there's any doubt about which backup to use. There is no "restore into a new database" option
+the way Firestore has — RTDB is a single tree per project. **Verified 2026-09-03**: the backup
+function itself was live-triggered against real staging data (all 68 real shops came back in the
+resulting file) and the underlying Admin SDK read/write path against the real bucket was confirmed
+working — the destructive restore-write itself was deliberately **not** tested against real data
+(no safe way to rehearse "overwrite the entire live tree" without an actual second RTDB instance),
+so treat the restore *procedure* as documented-but-unrehearsed, not fully proven end-to-end the way
+the Firestore restore was.
+
+---
+
 ## History
 
 - 2026-09-03: Initial version, written alongside the ToS/privacy drafting pass.
+- 2026-09-03: Added §7, RTDB backup/restore procedure, alongside the new `backupRealtimeDatabase`
+  Cloud Function.

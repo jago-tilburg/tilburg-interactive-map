@@ -2,6 +2,7 @@ const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https')
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const { onValueDeleted } = require('firebase-functions/v2/database');
 const { onDocumentCreated, onDocumentDeleted } = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { defineSecret, defineString } = require('firebase-functions/params');
 const { logger } = require('firebase-functions');
@@ -809,4 +810,43 @@ exports.cleanupBusinessEventPhotos = onDocumentDeleted('businessEvents/{eventId}
 
 exports.cleanupUmbrellaEventPhotos = onDocumentDeleted('umbrellaEvents/{umbrellaId}', async (event) => {
   await deleteStorageDir(`umbrellaEvents/${event.params.umbrellaId}/`);
+});
+
+// RTDB has no managed backup product the way Firestore does (`gcloud
+// firestore backups schedules create` — already set up, GO-LIVE-CHECKLIST.md
+// §6) — this is the RTDB equivalent, hand-built: a full-tree read via the
+// Admin SDK (bypasses rules, same as everything else in this file), written
+// as one JSON object straight to Storage. The dataset is tiny (~50KB of real
+// shop data as of 2026-09) so reading the whole tree into memory per run is
+// not a real cost. Reuses the existing photo bucket under its own prefix
+// rather than provisioning a second bucket just for this.
+const RTDB_BACKUP_PREFIX = 'rtdb-backups/';
+
+async function runRtdbBackup() {
+  const snap = await rtdb.ref('/').once('value');
+  const json = JSON.stringify(snap.val());
+  const fileName = `${RTDB_BACKUP_PREFIX}${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+  await getStorage().bucket(PHOTO_BUCKET).file(fileName).save(json, { contentType: 'application/json' });
+  logger.info('runRtdbBackup: wrote backup', { fileName, bytes: json.length });
+  return { fileName, bytes: json.length };
+}
+
+// Retention is enforced by a GCS lifecycle rule on the bucket scoped to this
+// prefix (`gcloud storage buckets update ... --lifecycle-file=...`,
+// see OPERATIONS-RUNBOOK.md), matching Firestore's 7-day retention — not
+// something this function itself needs to manage.
+exports.backupRealtimeDatabase = onSchedule(
+  { schedule: 'every day 03:00', timeZone: 'Europe/Amsterdam' },
+  async () => {
+    await runRtdbBackup();
+  },
+);
+
+// Manual/on-demand trigger for the same backup, admin-only — used to verify
+// the mechanism actually works (this session's restore test) without
+// waiting for the 03:00 schedule, and as a break-glass "back up right now"
+// button if one's ever needed before a risky manual RTDB change.
+exports.triggerRtdbBackup = onCall(async (request) => {
+  await requireAdmin(request.auth);
+  return runRtdbBackup();
 });
