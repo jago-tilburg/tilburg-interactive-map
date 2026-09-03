@@ -16,6 +16,11 @@ vi.mock("@/lib/photos/resolvePhotoUpdate", () => ({
   resolvePhotoUpdate: (...a: unknown[]) => resolvePhotoUpdate(...a),
 }));
 
+const geocodeAddress = vi.fn();
+vi.mock("@/lib/maps/geocodeAddress", () => ({
+  geocodeAddress: (...a: unknown[]) => geocodeAddress(...a),
+}));
+
 const showToast = vi.fn();
 vi.mock("@/hooks/useToast", () => ({
   useToast: () => ({ showToast }),
@@ -79,37 +84,23 @@ const umbrella: UmbrellaEvent = {
   createdAt: null as never,
 };
 
-// Stubs window.google.maps.Geocoder the same way tests/unit/lib/maps/
-// geocodeAddress.test.ts and reverseGeocode.test.ts do — geocodeAddress()
-// (called by the Locatie row's "Zoek adres" button) needs this real global,
-// not a mock of the helper itself, since that's what actually proves the
-// wiring works end to end. Defaults to a successful lookup; individual
-// tests override `geocode.mockImplementation` for the failure case.
-const geocode = vi.fn();
-
 beforeEach(() => {
   vi.clearAllMocks();
   createBusinessEvent.mockResolvedValue({ id: "evt1" });
   updateBusinessEvent.mockResolvedValue(undefined);
   resolvePhotoUpdate.mockResolvedValue("");
-  geocode.mockReset();
-  geocode.mockImplementation((_req, cb) => {
-    cb(
-      [{ formatted_address: "Heuvelplein 1, Tilburg", geometry: { location: { lat: () => 51.55, lng: () => 5.09 } } }],
-      "OK",
-    );
-  });
-  window.google = {
-    maps: {
-      Geocoder: function Geocoder(this: { geocode: typeof geocode }) {
-        this.geocode = geocode;
-      },
-    },
-  } as never;
+  // geocodeAddress() itself (the real PDOK-backed implementation, including
+  // its query-construction and response-parsing) is covered by its own
+  // dedicated tests/unit/lib/maps/geocodeAddress.test.ts — mocked here at
+  // the module boundary so this file only has to know its return shape,
+  // not re-stub PDOK's actual JSON response in every consumer test.
+  // Defaults to a successful lookup; individual tests override
+  // geocodeAddress.mockResolvedValue for the failure case.
+  geocodeAddress.mockResolvedValue({ lat: 51.55, lng: 5.09, formattedAddress: "Heuvelplein 1, Tilburg" });
 });
 
-// Opens the Locatie row, looks up an address via the (mocked) Geocoder, and
-// fills the other three required fields — the one sequence nearly every
+// Opens the Locatie row, looks up an address via the (mocked) geocodeAddress,
+// and fills the other three required fields — the one sequence nearly every
 // "successful save" test needs before clicking Opslaan.
 async function fillMinimalRequiredFields(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Titel"), "My Event");
@@ -295,9 +286,7 @@ describe("BusinessEventFormModal create mode", () => {
   });
 
   it("shows an error when the postcode + huisnummer can't be geocoded", async () => {
-    geocode.mockImplementation((_req, cb) => {
-      cb(null, "ZERO_RESULTS");
-    });
+    geocodeAddress.mockResolvedValue(null);
     const user = userEvent.setup();
     render(
       <BusinessEventFormModal

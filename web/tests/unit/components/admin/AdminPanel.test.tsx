@@ -60,6 +60,11 @@ vi.mock("@/lib/firebase/businessEvents", () => ({
   updateBusinessEvent: vi.fn(),
 }));
 
+const geocodeAddress = vi.fn();
+vi.mock("@/lib/maps/geocodeAddress", () => ({
+  geocodeAddress: (...a: unknown[]) => geocodeAddress(...a),
+}));
+
 const subscribeUmbrellaEvents = vi.fn(
   (onChange: (u: UmbrellaEvent[]) => void, ..._rest: [((err: Error) => void)?]) => {
     onChange(emittedUmbrellas);
@@ -173,11 +178,6 @@ function makeReport(overrides: Partial<Report> = {}): Report {
   };
 }
 
-// Stubs window.google.maps.Geocoder — the quick-add business event form's
-// Locatie row calls geocodeAddress() via this global, same as
-// BusinessEventFormModal.test.tsx.
-const geocode = vi.fn();
-
 beforeEach(() => {
   vi.clearAllMocks();
   emittedShops = [];
@@ -197,20 +197,7 @@ beforeEach(() => {
   getShopViews.mockResolvedValue(0);
   createBusinessEvent.mockResolvedValue(undefined);
   mockUseAuth.mockReturnValue({ currentUser: { uid: "admin-uid" } });
-  geocode.mockReset();
-  geocode.mockImplementation((_req, cb) => {
-    cb(
-      [{ formatted_address: "Heuvelplein 1, Tilburg", geometry: { location: { lat: () => 51.55, lng: () => 5.09 } } }],
-      "OK",
-    );
-  });
-  window.google = {
-    maps: {
-      Geocoder: function Geocoder(this: { geocode: typeof geocode }) {
-        this.geocode = geocode;
-      },
-    },
-  } as never;
+  geocodeAddress.mockResolvedValue({ lat: 51.55, lng: 5.09, formattedAddress: "Heuvelplein 1, Tilburg" });
 });
 
 describe("AdminPanel shops tab", () => {

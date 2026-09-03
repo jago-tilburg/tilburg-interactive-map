@@ -26,6 +26,11 @@ vi.mock("@/lib/analytics/trackEvent", () => ({
   trackEvent: (...a: unknown[]) => trackEvent(...a),
 }));
 
+const geocodeAddress = vi.fn();
+vi.mock("@/lib/maps/geocodeAddress", () => ({
+  geocodeAddress: (...a: unknown[]) => geocodeAddress(...a),
+}));
+
 const showToast = vi.fn();
 vi.mock("@/hooks/useToast", () => ({
   useToast: () => ({ showToast }),
@@ -126,11 +131,6 @@ describe("BusinessEventForm — identity resync while mounted", () => {
   });
 });
 
-// Stubs window.google.maps.Geocoder the same way BusinessEventFormModal.test.tsx
-// does — geocodeAddress() (called by the Locatie row's "Zoek adres" button)
-// needs this real global, not a mock of the helper itself.
-const geocode = vi.fn();
-
 async function fillMinimalRequiredFields(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Titel"), "My Event");
   await user.type(screen.getByLabelText("Beschrijving"), "Description");
@@ -150,16 +150,7 @@ describe("BusinessEventForm — direct-to-payment redirect on create", () => {
     updateBusinessEvent.mockResolvedValue(undefined);
     resolvePhotoUpdate.mockResolvedValue("");
     createCheckoutSession.mockResolvedValue("https://checkout.stripe.com/session123");
-    geocode.mockReset();
-    geocode.mockImplementation((_req, cb) => {
-      cb(
-        [{ formatted_address: "Heuvelplein 1, Tilburg", geometry: { location: { lat: () => 51.55, lng: () => 5.09 } } }],
-        "OK",
-      );
-    });
-    window.google = {
-      maps: { Geocoder: function Geocoder(this: { geocode: typeof geocode }) { this.geocode = geocode; } },
-    } as never;
+    geocodeAddress.mockResolvedValue({ lat: 51.55, lng: 5.09, formattedAddress: "Heuvelplein 1, Tilburg" });
   });
 
   it("shows the €10 price notice for a new event, not while editing, and not when skipPaymentRedirect is set", () => {
