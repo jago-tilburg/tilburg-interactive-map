@@ -358,8 +358,15 @@ describe("ShopMap", () => {
 
   it("rebuilds event marker icons every 60s to reflect happening-now transitions", async () => {
     vi.useFakeTimers();
+    // Icon rebuilds are now cached by their actual inputs (see ShopMap.tsx's
+    // eventIconCacheRef) — a setIcon() call only happens when something
+    // about the icon genuinely changes, not on every 60s `now` tick
+    // regardless of effect. So this event's happening-now window is set to
+    // straddle the 60s advance below: not happening at render time, crossing
+    // into "happening" exactly during the tick under test.
+    vi.setSystemTime(new Date("2026-09-04T12:00:30"));
     try {
-      const event = makeEvent();
+      const event = makeEvent({ startDate: "2026-09-04", endDate: "2026-09-04", startTime: "12:01", endTime: "18:00" });
       render(
         <ShopMap apiKey="test-key" shops={[]} businessEvents={[event]} onShopClick={vi.fn()} onBusinessEventClick={vi.fn()} />,
       );

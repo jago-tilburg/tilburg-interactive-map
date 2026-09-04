@@ -75,6 +75,20 @@ export function ShopMap({
   // trick as the prototype's `pending: true` markerCache placeholders.
   const shopMarkersRef = useRef(new Map<number, google.maps.Marker | null>());
   const eventMarkersRef = useRef(new Map<string, google.maps.Marker | null>());
+  // Rebuilding an event's icon (an SVG string-build + re-encode) is one of
+  // the more expensive things this component does, and a naive "recompute
+  // + setIcon every render" was firing on every single Maps zoom_changed
+  // tick during a scroll-wheel zoom gesture — dozens of full rebuilds per
+  // gesture, across every event on the map. Cached by the inputs that
+  // actually affect the rendered icon (photo/category/border/happeningNow/
+  // size-in-pixels), so an effect re-run whose inputs didn't really change
+  // for a given event returns the same object instead of rebuilding.
+  const eventIconCacheRef = useRef(new Map<string, { key: string; icon: google.maps.Icon }>());
+  // What's actually been handed to marker.setIcon() for each event, so the
+  // reconcile loop below can skip a redundant setIcon() call (which makes
+  // the browser re-decode the icon image) when the icon didn't change.
+  const lastAppliedIconRef = useRef(new Map<string, google.maps.Icon>());
+  const zoomDebounceRef = useRef<number | null>(null);
   // "pending" until the first batch of data has been collected and staged,
   // "done" from then on — after which every new marker appears silently.
   // Re-appearing after a filter toggle must not re-trigger the animation.
@@ -115,8 +129,16 @@ export function ShopMap({
           styles: CUSTOM_MAP_STYLE,
         });
         mapRef.current.addListener("zoom_changed", () => {
-          /* v8 ignore next */
-          setZoom(mapRef.current?.getZoom() ?? 13);
+          // Debounced: zoom_changed fires repeatedly through one smooth
+          // scroll-wheel/pinch zoom gesture, not once per level. Committing
+          // it to React state on every tick was what drove the icon-rebuild
+          // storm below — one settled value per gesture is all the icon
+          // sizing actually needs.
+          if (zoomDebounceRef.current !== null) window.clearTimeout(zoomDebounceRef.current);
+          zoomDebounceRef.current = window.setTimeout(() => {
+            /* v8 ignore next */
+            setZoom(mapRef.current?.getZoom() ?? 13);
+          }, 150);
         });
         setReady(true);
       })
@@ -125,6 +147,7 @@ export function ShopMap({
       });
     return () => {
       cancelled = true;
+      if (zoomDebounceRef.current !== null) window.clearTimeout(zoomDebounceRef.current);
     };
   }, [apiKey]);
 
@@ -164,18 +187,26 @@ export function ShopMap({
       const borderColors: [string, string] = parentUmbrella
         ? [parentUmbrella.color, shadeColor(parentUmbrella.color, -30)]
         : DEFAULT_CARD_BORDER;
+      const happeningNow = isEventHappeningNow(event, now);
+      const categoryEmoji = categoryOf(event.category).emoji;
+      const key = [photoUrl ?? "", categoryEmoji, borderColors[0], borderColors[1], happeningNow, w, h].join("|");
+      const cached = eventIconCacheRef.current.get(event.id);
+      if (cached && cached.key === key) return cached.icon;
+
       const iconMeta = buildEventCardIconDataUrl({
         photoUrl,
-        categoryEmoji: categoryOf(event.category).emoji,
+        categoryEmoji,
         borderColors,
-        happeningNow: isEventHappeningNow(event, now),
+        happeningNow,
       });
       const { scaledSize, anchor } = computeIconScaledSize(iconMeta, w, h);
-      return {
+      const icon: google.maps.Icon = {
         url: iconMeta.url,
         scaledSize: new google.maps.Size(scaledSize.width, scaledSize.height),
         anchor: new google.maps.Point(anchor.x, anchor.y),
       };
+      eventIconCacheRef.current.set(event.id, { key, icon });
+      return icon;
     },
     [umbrellaEvents, zoom, now],
   );
@@ -183,12 +214,14 @@ export function ShopMap({
   const createEventMarker = useCallback(
     (map: google.maps.Map, event: BusinessEvent, lat: number) => {
       const resolvedPhoto = event.photoUrl ? eventPhotoDataRef.current.get(event.photoUrl) : undefined;
+      const icon = buildEventIcon(event, resolvedPhoto);
       const marker = new google.maps.Marker({
         position: { lat, lng: event.lng },
         map,
         title: event.title,
-        icon: buildEventIcon(event, resolvedPhoto),
+        icon,
       });
+      lastAppliedIconRef.current.set(event.id, icon);
       marker.addListener("click", () => {
         trackEvent("event_marker_click");
         onBusinessEventClick(event.id);
@@ -223,6 +256,8 @@ export function ShopMap({
       if (!eventIds.has(id)) {
         marker?.setMap(null);
         eventMarkers.delete(id);
+        eventIconCacheRef.current.delete(id);
+        lastAppliedIconRef.current.delete(id);
       }
     }
 
@@ -310,7 +345,11 @@ export function ShopMap({
         const existing = eventMarkers.get(event.id);
         if (existing) {
           existing.setPosition({ lat: event.lat, lng: event.lng });
-          existing.setIcon(buildEventIcon(event, resolvedPhoto));
+          const icon = buildEventIcon(event, resolvedPhoto);
+          if (lastAppliedIconRef.current.get(event.id) !== icon) {
+            existing.setIcon(icon);
+            lastAppliedIconRef.current.set(event.id, icon);
+          }
         }
       } else {
         createEventMarker(map, event, event.lat);
@@ -325,7 +364,9 @@ export function ShopMap({
         fetchEventPhotoDataUrl(photoUrl).then((dataUrl) => {
           if (!dataUrl) return;
           photoDataCache.set(photoUrl, dataUrl);
-          eventMarkers.get(event.id)?.setIcon(buildEventIcon(event, dataUrl));
+          const icon = buildEventIcon(event, dataUrl);
+          eventMarkers.get(event.id)?.setIcon(icon);
+          lastAppliedIconRef.current.set(event.id, icon);
         });
       }
     }
