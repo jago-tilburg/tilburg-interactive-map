@@ -1,19 +1,56 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EventMarkerPreview } from "@/components/map/EventMarkerPreview";
+import { AuthModal } from "@/components/auth/AuthModal";
+import { PostAuthFlow } from "@/components/auth/PostAuthFlow";
+import type { Visitor } from "@/types/account";
 import styles from "./OrganisatorenPage.module.css";
 
-// Update this once there's a real inbox to send interest to — nothing in
-// the codebase publishes a public contact address today (privacybeleid's
-// 2happies@bastiaanson.com is the legal/support contact, not obviously the
-// right box for event-listing leads).
-const CONTACT_MAILTO = "mailto:evenementen@2happies.nl?subject=Evenement%20aanmelden%20op%202happies";
+type PostAuthStep = "onboarding" | "chooser" | "createBusiness";
 
 // Marketing/explainer page for prospective event organizers — "what do we
 // offer, what does it cost, what do you need to get started". Reuses the
 // same PageHeader as every other standalone page (/profiel, /voorwaarden)
 // and the real EventMarkerPreview component (not a redrawn approximation)
 // so the marker sample always matches whatever the map actually renders.
+//
+// The CTA wires into the same AuthModal/PostAuthFlow machinery
+// AccountMenu.tsx uses for "Event-profiel aanmaken" — but skips
+// RoleChoiceModal's generic visitor/event-host chooser entirely: anyone
+// clicking a button on this specific page has already declared that intent
+// by being here, so businessIntent is unconditionally true (unlike
+// AccountMenu, where it depends on which RoleChoiceModal button was picked).
 export function OrganisatorenPage() {
+  const router = useRouter();
+  const { currentVisitor, currentBusiness } = useAuth();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [postAuth, setPostAuth] = useState<PostAuthStep | null>(null);
+
+  function goToBusiness() {
+    router.push("/eventbeheer");
+  }
+
+  function handleCta() {
+    if (currentBusiness) {
+      goToBusiness();
+    } else if (currentVisitor) {
+      // Already signed in, just no event profile yet — AuthModal would be
+      // redundant, go straight to the create-business step.
+      setPostAuth("createBusiness");
+    } else {
+      setAuthOpen(true);
+    }
+  }
+
+  function handleAuthenticated(visitor: Visitor) {
+    const isNewAccount = visitor.marketingConsentAt === undefined;
+    setPostAuth(isNewAccount ? "onboarding" : "chooser");
+  }
+
   return (
     <div className={styles.page}>
       <PageHeader />
@@ -30,9 +67,9 @@ export function OrganisatorenPage() {
               met foto, tijden en locatie, vinden ze jou vanzelf.
             </p>
             <div className={styles.ctaRow}>
-              <a className={styles.btnPrimary} href={CONTACT_MAILTO}>
+              <button type="button" className={styles.btnPrimary} onClick={handleCta}>
                 Meld je evenement aan
-              </a>
+              </button>
               <a className={styles.btnGhost} href="#hoe-het-werkt">
                 Bekijk hoe het werkt
               </a>
@@ -145,14 +182,24 @@ export function OrganisatorenPage() {
 
         <section className={styles.closing}>
           <h2>Klaar om erbij te staan?</h2>
-          <p>Stuur ons een bericht en we helpen je evenement op de kaart te zetten.</p>
+          <p>Maak een gratis account en zet je eerste evenement binnen een paar minuten op de kaart.</p>
           <div className={styles.ctaRow}>
-            <a className={styles.btnPrimary} href={CONTACT_MAILTO}>
+            <button type="button" className={styles.btnPrimary} onClick={handleCta}>
               Meld je evenement aan
-            </a>
+            </button>
           </div>
         </section>
       </div>
+
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onAuthenticated={handleAuthenticated} />
+      <PostAuthFlow
+        open={postAuth !== null}
+        onClose={() => setPostAuth(null)}
+        startStep={postAuth ?? "chooser"}
+        businessIntent
+        onOpenProfile={() => router.push("/profiel")}
+        onGoToBusiness={goToBusiness}
+      />
     </div>
   );
 }
