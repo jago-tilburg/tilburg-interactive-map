@@ -63,8 +63,8 @@ export function OrganisatorenPage() {
             </h1>
             <p className={styles.lede}>
               2happies is de interactieve kaart met broodjeszaken en evenementen in Tilburg. Bezoekers
-              gebruiken &apos;m om te beslissen wat ze vandaag gaan doen &mdash; met jouw evenement erop,
-              met foto, tijden en locatie, vinden ze jou vanzelf.
+              gebruiken &apos;m om te beslissen wat ze vandaag gaan doen. Zet je evenement erop, met
+              foto, tijden en locatie, en ze vinden je vanzelf.
             </p>
             <div className={styles.ctaRow}>
               <button type="button" className={styles.btnPrimary} onClick={handleCta}>
@@ -91,7 +91,7 @@ export function OrganisatorenPage() {
           <p className={styles.intro}>
             Die aandacht maakte de volgende stap voor de hand liggend: dezelfde kaart gebruiken om
             Tilburgers ook moeiteloos lokale events te laten vinden. Bestaande evenementenplatforms zijn
-            vaak duur en onoverzichtelijk &mdash; 2happies lost dat op met een laagdrempelige, goedkope
+            vaak duur en onoverzichtelijk. 2happies lost dat op met een laagdrempelige, goedkope
             interactieve kaart, die het ook voor een kleine organisator mogelijk maakt om een evenement
             voor een groot publiek zichtbaar te maken.
           </p>
@@ -101,8 +101,8 @@ export function OrganisatorenPage() {
           <p className={styles.eyebrow}>Wat je krijgt</p>
           <h2>Geen advertentie. Een pin op de route die mensen al lopen.</h2>
           <p className={styles.intro}>
-            Niemand scrollt langs 2happies toevallig voorbij &mdash; bezoekers openen de kaart gericht,
-            op zoek naar iets te doen of te eten in Tilburg. Daar zet je je evenement neer.
+            Niemand scrollt langs 2happies toevallig voorbij. Bezoekers openen de kaart gericht, op zoek
+            naar iets te doen of te eten in Tilburg, en daar zet je je evenement neer.
           </p>
           <div className={styles.cards}>
             <div className={styles.card}>
@@ -115,8 +115,8 @@ export function OrganisatorenPage() {
             <div className={styles.card}>
               <h3>Je eigen pin, precies zo</h3>
               <p>
-                Foto, categorie en tijden op de kaart &mdash; en je ziet vooraf exact hoe je marker
-                eruitziet, voordat je &apos;m live zet.
+                Foto, categorie en tijden op de kaart. Je ziet vooraf exact hoe je marker eruitziet,
+                voordat je &apos;m live zet.
               </p>
             </div>
             <div className={styles.card}>
@@ -129,16 +129,15 @@ export function OrganisatorenPage() {
             <div className={styles.card}>
               <h3>Zelf aan het stuur</h3>
               <p>
-                Bewerk, dupliceer of zet je evenement stop wanneer je wilt, vanuit je eigen omgeving
-                &mdash; geen mail sturen naar een beheerder.
+                Bewerk, dupliceer of zet je evenement stop wanneer je wilt, vanuit je eigen omgeving. Geen
+                mail sturen naar een beheerder nodig.
               </p>
             </div>
             <div className={styles.card}>
               <h3>Precies zien of het je iets oplevert</h3>
               <p>
                 Je dashboard toont per evenement hoeveel mensen &apos;m bekeken, doorklikten naar je
-                website, interesse toonden en deelden &mdash; zodat je meteen weet of 2happies het waard
-                was.
+                website, interesse toonden en deelden, zodat je meteen weet of 2happies het waard was.
               </p>
             </div>
           </div>
@@ -148,18 +147,14 @@ export function OrganisatorenPage() {
           <p className={styles.eyebrow}>Wat is ervoor nodig</p>
           <h2>Drie stappen, geen papierwerk.</h2>
           <p className={styles.intro}>
-            Geen contract, geen KVK-koppeling &mdash; je verklaart zelf dat je namens het bedrijf handelt
-            en kunt binnen een paar minuten live staan.
+            Geen contract en geen lange aanvraag. Binnen een paar minuten staat je evenement live.
           </p>
           <div className={styles.steps}>
             <div className={styles.step}>
               <div className={styles.stepNum}>1</div>
               <div>
                 <h3>Account, zonder gedoe</h3>
-                <p>
-                  Aanmelden met e-mail of Google. Geen KVK-verificatie &mdash; je verklaart zelf bevoegd
-                  te zijn om namens het bedrijf te handelen.
-                </p>
+                <p>Aanmelden met e-mail of Google. Klaar in een paar tikken.</p>
               </div>
             </div>
             <div className={styles.step}>
@@ -177,7 +172,7 @@ export function OrganisatorenPage() {
               <div>
                 <h3>Live</h3>
                 <p>
-                  Eenmalig &euro;10,- (excl. btw) en je evenement staat direct op de kaart &mdash; geen
+                  Eenmalig &euro;10,- (excl. btw) en je evenement staat direct op de kaart. Geen
                   wachttijd op goedkeuring vooraf.
                 </p>
               </div>
@@ -192,14 +187,11 @@ export function OrganisatorenPage() {
             <span className={styles.priceBadge}>&euro;10,- excl. btw (&euro;12,10 incl.)</span>
             <ul>
               <li>
-                <strong>Eenmalig</strong> per evenement &mdash; geen abonnement, geen verborgen kosten.
+                <strong>Eenmalig</strong> per evenement, geen abonnement en geen verborgen kosten.
               </li>
               <li>
-                <strong>Geen KVK-koppeling nodig</strong> &mdash; snel en zelf te regelen.
-              </li>
-              <li>
-                <strong>Direct live</strong> &mdash; we controleren achteraf steekproefsgewijs, en
-                bezoekers kunnen een evenement melden. Jij hoeft niet te wachten op goedkeuring.
+                <strong>Direct live.</strong> We controleren achteraf steekproefsgewijs en bezoekers
+                kunnen een evenement melden, maar jij hoeft niet te wachten op goedkeuring vooraf.
               </li>
             </ul>
           </div>
