@@ -5,6 +5,7 @@
 .page {
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   background: #faf8f5;
 }
@@ -121,6 +122,15 @@
 .markerStage {
   display: flex;
   justify-content: center;
+  /* Hugs its content instead of stretching to the grid track's full width
+     (a grid item's default) — a scaled-up flex container that's mostly
+     empty space would otherwise report a much wider box than its visible
+     content, pushing past the viewport edge on narrow phones even though
+     nothing is actually drawn out there. See globals.css's html/body
+     comment: content overflowing the body box, even invisibly, is enough
+     to break iOS Safari's overflow:hidden containment. */
+  width: fit-content;
+  margin: 0 auto;
   /* EventMarkerPreview renders at its real in-app map size (small, meant
      for a corner overlay) — scaled up here since this is the marker's
      moment to be the hero visual, not a corner detail. */
@@ -130,7 +140,7 @@
 @media (max-width: 768px) {
   .markerStage {
     transform: scale(1.4);
-    margin: 1rem 0;
+    margin: 1rem auto;
   }
 }
 
