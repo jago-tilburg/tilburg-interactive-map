@@ -41,7 +41,33 @@ const csp = [
   // signInWithPopup()/signInWithRedirect() load for "Doorgaan met Google"
   // (PLAN-INLOGGEN.md §7) — without these the popup script itself is
   // CSP-blocked before Google's own auth flow ever runs.
-  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://maps.googleapis.com https://www.instagram.com https://*.firebasedatabase.app https://apis.google.com https://accounts.google.com",
+  // 'unsafe-eval': heic2any's underlying libheif decoder is Emscripten-
+  // compiled WebAssembly, and its generated glue code calls `new Function()`
+  // for its WASM dynCall wrappers (confirmed by grepping the actual shipped
+  // dist file) — a plain string-to-JS eval, not covered by the narrower
+  // 'wasm-unsafe-eval' keyword (that only covers WebAssembly.instantiate()
+  // itself). The Worker this runs in (see worker-src below) inherits this
+  // page's script-src rather than getting its own, so the restriction has
+  // to live here. No safe workaround exists short of not using heic2any at
+  // all — this is deep in generated runtime glue, not something the app's
+  // own code calls into. Failures here are easy to miss: they throw inside
+  // the Worker's own execution context, which doesn't surface through the
+  // page's normal console — confirmed only by attaching a CDP session
+  // directly to the worker target while debugging this. A narrower
+  // trade-off than it looks: this app already accepts 'unsafe-inline' below
+  // for the same reason (no dangerouslySetInnerHTML/eval-of-attacker-data
+  // anywhere in the app for either to piggyback on).
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://maps.googleapis.com https://www.instagram.com https://*.firebasedatabase.app https://apis.google.com https://accounts.google.com",
+  // Without this, `worker-src` isn't its own directive, so per the CSP spec
+  // it falls back to script-src — which doesn't allow `blob:` — silently
+  // blocking any Worker created from a blob: URL. heic2any (PhotoUploadField's
+  // HEIC->JPEG conversion) does exactly that internally (libheif's WASM
+  // decoder runs in a Worker sourced from a blob: URL). Reproduced live
+  // 2026-09-04: selecting a real HEIC file left "Foto verwerken…" spinning
+  // forever, no error ever shown — the browser silently blocked the
+  // worker's creation. `blob:` only, no remote origin, since this only
+  // ever runs code the app's own bundle constructs client-side.
+  "worker-src 'self' blob:",
   // fonts.googleapis.com: NOT this app's own fonts (those are self-hosted
   // via next/font/google at build time) — the rendered Maps widget itself
   // loads its own UI-chrome stylesheets (map control icons/labels) from
