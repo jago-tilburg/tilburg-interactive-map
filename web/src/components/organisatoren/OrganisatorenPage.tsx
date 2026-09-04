@@ -80,6 +80,23 @@ export function OrganisatorenPage() {
           </div>
         </section>
 
+        <div className={styles.section}>
+          <p className={styles.eyebrow}>Het ontstaan</p>
+          <h2>Begonnen als een TikTok-serie, uitgegroeid tot dé broodjeskaart van Tilburg.</h2>
+          <p className={styles.intro}>
+            2happies ontstond uit de virale Instagram- en TikTok-serie van Tilburger Bastiaan, die de
+            stad afstruint op zoek naar de beste broodjeszaken. De kaart die daarbij hoort trekt
+            inmiddels duizenden bezoekers.
+          </p>
+          <p className={styles.intro}>
+            Die aandacht maakte de volgende stap voor de hand liggend: dezelfde kaart gebruiken om
+            Tilburgers ook moeiteloos lokale events te laten vinden. Bestaande evenementenplatforms zijn
+            vaak duur en onoverzichtelijk &mdash; 2happies lost dat op met een laagdrempelige, goedkope
+            interactieve kaart, die het ook voor een kleine organisator mogelijk maakt om een evenement
+            voor een groot publiek zichtbaar te maken.
+          </p>
+        </div>
+
         <div className={styles.section} id="hoe-het-werkt">
           <p className={styles.eyebrow}>Wat je krijgt</p>
           <h2>Geen advertentie. Een pin op de route die mensen al lopen.</h2>
@@ -114,6 +131,14 @@ export function OrganisatorenPage() {
               <p>
                 Bewerk, dupliceer of zet je evenement stop wanneer je wilt, vanuit je eigen omgeving
                 &mdash; geen mail sturen naar een beheerder.
+              </p>
+            </div>
+            <div className={styles.card}>
+              <h3>Precies zien of het je iets oplevert</h3>
+              <p>
+                Je dashboard toont per evenement hoeveel mensen &apos;m bekeken, doorklikten naar je
+                website, interesse toonden en deelden &mdash; zodat je meteen weet of 2happies het waard
+                was.
               </p>
             </div>
           </div>

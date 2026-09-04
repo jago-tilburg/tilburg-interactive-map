@@ -156,14 +156,10 @@
    MapFilterPanel's .panel treatment */
 .cards {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  /* auto-fit rather than a fixed repeat(2, 1fr) — a 5th card (an odd count)
+     just starts a new row instead of leaving a lopsided empty half-column. */
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 1rem;
-}
-
-@media (max-width: 640px) {
-  .cards {
-    grid-template-columns: 1fr;
-  }
 }
 
 .card {
