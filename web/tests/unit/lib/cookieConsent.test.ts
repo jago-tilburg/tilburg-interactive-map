@@ -1,5 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { hasCookieConsent, hasAnalyticsConsent, acceptNecessaryOnly, acceptAll } from "@/lib/cookieConsent";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import {
+  hasCookieConsent,
+  hasAnalyticsConsent,
+  acceptNecessaryOnly,
+  acceptAll,
+  subscribeToConsentChange,
+} from "@/lib/cookieConsent";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -49,5 +55,31 @@ describe("hasAnalyticsConsent", () => {
   it("treats the pre-categories plain 'true' value as necessary-only, no analytics", () => {
     window.localStorage.setItem("tilburg-cookie-consent", "true");
     expect(hasAnalyticsConsent()).toBe(false);
+  });
+});
+
+describe("subscribeToConsentChange", () => {
+  it("fires its callback when acceptAll() is called", () => {
+    const callback = vi.fn();
+    const unsubscribe = subscribeToConsentChange(callback);
+    acceptAll();
+    expect(callback).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it("fires its callback when acceptNecessaryOnly() is called", () => {
+    const callback = vi.fn();
+    const unsubscribe = subscribeToConsentChange(callback);
+    acceptNecessaryOnly();
+    expect(callback).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it("stops firing once unsubscribed", () => {
+    const callback = vi.fn();
+    const unsubscribe = subscribeToConsentChange(callback);
+    unsubscribe();
+    acceptAll();
+    expect(callback).not.toHaveBeenCalled();
   });
 });
