@@ -96,10 +96,10 @@ function formFromEvent(ev: BusinessEvent, titleSuffix = "") {
 // Short collapsed-row summary for the price tiers — not persisted, purely
 // for the Toegangsprijzen row's right-aligned value text.
 function summarizePrices(prices: EventPriceTier[]): string {
-  if (prices.length === 0 || prices.every((p) => p.amount === 0)) return "Gratis";
-  const first = prices.find((p) => p.amount > 0)!;
-  const othersCount = prices.length - 1;
-  return othersCount > 0 ? `€${first.amount} + ${othersCount} andere` : `€${first.amount}`;
+  const positive = prices.filter((p) => p.amount > 0);
+  if (positive.length === 0) return "Gratis";
+  const [first, ...rest] = positive;
+  return rest.length > 0 ? `€${first.amount} + ${rest.length} andere` : `€${first.amount}`;
 }
 
 export function BusinessEventForm({
@@ -297,18 +297,48 @@ export function BusinessEventForm({
 
     const endDate = form.endDate || form.startDate;
 
-    if (
-      !form.title.trim() ||
-      !form.description.trim() ||
-      !form.startDate ||
-      !form.address.trim() ||
-      form.lat === null ||
-      form.lng === null ||
-      !startTime ||
-      !endTime
-    ) {
-      setError("Vul alle verplichte velden in (incl. locatie via postcode en huisnummer)");
+    if (!form.title.trim()) {
+      setError("Vul een titel in.");
       return;
+    }
+    if (!form.description.trim()) {
+      setError("Vul een beschrijving in.");
+      return;
+    }
+    if (!form.startDate) {
+      setError("Kies een startdatum.");
+      return;
+    }
+    if (!form.address.trim() || form.lat === null || form.lng === null) {
+      setError("Zoek en bevestig een adres via postcode en huisnummer.");
+      return;
+    }
+    if (!startTime) {
+      setError("Kies een starttijd.");
+      return;
+    }
+    if (!endTime) {
+      setError("Kies een eindtijd.");
+      return;
+    }
+    if (endDate < form.startDate) {
+      setError("Einddatum kan niet vóór de startdatum liggen.");
+      return;
+    }
+    if (!multiDay && endTime <= startTime) {
+      setError("Eindtijd moet na de starttijd liggen.");
+      return;
+    }
+    for (const price of form.prices) {
+      const hasLabel = !!price.label.trim();
+      if (hasLabel && (Number.isNaN(price.amount) || price.amount < 0)) {
+        setError(`Prijsbedrag voor "${price.label.trim()}" mag niet negatief zijn.`);
+        return;
+      }
+      if (!hasLabel && price.amount > 0) {
+        setError("Geef elke toegangsprijs een label, of verwijder de rij.");
+        return;
+      }
     }
 
     const input = {

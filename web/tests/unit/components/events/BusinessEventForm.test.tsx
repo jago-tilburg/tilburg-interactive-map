@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { BusinessEvent } from "@/types/events";
 import type { PendingPhoto } from "@/components/common/PhotoUploadField";
@@ -182,16 +182,27 @@ describe("BusinessEventForm — preview button", () => {
   });
 });
 
-async function fillMinimalRequiredFields(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText("Titel"), "My Event");
-  await user.type(screen.getByLabelText("Beschrijving"), "Description");
+async function fillMinimalRequiredFields(
+  user: ReturnType<typeof userEvent.setup>,
+  skip: {
+    skipTitle?: boolean;
+    skipDescription?: boolean;
+    skipGeocode?: boolean;
+    skipStartTime?: boolean;
+    skipEndTime?: boolean;
+  } = {},
+) {
+  if (!skip.skipTitle) await user.type(screen.getByLabelText("Titel"), "My Event");
+  if (!skip.skipDescription) await user.type(screen.getByLabelText("Beschrijving"), "Description");
   await user.type(screen.getByLabelText("Startdatum"), "2026-09-01");
   await user.click(screen.getByText("Locatie"));
-  await user.type(screen.getByLabelText("Postcode"), "5038 AB");
-  await user.type(screen.getByLabelText("Huisnummer"), "1");
-  await user.click(screen.getByText("Zoek adres"));
-  await user.type(screen.getByLabelText("Starttijd"), "10:00");
-  await user.type(screen.getByLabelText("Eindtijd"), "18:00");
+  if (!skip.skipGeocode) {
+    await user.type(screen.getByLabelText("Postcode"), "5038 AB");
+    await user.type(screen.getByLabelText("Huisnummer"), "1");
+    await user.click(screen.getByText("Zoek adres"));
+  }
+  if (!skip.skipStartTime) await user.type(screen.getByLabelText("Starttijd"), "10:00");
+  if (!skip.skipEndTime) await user.type(screen.getByLabelText("Eindtijd"), "18:00");
 }
 
 describe("BusinessEventForm — direct-to-payment redirect on create", () => {
@@ -320,5 +331,149 @@ describe("BusinessEventForm — direct-to-payment redirect on create", () => {
     expect(createCheckoutSession).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith("Evenement toegevoegd. Betaal om het direct live te zetten.", "success");
     expect(onDone).toHaveBeenCalled();
+  });
+});
+
+describe("BusinessEventForm — validation feedback", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    createBusinessEvent.mockResolvedValue({ id: "new-evt-1" });
+    geocodeAddress.mockResolvedValue({ lat: 51.55, lng: 5.09, formattedAddress: "Heuvelplein 1, Tilburg" });
+  });
+
+  // The native `required` attribute already blocks a *completely* empty
+  // title/description/address from ever reaching handleSubmit — that's the
+  // "browser required" the checklist item's gap is measured against. What it
+  // doesn't catch is a whitespace-only value (still non-empty per the DOM,
+  // so `required` is satisfied) or an address that was typed by hand instead
+  // of resolved via the postcode/huisnummer geocode step (lat/lng stay
+  // null). Those are the two realistic gaps this test isolates.
+  it("rejects a whitespace-only title even though the browser's required check passed", async () => {
+    const user = userEvent.setup();
+    render(<BusinessEventForm active ownerId="owner-uid" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />);
+    await user.type(screen.getByLabelText("Titel"), "   ");
+    await fillMinimalRequiredFields(user, { skipTitle: true });
+
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Vul een titel in.");
+    expect(createBusinessEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a whitespace-only description even though the browser's required check passed", async () => {
+    const user = userEvent.setup();
+    render(<BusinessEventForm active ownerId="owner-uid" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />);
+    await user.type(screen.getByLabelText("Beschrijving"), "   ");
+    await fillMinimalRequiredFields(user, { skipDescription: true });
+
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Vul een beschrijving in.");
+    expect(createBusinessEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects an address that was typed by hand instead of resolved via postcode/huisnummer", async () => {
+    const user = userEvent.setup();
+    render(<BusinessEventForm active ownerId="owner-uid" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />);
+    await fillMinimalRequiredFields(user, { skipGeocode: true });
+    await user.type(screen.getByLabelText("Adres"), "Heuvelplein 1, Tilburg");
+
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Zoek en bevestig een adres via postcode en huisnummer.");
+    expect(geocodeAddress).not.toHaveBeenCalled();
+    expect(createBusinessEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing start time", async () => {
+    const user = userEvent.setup();
+    render(<BusinessEventForm active ownerId="owner-uid" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />);
+    await fillMinimalRequiredFields(user, { skipStartTime: true });
+
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Kies een starttijd.");
+    expect(createBusinessEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing end time", async () => {
+    const user = userEvent.setup();
+    render(<BusinessEventForm active ownerId="owner-uid" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />);
+    await fillMinimalRequiredFields(user, { skipEndTime: true });
+
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Kies een eindtijd.");
+    expect(createBusinessEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects an end date before the start date", async () => {
+    const user = userEvent.setup();
+    render(<BusinessEventForm active ownerId="owner-uid" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />);
+    await fillMinimalRequiredFields(user);
+    await user.type(screen.getByLabelText("Einddatum"), "2026-08-30");
+
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Einddatum kan niet vóór de startdatum liggen.");
+    expect(createBusinessEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects an end time at or before the start time on a single-day event", async () => {
+    const user = userEvent.setup();
+    render(<BusinessEventForm active ownerId="owner-uid" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />);
+    await fillMinimalRequiredFields(user);
+    await user.clear(screen.getByLabelText("Eindtijd"));
+    await user.type(screen.getByLabelText("Eindtijd"), "10:00");
+
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Eindtijd moet na de starttijd liggen.");
+    expect(createBusinessEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a negative price amount", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <BusinessEventForm active ownerId="owner-uid" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />,
+    );
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByText("Toegangsprijzen"));
+    await user.click(screen.getByText("+ Voeg toegangsprijs toe"));
+    await user.type(screen.getByLabelText("Prijslabel 1"), "Vroegboekticket");
+    // user.type() on a controlled number input loses a leading "-" here
+    // (each keystroke round-trips through React state, and an intermediate
+    // "-" parses to NaN, clearing the field before "5" lands) — a real
+    // browser's own number input keeps it. fireEvent.change sets the final
+    // value directly, sidestepping that keystroke-by-keystroke artifact.
+    fireEvent.change(screen.getByLabelText("Prijsbedrag 1"), { target: { value: "-5" } });
+
+    // A real click on "Opslaan" never reaches handleSubmit here: the
+    // input's own `min="0"` fails the browser's native constraint
+    // validation (independent of `required`) and silently blocks the
+    // submit event before React ever sees it — same class of native
+    // gate as the required-field cases above. Dispatching the submit
+    // event directly tests the app-level guard itself, which matters as
+    // a cross-browser safety net (Safari has a history of inconsistent
+    // number-input min/max enforcement) rather than a normally-reachable
+    // click path in a spec-compliant browser.
+    fireEvent.submit(container.querySelector("form")!);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent('Prijsbedrag voor "Vroegboekticket" mag niet negatief zijn.');
+    expect(createBusinessEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a priced ticket row left without a label", async () => {
+    const user = userEvent.setup();
+    render(<BusinessEventForm active ownerId="owner-uid" editingEvent={null} duplicateFrom={null} umbrellaEvents={[]} onDone={vi.fn()} />);
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByText("Toegangsprijzen"));
+    await user.click(screen.getByText("+ Voeg toegangsprijs toe"));
+    await user.type(screen.getByLabelText("Prijsbedrag 1"), "12.5");
+
+    await user.click(screen.getByText("Opslaan"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Geef elke toegangsprijs een label, of verwijder de rij.");
+    expect(createBusinessEvent).not.toHaveBeenCalled();
   });
 });
