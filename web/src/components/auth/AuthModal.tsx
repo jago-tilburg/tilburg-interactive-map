@@ -26,9 +26,14 @@ interface AuthModalProps {
   // it from context (which may not have propagated yet — see the
   // suppressAutoProfileLoadRef comment on useAuth.tsx).
   onAuthenticated: (visitor: Visitor) => void;
+  // Defaults to "login" (every existing caller's behavior) — the
+  // /organisatoren marketing page passes "register" instead, since a
+  // visitor arriving there via "Meld je evenement aan" is very unlikely to
+  // already have an account.
+  initialStep?: Step;
 }
 
-type Step = "login" | "register" | "forgot";
+export type Step = "login" | "register" | "forgot";
 
 // Exported so PLAN-INLOGGEN.md §12's planned unit tests can target it
 // directly — it's the one bit of pure logic in an otherwise form-heavy
@@ -58,9 +63,9 @@ export function authErrorMessage(error: unknown): string {
 
 const MIN_PASSWORD_LENGTH = 8;
 
-export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
+export function AuthModal({ open, onClose, onAuthenticated, initialStep = "login" }: AuthModalProps) {
   const { suppressAutoProfileLoadRef, refreshCurrentVisitor, refreshCurrentBusiness } = useAuth();
-  const [step, setStep] = useState<Step>("login");
+  const [step, setStep] = useState<Step>(initialStep);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +74,7 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
   const [tosAccepted, setTosAccepted] = useState(false);
 
   function reset() {
-    setStep("login");
+    setStep(initialStep);
     setEmail("");
     setPassword("");
     setError(null);
@@ -264,12 +269,7 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            <div className={styles.passwordLabelRow}>
-              <label htmlFor="auth-login-password">Wachtwoord</label>
-              <button type="button" className={styles.linkButton} onClick={() => switchTo("forgot")}>
-                Wachtwoord vergeten?
-              </button>
-            </div>
+            <label htmlFor="auth-login-password">Wachtwoord</label>
             <input
               id="auth-login-password"
               type="password"
@@ -277,6 +277,9 @@ export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <button type="button" className={styles.forgotLink} onClick={() => switchTo("forgot")}>
+              Wachtwoord vergeten?
+            </button>
             {error && <p className={styles.error} role="alert">{error}</p>}
             <button type="submit" className={styles.submitButton} disabled={submitting}>
               Inloggen

@@ -208,7 +208,12 @@ export function OrganisatorenPage() {
         </section>
       </div>
 
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onAuthenticated={handleAuthenticated} />
+      <AuthModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        onAuthenticated={handleAuthenticated}
+        initialStep="register"
+      />
       <PostAuthFlow
         open={postAuth !== null}
         onClose={() => setPostAuth(null)}
