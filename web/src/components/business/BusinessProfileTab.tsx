@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { AlertDialog } from "radix-ui";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { updateBusinessProfile, deleteBusinessProfileCascade } from "@/lib/firebase/firestore";
@@ -132,14 +133,35 @@ export function BusinessProfileTab() {
           Verwijdert je organisatienaam en al je evenementen. Je bezoekersaccount blijft bestaan — je rol opgeven is
           niet hetzelfde als je account opzeggen.
         </p>
-        <button
-          type="button"
-          className={styles.deleteButton}
-          onClick={handleDeleteBusinessProfile}
-          disabled={deleting}
-        >
-          {deleting ? "Verwijderen…" : "Event-profiel verwijderen"}
-        </button>
+        <AlertDialog.Root>
+          <AlertDialog.Trigger asChild>
+            <button type="button" className={styles.deleteButton} disabled={deleting}>
+              {deleting ? "Verwijderen…" : "Event-profiel verwijderen"}
+            </button>
+          </AlertDialog.Trigger>
+          <AlertDialog.Portal>
+            <AlertDialog.Overlay className={styles.confirmBackdrop} />
+            <AlertDialog.Content className={styles.confirmDialog}>
+              <AlertDialog.Title className={styles.confirmTitle}>Event-profiel verwijderen?</AlertDialog.Title>
+              <AlertDialog.Description className={styles.confirmDescription}>
+                Dit verwijdert je organisatienaam en al je evenementen permanent, inclusief betaalde/live
+                evenementen. Dit kan niet ongedaan worden gemaakt. Je bezoekersaccount blijft bestaan.
+              </AlertDialog.Description>
+              <div className={styles.confirmActions}>
+                <AlertDialog.Cancel asChild>
+                  <button type="button" className={styles.cancelButton}>
+                    Annuleren
+                  </button>
+                </AlertDialog.Cancel>
+                <AlertDialog.Action asChild>
+                  <button type="button" className={styles.confirmDeleteButton} onClick={handleDeleteBusinessProfile}>
+                    Ja, verwijderen
+                  </button>
+                </AlertDialog.Action>
+              </div>
+            </AlertDialog.Content>
+          </AlertDialog.Portal>
+        </AlertDialog.Root>
       </div>
     </form>
   );

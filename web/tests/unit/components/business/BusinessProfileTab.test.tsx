@@ -136,11 +136,23 @@ describe("BusinessProfileTab", () => {
     expect(updateBusinessProfile).not.toHaveBeenCalled();
   });
 
+  it("asks for confirmation before deleting, and does nothing if cancelled", async () => {
+    const user = userEvent.setup();
+    render(<BusinessProfileTab />);
+
+    await user.click(screen.getByRole("button", { name: "Event-profiel verwijderen" }));
+    expect(await screen.findByText("Event-profiel verwijderen?")).toBeInTheDocument();
+    await user.click(screen.getByText("Annuleren"));
+
+    expect(deleteBusinessProfileCascade).not.toHaveBeenCalled();
+  });
+
   it("deletes the business profile, refreshes context, and navigates to the map", async () => {
     const user = userEvent.setup();
     render(<BusinessProfileTab />);
 
     await user.click(screen.getByRole("button", { name: "Event-profiel verwijderen" }));
+    await user.click(await screen.findByText("Ja, verwijderen"));
 
     await waitFor(() => expect(deleteBusinessProfileCascade).toHaveBeenCalledWith("u1"));
     expect(refreshCurrentBusiness).toHaveBeenCalled();
@@ -154,6 +166,7 @@ describe("BusinessProfileTab", () => {
     render(<BusinessProfileTab />);
 
     await user.click(screen.getByRole("button", { name: "Event-profiel verwijderen" }));
+    await user.click(await screen.findByText("Ja, verwijderen"));
 
     expect(await screen.findByText("requires recent login")).toBeInTheDocument();
     expect(routerPush).not.toHaveBeenCalled();
@@ -165,6 +178,7 @@ describe("BusinessProfileTab", () => {
     render(<BusinessProfileTab />);
 
     await user.click(screen.getByRole("button", { name: "Event-profiel verwijderen" }));
+    await user.click(await screen.findByText("Ja, verwijderen"));
 
     expect(await screen.findByText("Verwijderen mislukt.")).toBeInTheDocument();
   });
